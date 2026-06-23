@@ -25,3 +25,4 @@
 - Config validation rejects non-loopback proxy and service bind hosts.
 - Bundled Codex skill with `switchyard skill show/install`.
 - Hardened release readiness, benchmark, and PyPI publish harnesses.
+- Minimal sdist allowlist with package-content checks.

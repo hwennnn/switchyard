@@ -35,5 +35,13 @@ sy = "switchyard.cli:main"
 [tool.hatch.build.targets.wheel]
 packages = ["src/switchyard"]
 
+[tool.hatch.build.targets.sdist]
+include = [
+  "/LICENSE",
+  "/README.md",
+  "/pyproject.toml",
+  "/src",
+]
+
 [tool.hatch.version]
 path = "src/switchyard/__init__.py"

@@ -6,10 +6,12 @@ import os
 import shutil
 import subprocess
 import sys
+import tarfile
 import tempfile
 import textwrap
 import tomllib
 import venv
+import zipfile
 from pathlib import Path
 
 
@@ -350,9 +352,28 @@ def build_and_check_package() -> None:
             size = artifact.stat().st_size
             limit = 350_000 if artifact.suffix == ".whl" else 600_000
             require(size < limit, f"{artifact.name} is too large: {size} bytes")
+        sdist = next(path for path in artifacts if path.name.endswith(".tar.gz"))
+        with tarfile.open(sdist) as archive:
+            sdist_names = archive.getnames()
+        forbidden_sdist_roots = {".github", "tests", "docs", "scripts", "skills"}
+        forbidden_sdist_files = {"AGENTS.md"}
+        for name in sdist_names:
+            relative_parts = Path(name).parts[1:]
+            normalized = "/" + "/".join(relative_parts)
+            top_level = relative_parts[0] if relative_parts else ""
+            require(
+                top_level not in forbidden_sdist_roots and top_level not in forbidden_sdist_files,
+                f"sdist includes non-runtime file: {normalized}",
+            )
+        wheel = next(path for path in artifacts if path.suffix == ".whl")
+        with zipfile.ZipFile(wheel) as archive:
+            wheel_names = archive.namelist()
+        require(
+            any(name.startswith("switchyard/assets/skills/switchyard/") for name in wheel_names),
+            "wheel should include packaged Switchyard skill",
+        )
         install_dir = root / "install"
         install_dir.mkdir()
-        wheel = next(path for path in artifacts if path.suffix == ".whl")
         run([str(python), "-m", "pip", "install", "--target", str(install_dir), str(wheel)], cwd=root)
         env = os.environ.copy()
         env["PYTHONPATH"] = str(install_dir)
