@@ -2,14 +2,14 @@
 
 [![CI](https://github.com/hwennnn/switchyard/actions/workflows/ci.yml/badge.svg)](https://github.com/hwennnn/switchyard/actions/workflows/ci.yml)
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue)](https://www.python.org/)
-[![MCP](https://img.shields.io/badge/MCP-stdio-5f43e9)](docs/MCP.md)
-[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![MCP](https://img.shields.io/badge/MCP-stdio-5f43e9)](https://github.com/hwennnn/switchyard/blob/main/docs/MCP.md)
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](https://github.com/hwennnn/switchyard/blob/main/LICENSE)
 ![Local First](https://img.shields.io/badge/local--first-no%20cloud-0f766e)
 ![MCP Ready](https://img.shields.io/badge/MCP-ready-111827)
 
-Run every AI coding task in its own local runtime, with isolated ports, logs, URLs, and agent-readable status.
+Give each AI agent worktree its own local HTTP runtime: ports, URLs, logs, and agent-readable status.
 
-Switchyard lets you run multiple AI coding agents against one repo without port fights, mystery processes, or lost terminal state. Each task gets an isolated git worktree plus its own services, URLs, logs, and runtime summary.
+Switchyard lets you run multiple AI coding agents against one repo without port fights, mystery processes, or lost terminal state. Each task gets an isolated git worktree plus its own services, branch-scoped URLs, logs, and runtime summary.
 
 It is intentionally local-first:
 
@@ -18,6 +18,15 @@ It is intentionally local-first:
 - No UI lock-in.
 - No public tunnels by default.
 - One small `switchyard.toml`.
+
+## Local Trust Model
+
+- No telemetry.
+- No cloud account or hosted control plane.
+- Binds to loopback by default and rejects non-loopback service/proxy hosts.
+- Does not expose public tunnels, LAN sharing, ngrok, or Tailscale endpoints.
+- Treats `switchyard.toml` service commands as executable local project code.
+- Links or copies only configured env paths, and rejects env paths outside the project/worktree.
 
 ## Status
 
@@ -91,24 +100,18 @@ Example output:
 
 ## Install
 
-Switchyard is pre-release. The PyPI package name is `switchyard-dev`; the installed commands are `switchyard` and `sy`.
-
-Once published:
+Switchyard is pre-release. Install from source today:
 
 ```sh
-pipx install switchyard-dev
-# or
-uv tool install switchyard-dev
-```
-
-From source:
-
-```sh
+git clone https://github.com/hwennnn/switchyard.git
 cd switchyard
 python3 -m venv .venv
 . .venv/bin/activate
 pip install -e .
 ```
+
+The PyPI package name is reserved as `switchyard-dev`; once published, the
+installed commands will be `switchyard` and `sy`.
 
 Or run from source:
 
@@ -273,8 +276,10 @@ command = "npm run api -- --port {port}"
 port = 8080
 ```
 
-See `examples/` for fuller configs, including a multi-service app with Docker
-backing services and peer placeholders.
+See the
+[examples directory](https://github.com/hwennnn/switchyard/tree/main/examples)
+for fuller configs, including a multi-service app with Docker backing services
+and peer placeholders.
 
 Desired ports are preferences. If `3000` is busy, Switchyard allocates a free port and injects:
 

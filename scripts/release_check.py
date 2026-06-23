@@ -83,6 +83,40 @@ def check_metadata() -> None:
 
 def check_public_docs() -> None:
     readme = read("README.md")
+    require(
+        "[![MCP](https://img.shields.io/badge/MCP-stdio-5f43e9)](https://github.com/hwennnn/switchyard/blob/main/docs/MCP.md)" in readme,
+        "README MCP badge should use an absolute GitHub URL",
+    )
+    require(
+        "[![License](https://img.shields.io/badge/license-MIT-green.svg)](https://github.com/hwennnn/switchyard/blob/main/LICENSE)" in readme,
+        "README license badge should use an absolute GitHub URL",
+    )
+    require(
+        "Give each AI agent worktree its own local HTTP runtime" in readme,
+        "README headline should focus on the shipped local HTTP runtime",
+    )
+    require("Run every AI coding task" not in readme, "README headline should not overclaim task coverage")
+    require("## Local Trust Model" in readme, "README should put the local trust model near the top")
+    for needle in [
+        "No telemetry.",
+        "No cloud account or hosted control plane.",
+        "Binds to loopback by default and rejects non-loopback service/proxy hosts.",
+        "Does not expose public tunnels, LAN sharing, ngrok, or Tailscale endpoints.",
+        "Treats `switchyard.toml` service commands as executable local project code.",
+        "Links or copies only configured env paths, and rejects env paths outside the project/worktree.",
+    ]:
+        require(needle in readme, f"README local trust model missing {needle!r}")
+    require("Switchyard is pre-release. Install from source today:" in readme, "README should be source-first before PyPI publish")
+    require("git clone https://github.com/hwennnn/switchyard.git" in readme, "README source install should include clone URL")
+    require("The PyPI package name is reserved as `switchyard-dev`" in readme, "README should avoid implying PyPI publish is live")
+    require("Once published:" not in readme, "README install section should not lead with unpublished commands")
+    require(
+        "[examples directory](https://github.com/hwennnn/switchyard/tree/main/examples)" in readme,
+        "README examples link should use an absolute GitHub URL",
+    )
+    require("](docs/MCP.md)" not in readme, "README should not use relative MCP badge links")
+    require("](LICENSE)" not in readme, "README should not use relative license badge links")
+    require("See `examples/`" not in readme, "README should not use a relative examples link in PyPI-facing copy")
     require("switchyard mcp" in readme, "README should document MCP")
     require("switchyard mcp install" in readme, "README should document one-command MCP setup")
     require("switchyard mcp config" in readme, "README should document copy-paste MCP setup")
