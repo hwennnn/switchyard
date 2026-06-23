@@ -105,6 +105,7 @@ started web on :41000 -> http://web.feature-login.entropic.localhost:7331
 View state:
 
 ```sh
+switchyard doctor --json
 switchyard status
 switchyard brief
 switchyard logs web --branch feature/login
@@ -249,7 +250,7 @@ Today, checkout is HTTP-focused. Raw TCP services such as Postgres and Redis are
 
 ```txt
 switchyard init
-switchyard doctor
+switchyard doctor [--json]
 switchyard create <branch>
 switchyard list
 switchyard up [branch] [services...]

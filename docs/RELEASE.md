@@ -57,6 +57,16 @@ switchyard --version
 switchyard mcp --help
 switchyard mcp config
 switchyard skill show
+
+tmp="$(mktemp -d)"
+cat > "$tmp/switchyard.toml" <<'EOF'
+[project]
+name = "release-smoke"
+
+[services.web]
+command = "python -m http.server {port}"
+EOF
+(cd "$tmp" && switchyard doctor --json)
 ```
 
 ## Versioning

@@ -38,6 +38,15 @@ jobs:
           . .release-smoke/bin/activate
           python -m pip install dist/*.whl
           switchyard --version
+          smoke_project="$(mktemp -d)"
+          cat > "$smoke_project/switchyard.toml" <<'EOF'
+          [project]
+          name = "release-smoke"
+
+          [services.web]
+          command = "python -m http.server {port}"
+          EOF
+          (cd "$smoke_project" && switchyard doctor --json | grep release-smoke)
           switchyard skill show | grep switchyard_brief
           skill_target="$(mktemp -d)"
           switchyard skill install --target "$skill_target"

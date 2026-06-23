@@ -16,6 +16,7 @@ compact state before broad shell exploration.
 Prefer the smallest state query that answers the question:
 
 ```sh
+switchyard doctor --json
 switchyard brief --json
 ```
 

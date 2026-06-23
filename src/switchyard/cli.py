@@ -87,9 +87,46 @@ def cmd_doctor(args: argparse.Namespace) -> int:
     try:
         config, registry = load_project_config(Path.cwd())
     except Exception as exc:
+        if args.json:
+            print(
+                json.dumps(
+                    {
+                        "ok": False,
+                        "switchyard": __version__,
+                        "python": sys.version.split()[0],
+                        "cwd": str(Path.cwd().resolve()),
+                        "home": str(switchyard_home()),
+                        "error": str(exc),
+                    },
+                    indent=2,
+                    sort_keys=True,
+                )
+            )
+            return 1
         print(f"config: {exc}")
         print(f"home: {switchyard_home()}")
         return 1
+    payload = {
+        "ok": True,
+        "switchyard": __version__,
+        "python": sys.version.split()[0],
+        "home": str(registry.home),
+        "project": {
+            "name": config.name,
+            "slug": config.slug,
+            "root": str(config.root),
+            "config": str(config.path),
+        },
+        "proxy": {
+            "host": config.proxy.host,
+            "port": config.proxy.port,
+            "url": f"http://{config.proxy.host}:{config.proxy.port}",
+        },
+        "services": sorted(config.services),
+    }
+    if args.json:
+        print(json.dumps(payload, indent=2, sort_keys=True))
+        return 0
     print(f"switchyard: {__version__}")
     print(f"python: {sys.version.split()[0]}")
     print(f"home: {registry.home}")
@@ -420,6 +457,7 @@ def build_parser() -> argparse.ArgumentParser:
     init.set_defaults(func=cmd_init)
 
     doctor = sub.add_parser("doctor", help="Check local setup")
+    doctor.add_argument("--json", action="store_true")
     doctor.set_defaults(func=cmd_doctor)
 
     create = sub.add_parser("create", help="Create a git worktree and sync env files")

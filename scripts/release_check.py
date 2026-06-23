@@ -73,6 +73,7 @@ def check_public_docs() -> None:
     require("switchyard mcp" in readme, "README should document MCP")
     require("switchyard mcp config" in readme, "README should document copy-paste MCP setup")
     require("switchyard skill install" in readme, "README should document bundled skill install")
+    require("switchyard doctor --json" in readme, "README should document machine-readable doctor")
     require("switchyard-dev" in readme, "README should document publish package name")
     require("brief --json" in readme, "README should show agent-readable state")
     require("No public tunnels" in readme, "README should state local-first safety")
@@ -82,6 +83,7 @@ def check_public_docs() -> None:
     require((ROOT / ".github/workflows/release.yml").exists(), "release workflow missing")
     release_workflow = read(".github/workflows/release.yml")
     require("switchyard skill show" in release_workflow, "release workflow should smoke bundled skill from wheel")
+    require("switchyard doctor --json" in release_workflow, "release workflow should smoke doctor JSON from wheel")
     require(not (ROOT / "docs/COMPETITIVE_RESEARCH.md").exists(), "internal competitive research should not be public")
     for path in ["README.md", "docs/MCP.md", "docs/AGENT_INTERFACE.md", "SECURITY.md"]:
         require("/path/to/project" not in read(path), f"{path} should use generated MCP setup, not path placeholders")
@@ -113,6 +115,7 @@ def check_skill() -> None:
     require("description:" in text and "Switchyard" in text.split("---", 2)[1], "skill description missing")
     require("switchyard_brief" in text, "skill should teach MCP tool order")
     require("switchyard mcp config" in text, "skill should teach generated MCP setup")
+    require("switchyard doctor --json" in text, "skill should teach machine-readable doctor")
     require("/path/to/project" not in text, "skill should not ship path placeholders")
     agent_text = agent.read_text()
     require("default_prompt: \"Use $switchyard" in agent_text, "skill default prompt should mention $switchyard")
@@ -170,6 +173,32 @@ def check_mcp_smoke() -> None:
     ok("MCP smoke")
 
 
+def check_cli_json_smoke() -> None:
+    with tempfile.TemporaryDirectory(prefix="switchyard-release-cli-") as temp:
+        root = Path(temp)
+        (root / "switchyard.toml").write_text(
+            textwrap.dedent(
+                """
+                [project]
+                name = "demo"
+
+                [services.web]
+                command = "python -m http.server {port}"
+                port = 8000
+                """
+            )
+        )
+        env = os.environ.copy()
+        env["PYTHONPATH"] = str(ROOT / "src")
+        env["SWITCHYARD_HOME"] = str(root / "home")
+        result = run([sys.executable, "-m", "switchyard", "doctor", "--json"], cwd=root, env=env)
+        data = json.loads(result.stdout)
+        require(data["ok"] is True, "doctor --json should report ok")
+        require(data["project"]["name"] == "demo", "doctor --json project name mismatch")
+        require(data["services"] == ["web"], "doctor --json service list mismatch")
+    ok("CLI JSON smoke")
+
+
 def check_benchmark() -> None:
     env = os.environ.copy()
     env["PYTHONPATH"] = str(ROOT / "src")
@@ -208,6 +237,21 @@ def build_and_check_package() -> None:
         env["PYTHONPATH"] = str(install_dir)
         result = run([str(python), "-m", "switchyard", "--version"], cwd=root, env=env)
         require("switchyard 0.1.0" in result.stdout, "installed package version check failed")
+        smoke_project = root / "smoke-project"
+        smoke_project.mkdir()
+        (smoke_project / "switchyard.toml").write_text(
+            textwrap.dedent(
+                """
+                [project]
+                name = "installed-demo"
+
+                [services.web]
+                command = "python -m http.server {port}"
+                """
+            )
+        )
+        result = run([str(python), "-m", "switchyard", "doctor", "--json"], cwd=smoke_project, env=env)
+        require(json.loads(result.stdout)["project"]["name"] == "installed-demo", "installed doctor --json failed")
         result = run([str(python), "-m", "switchyard", "skill", "show"], cwd=root, env=env)
         require("switchyard_brief" in result.stdout, "installed package missing bundled skill")
         skill_target = root / "skills"
@@ -233,6 +277,7 @@ def main() -> int:
         lambda: run([sys.executable, "scripts/e2e_smoke.py"]) and ok("e2e smoke"),
         lambda: run([sys.executable, "scripts/concurrency_smoke.py"]) and ok("concurrency smoke"),
         check_mcp_smoke,
+        check_cli_json_smoke,
         check_benchmark,
     ]
     if not args.skip_package:

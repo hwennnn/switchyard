@@ -49,6 +49,14 @@ start and stop processes.
 Use:
 
 ```sh
+switchyard doctor --json
+```
+
+When checking setup or reporting why a project is not initialized.
+
+Use:
+
+```sh
 switchyard brief --json
 ```
 
