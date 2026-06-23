@@ -55,6 +55,35 @@ class McpTests(unittest.TestCase):
         self.assertIn("switchyard_uncheckout", names)
         self.assertIn("switchyard_down", names)
 
+    def test_tools_list_includes_safety_annotations(self) -> None:
+        response = handle_request({"jsonrpc": "2.0", "id": 2, "method": "tools/list"})
+
+        tools = {tool["name"]: tool for tool in response["result"]["tools"]}
+        for name in [
+            "switchyard_doctor",
+            "switchyard_status",
+            "switchyard_list",
+            "switchyard_brief",
+            "switchyard_where",
+            "switchyard_logs",
+        ]:
+            with self.subTest(name=name):
+                self.assertTrue(tools[name]["annotations"]["readOnlyHint"])
+                self.assertFalse(tools[name]["annotations"]["openWorldHint"])
+
+        self.assertFalse(tools["switchyard_up"]["annotations"]["readOnlyHint"])
+        self.assertTrue(tools["switchyard_up"]["annotations"]["destructiveHint"])
+        self.assertTrue(tools["switchyard_up"]["annotations"]["idempotentHint"])
+        self.assertTrue(tools["switchyard_up"]["annotations"]["openWorldHint"])
+        self.assertFalse(tools["switchyard_checkout"]["annotations"]["destructiveHint"])
+        self.assertTrue(tools["switchyard_checkout"]["annotations"]["idempotentHint"])
+        self.assertFalse(tools["switchyard_checkout"]["annotations"]["openWorldHint"])
+
+        self.assertFalse(tools["switchyard_create"]["annotations"]["readOnlyHint"])
+        self.assertTrue(tools["switchyard_create"]["annotations"]["destructiveHint"])
+        self.assertTrue(tools["switchyard_down"]["annotations"]["destructiveHint"])
+        self.assertTrue(tools["switchyard_uncheckout"]["annotations"]["destructiveHint"])
+
     def test_doctor_tool_returns_structured_content(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
@@ -87,6 +116,39 @@ port = 8000
         self.assertFalse(result["isError"])
         self.assertEqual(result["structuredContent"]["project"], "demo")
         self.assertEqual(result["structuredContent"]["services"], ["web"])
+
+    def test_read_only_tools_do_not_initialize_switchyard_state(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp) / "project"
+            home = Path(temp) / "home"
+            root.mkdir()
+            (root / "switchyard.toml").write_text(
+                """
+[project]
+name = "demo"
+
+[services.web]
+command = "python -m http.server {port}"
+port = 8000
+"""
+            )
+
+            with patch.dict(os.environ, {"SWITCHYARD_HOME": str(home)}):
+                set_server_root(root)
+                try:
+                    response = handle_request(
+                        {
+                            "jsonrpc": "2.0",
+                            "id": 3,
+                            "method": "tools/call",
+                            "params": {"name": "switchyard_doctor", "arguments": {}},
+                        }
+                    )
+                finally:
+                    set_server_root(None)
+
+        self.assertFalse(response["result"]["isError"])
+        self.assertFalse(home.exists())
 
     def test_create_tool_creates_worktree_and_list_reports_it(self) -> None:
         with tempfile.TemporaryDirectory() as temp:

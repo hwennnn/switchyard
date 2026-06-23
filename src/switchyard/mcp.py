@@ -55,16 +55,38 @@ COMMON_CWD = {
     }
 }
 
+READ_ONLY_TOOL = {"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False}
+SERVICE_START_TOOL = {
+    "readOnlyHint": False,
+    "destructiveHint": True,
+    "idempotentHint": True,
+    "openWorldHint": True,
+}
+LOCAL_FORWARDER_TOOL = {
+    "readOnlyHint": False,
+    "destructiveHint": False,
+    "idempotentHint": True,
+    "openWorldHint": False,
+}
+DESTRUCTIVE_LOCAL_TOOL = {
+    "readOnlyHint": False,
+    "destructiveHint": True,
+    "idempotentHint": False,
+    "openWorldHint": False,
+}
+
 
 TOOLS: dict[str, dict[str, Any]] = {
     "switchyard_doctor": {
         "title": "Inspect Switchyard project configuration",
         "description": "Return Switchyard version, project root, config path, proxy, and configured services.",
+        "annotations": READ_ONLY_TOOL,
         "inputSchema": object_schema(COMMON_CWD),
     },
     "switchyard_status": {
         "title": "List Switchyard services",
         "description": "Return registered services with running/stale status, URLs, ports, logs, and recent errors.",
+        "annotations": READ_ONLY_TOOL,
         "inputSchema": object_schema(
             {
                 **COMMON_CWD,
@@ -75,6 +97,7 @@ TOOLS: dict[str, dict[str, Any]] = {
     "switchyard_create": {
         "title": "Create a worktree runtime",
         "description": "Create a managed git worktree for a branch and sync configured env files.",
+        "annotations": DESTRUCTIVE_LOCAL_TOOL,
         "inputSchema": object_schema(
             {
                 **COMMON_CWD,
@@ -91,11 +114,13 @@ TOOLS: dict[str, dict[str, Any]] = {
     "switchyard_list": {
         "title": "List Switchyard worktrees",
         "description": "Return Switchyard-registered worktrees for this project.",
+        "annotations": READ_ONLY_TOOL,
         "inputSchema": object_schema(COMMON_CWD),
     },
     "switchyard_brief": {
         "title": "Get compact agent runtime brief",
         "description": "Return a bounded project summary with services, changed files, and recent error lines.",
+        "annotations": READ_ONLY_TOOL,
         "inputSchema": object_schema(
             {
                 **COMMON_CWD,
@@ -106,6 +131,7 @@ TOOLS: dict[str, dict[str, Any]] = {
     "switchyard_where": {
         "title": "Find one service",
         "description": "Return the URL, port, PID, worktree, and log path for one running service.",
+        "annotations": READ_ONLY_TOOL,
         "inputSchema": object_schema(
             {
                 **COMMON_CWD,
@@ -118,6 +144,7 @@ TOOLS: dict[str, dict[str, Any]] = {
     "switchyard_logs": {
         "title": "Read service logs",
         "description": "Return the recent tail of one service log, or all logs for the selected branch.",
+        "annotations": READ_ONLY_TOOL,
         "inputSchema": object_schema(
             {
                 **COMMON_CWD,
@@ -135,6 +162,7 @@ TOOLS: dict[str, dict[str, Any]] = {
     "switchyard_up": {
         "title": "Start services",
         "description": "Start configured local services for a branch or the current worktree.",
+        "annotations": SERVICE_START_TOOL,
         "inputSchema": object_schema(
             {
                 **COMMON_CWD,
@@ -150,6 +178,7 @@ TOOLS: dict[str, dict[str, Any]] = {
     "switchyard_checkout": {
         "title": "Map services to canonical ports",
         "description": "Forward a running branch runtime back to configured canonical service ports.",
+        "annotations": LOCAL_FORWARDER_TOOL,
         "inputSchema": object_schema(
             {
                 **COMMON_CWD,
@@ -166,6 +195,7 @@ TOOLS: dict[str, dict[str, Any]] = {
     "switchyard_uncheckout": {
         "title": "Stop canonical port mappings",
         "description": "Stop Switchyard-managed canonical port forwarders.",
+        "annotations": DESTRUCTIVE_LOCAL_TOOL,
         "inputSchema": object_schema(
             {
                 **COMMON_CWD,
@@ -181,6 +211,7 @@ TOOLS: dict[str, dict[str, Any]] = {
     "switchyard_down": {
         "title": "Stop services",
         "description": "Stop Switchyard-managed services for a branch or selected service names.",
+        "annotations": DESTRUCTIVE_LOCAL_TOOL,
         "inputSchema": object_schema(
             {
                 **COMMON_CWD,
@@ -210,13 +241,14 @@ def set_server_root(root: Path | None) -> None:
     SERVER_ROOT = root.resolve() if root else None
 
 
-def load_project(cwd: Path):
+def load_project(cwd: Path, ensure: bool = True):
     config_path = discover_config(cwd)
     if not config_path:
         raise McpError(-32004, f"could not find {CONFIG_NAME} from {cwd}")
     config = load_config(config_path)
-    registry = Registry()
-    registry.ensure_project(config)
+    registry = Registry(create=ensure)
+    if ensure:
+        registry.ensure_project(config)
     return config, registry
 
 
@@ -278,7 +310,7 @@ def bool_argument(arguments: dict[str, Any], key: str, default: bool = False) ->
 
 def tool_doctor(arguments: dict[str, Any]) -> dict[str, Any]:
     cwd = cwd_from(arguments)
-    config, registry = load_project(cwd)
+    config, registry = load_project(cwd, ensure=False)
     data = {
         "switchyard": __version__,
         "home": str(registry.home),
@@ -320,13 +352,13 @@ def tool_create(arguments: dict[str, Any]) -> dict[str, Any]:
 
 def tool_list(arguments: dict[str, Any]) -> dict[str, Any]:
     cwd = cwd_from(arguments)
-    config, registry = load_project(cwd)
+    config, registry = load_project(cwd, ensure=False)
     return tool_result({"worktrees": registry.list_worktrees(config.root)})
 
 
 def tool_status(arguments: dict[str, Any]) -> dict[str, Any]:
     cwd = cwd_from(arguments)
-    config, registry = load_project(cwd)
+    config, registry = load_project(cwd, ensure=False)
     branch = arguments.get("branch")
     data = hydrate_status(registry.services(config.root, str(branch) if branch else None))
     return tool_result(data)
@@ -334,7 +366,7 @@ def tool_status(arguments: dict[str, Any]) -> dict[str, Any]:
 
 def tool_brief(arguments: dict[str, Any]) -> dict[str, Any]:
     cwd = cwd_from(arguments)
-    config, registry = load_project(cwd)
+    config, registry = load_project(cwd, ensure=False)
     branch_arg = str(arguments["branch"]) if arguments.get("branch") else None
     branch, worktree = resolve_branch_and_worktree(config, registry, branch_arg, cwd)
     changed = status_short(worktree) if worktree.exists() else []
@@ -347,7 +379,7 @@ def tool_where(arguments: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(service, str) or not service:
         raise McpError(-32602, "service is required")
     cwd = cwd_from(arguments)
-    config, registry = load_project(cwd)
+    config, registry = load_project(cwd, ensure=False)
     branch_arg = str(arguments["branch"]) if arguments.get("branch") else None
     branch, _ = resolve_branch_and_worktree(config, registry, branch_arg, cwd)
     record = registry.find_service(config.root, slugify(service), branch)
@@ -358,7 +390,7 @@ def tool_where(arguments: dict[str, Any]) -> dict[str, Any]:
 
 def tool_logs(arguments: dict[str, Any]) -> dict[str, Any]:
     cwd = cwd_from(arguments)
-    config, registry = load_project(cwd)
+    config, registry = load_project(cwd, ensure=False)
     branch_arg = str(arguments["branch"]) if arguments.get("branch") else None
     branch, _ = resolve_branch_and_worktree(config, registry, branch_arg, cwd)
     lines = int(arguments.get("lines", 80))

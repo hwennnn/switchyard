@@ -125,6 +125,10 @@ switchyard down --branch feature/login web --json
 Action JSON returns `ok`, `action`, requested services, messages, and a JSON
 error envelope on failure.
 
+MCP clients can also read tool annotations: discovery tools are read-only,
+`switchyard_up` is conservative because it runs configured project commands,
+and worktree/process/checkout tools are marked as mutations.
+
 ## Token-Saving Workflow
 
 Instead of repeatedly running:

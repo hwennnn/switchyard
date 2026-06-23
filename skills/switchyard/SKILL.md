@@ -28,6 +28,10 @@ If MCP tools are available, use this order:
 4. `switchyard_create` only when a missing branch runtime is needed
 5. `switchyard_up`, `switchyard_checkout`, `switchyard_uncheckout`, or `switchyard_down` only when runtime changes are needed
 
+MCP tool annotations mark discovery tools as read-only, `switchyard_up` as a
+conservative project-command action, and runtime tools as mutations; still keep
+user approval enabled for mutation tools.
+
 ## CLI Workflow
 
 Inspect state:

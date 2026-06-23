@@ -45,3 +45,5 @@ as `SWITCHYARD_HOME` or `[project].worktree_root`. Keep approval enabled for
 `switchyard_create`, `switchyard_up`, `switchyard_checkout`,
 `switchyard_uncheckout`, and `switchyard_down`, because those tools create
 worktrees, start port forwarders, or start and stop local processes.
+The MCP tool list also includes read-only/destructive/idempotent hints for
+clients that surface tool risk in their approval UI.

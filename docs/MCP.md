@@ -60,6 +60,20 @@ Recommended agent flow:
 5. Call `switchyard_up`, `switchyard_checkout`, `switchyard_uncheckout`, or
    `switchyard_down` only when the user wants runtime changes.
 
+## Tool Annotations
+
+Switchyard includes MCP tool annotations for safer clients:
+
+- Discovery tools such as `switchyard_brief`, `switchyard_where`, and
+  `switchyard_logs` are marked read-only and closed-world.
+- `switchyard_up` is marked as a potentially destructive/open-world mutation
+  because it executes configured project commands.
+- `switchyard_checkout` is marked as a local, non-destructive mutation because
+  it starts Switchyard-managed port forwarders.
+- `switchyard_create`, `switchyard_uncheckout`, and `switchyard_down` are
+  marked local destructive mutations because they create filesystem/git state or
+  stop local runtime state.
+
 ## Safety
 
 - The MCP server is local stdio, not a network listener.

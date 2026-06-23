@@ -15,12 +15,14 @@ STATE_VERSION = 1
 
 
 class Registry:
-    def __init__(self, home: Path | None = None) -> None:
+    def __init__(self, home: Path | None = None, create: bool = True) -> None:
         self.home = home or switchyard_home()
-        ensure_dir(self.home)
-        ensure_dir(self.home / "logs")
-        ensure_dir(self.home / "worktrees")
-        ensure_dir(self.home / "locks")
+        self.create = create
+        if create:
+            ensure_dir(self.home)
+            ensure_dir(self.home / "logs")
+            ensure_dir(self.home / "worktrees")
+            ensure_dir(self.home / "locks")
         self.path = self.home / "state.json"
 
     def read(self) -> dict[str, Any]:
@@ -29,6 +31,8 @@ class Registry:
         try:
             data = json.loads(self.path.read_text())
         except json.JSONDecodeError:
+            if not self.create:
+                return {"version": STATE_VERSION, "projects": {}, "proxies": {}}
             backup = self.path.with_suffix(".corrupt.json")
             self.path.replace(backup)
             return {"version": STATE_VERSION, "projects": {}, "proxies": {}}
