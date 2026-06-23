@@ -26,7 +26,7 @@ If MCP tools are available, use this order:
 2. `switchyard_where`
 3. `switchyard_logs`
 4. `switchyard_create` only when a missing branch runtime is needed
-5. `switchyard_up` or `switchyard_down` only when runtime changes are needed
+5. `switchyard_up`, `switchyard_checkout`, `switchyard_uncheckout`, or `switchyard_down` only when runtime changes are needed
 
 ## CLI Workflow
 
@@ -55,7 +55,7 @@ switchyard mcp config
 
 The command prints the trusted config snippet and `codex mcp add` command with
 the detected project root already filled in. Keep approval enabled for tools
-that create worktrees or start/stop services.
+that create worktrees, start port forwarders, or start/stop services.
 
 ## Safety
 
@@ -64,4 +64,6 @@ that create worktrees or start/stop services.
 - Do not kill processes that Switchyard did not launch.
 - Prefer targeted service actions over broad runtime changes.
 - Treat `switchyard_create` as a visible filesystem/git action.
+- Treat `switchyard_checkout` as a visible local port-forwarding action.
+- Treat `switchyard_uncheckout` as a visible local port-forwarding action.
 - Keep local scratch/research notes out of public commits.

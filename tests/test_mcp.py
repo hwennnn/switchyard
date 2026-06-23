@@ -28,6 +28,8 @@ class McpTests(unittest.TestCase):
         self.assertEqual(response["result"]["protocolVersion"], "2025-06-18")
         self.assertIn("tools", response["result"]["capabilities"])
         self.assertIn("instructions", response["result"])
+        self.assertIn("switchyard_checkout", response["result"]["instructions"])
+        self.assertIn("switchyard_uncheckout", response["result"]["instructions"])
 
     def test_initialize_falls_back_to_supported_protocol(self) -> None:
         response = handle_request(
@@ -49,6 +51,8 @@ class McpTests(unittest.TestCase):
         self.assertIn("switchyard_create", names)
         self.assertIn("switchyard_list", names)
         self.assertIn("switchyard_up", names)
+        self.assertIn("switchyard_checkout", names)
+        self.assertIn("switchyard_uncheckout", names)
         self.assertIn("switchyard_down", names)
 
     def test_doctor_tool_returns_structured_content(self) -> None:
@@ -143,6 +147,56 @@ port = 8000
             self.assertEqual(list_response["result"]["structuredContent"]["worktrees"][0]["branch"], "feature/demo")
             self.assertTrue(collision_response["result"]["isError"])
             self.assertIn("branch names collide", collision_response["result"]["content"][0]["text"])
+
+    def test_checkout_tool_maps_and_unmaps_canonical_port(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / "switchyard.toml").write_text(
+                """
+[project]
+name = "demo"
+
+[services.web]
+command = "python -m http.server {port}"
+port = 8000
+"""
+            )
+
+            with patch.dict(os.environ, {"SWITCHYARD_HOME": str(root / ".switchyard-home")}):
+                set_server_root(root)
+                try:
+                    with patch("switchyard.mcp.start_checkouts", return_value=["checked out web"]) as start:
+                        with patch("switchyard.mcp.stop_checkouts", return_value=["unchecked web"]) as stop:
+                            checkout_response = handle_request(
+                                {
+                                    "jsonrpc": "2.0",
+                                    "id": 8,
+                                    "method": "tools/call",
+                                    "params": {
+                                        "name": "switchyard_checkout",
+                                        "arguments": {"branch": "feature/demo", "services": ["web"]},
+                                    },
+                                }
+                            )
+                            uncheckout_response = handle_request(
+                                {
+                                    "jsonrpc": "2.0",
+                                    "id": 9,
+                                    "method": "tools/call",
+                                    "params": {
+                                        "name": "switchyard_uncheckout",
+                                        "arguments": {"branch": "feature/demo", "services": ["web"]},
+                                    },
+                                }
+                            )
+                finally:
+                    set_server_root(None)
+
+        checkout_result = checkout_response["result"]["structuredContent"]
+        self.assertEqual(checkout_result["messages"], ["checked out web"])
+        self.assertEqual(start.call_args.args[2:], ("feature/demo", ["web"]))
+        self.assertEqual(uncheckout_response["result"]["structuredContent"]["messages"], ["unchecked web"])
+        self.assertEqual(stop.call_args.args[2:], ("feature/demo", ["web"]))
 
     def test_tool_cwd_must_stay_under_server_root(self) -> None:
         with tempfile.TemporaryDirectory() as allowed, tempfile.TemporaryDirectory() as other:

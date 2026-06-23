@@ -46,7 +46,7 @@ switchyard down --branch feature/name web
 - Do not edit tracked `.env` files.
 - Do not kill processes that Switchyard did not launch.
 - Treat service commands in `switchyard.toml` as project code.
-- Keep MCP approval enabled for `switchyard_create`, `switchyard_up`, and `switchyard_down`.
+- Keep MCP approval enabled for `switchyard_create`, `switchyard_up`, `switchyard_checkout`, `switchyard_uncheckout`, and `switchyard_down`.
 - Keep local-only research, scratch harnesses, and competitive notes out of
   public commits.
 

@@ -39,12 +39,15 @@ switchyard_brief
 switchyard_where
 switchyard_logs
 switchyard_up
+switchyard_checkout
+switchyard_uncheckout
 switchyard_down
 ```
 
 Use `switchyard_brief` before reading logs or guessing URLs. Treat
-`switchyard_create`, `switchyard_up`, and `switchyard_down` as visible local
-actions because they create worktrees or start and stop processes.
+`switchyard_create`, `switchyard_up`, `switchyard_checkout`,
+`switchyard_uncheckout`, and `switchyard_down` as visible local actions because
+they create worktrees, start services, or change port mappings.
 
 ## Best Commands For Agents
 
@@ -147,4 +150,4 @@ SWITCHYARD_API_PORT
 2. `switchyard_where` for a specific service
 3. `switchyard_logs` only for the service that looks relevant
 4. `switchyard_create` when the user asked for a missing branch runtime
-5. `switchyard_up` or `switchyard_down` only when the user asked for runtime changes
+5. `switchyard_up`, `switchyard_checkout`, `switchyard_uncheckout`, or `switchyard_down` only when the user asked for runtime changes

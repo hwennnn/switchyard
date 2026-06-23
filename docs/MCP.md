@@ -39,6 +39,8 @@ switchyard mcp config --name switchyard-entropic
 - `switchyard_where`: URL, port, PID, worktree, and log path for one service.
 - `switchyard_logs`: recent log tail for one service or branch.
 - `switchyard_up`: start local services for a branch/worktree.
+- `switchyard_checkout`: map a branch runtime back to configured canonical ports.
+- `switchyard_uncheckout`: stop canonical port mappings.
 - `switchyard_down`: stop Switchyard-managed services.
 
 Recommended agent flow:
@@ -47,7 +49,8 @@ Recommended agent flow:
 2. Call `switchyard_where` for one service.
 3. Call `switchyard_logs` for focused debugging.
 4. Call `switchyard_create` when the user wants a new branch runtime.
-5. Call `switchyard_up` or `switchyard_down` only when the user wants runtime changes.
+5. Call `switchyard_up`, `switchyard_checkout`, `switchyard_uncheckout`, or
+   `switchyard_down` only when the user wants runtime changes.
 
 ## Safety
 
@@ -56,6 +59,8 @@ Recommended agent flow:
   project root; tool calls cannot jump to a different local repository.
 - `switchyard_create` creates a local git worktree and syncs configured env files.
 - `switchyard_up` starts local processes from `switchyard.toml`.
+- `switchyard_checkout` starts local canonical-port forwarders.
+- `switchyard_uncheckout` stops Switchyard-managed canonical-port forwarders.
 - `switchyard_down` stops Switchyard-managed PIDs.
 - Keep client approval enabled for write/action tools.
 - Use `--cwd` only when generating config for a different checkout or starting

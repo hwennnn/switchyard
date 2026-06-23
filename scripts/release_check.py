@@ -73,6 +73,7 @@ def check_public_docs() -> None:
     require("switchyard mcp" in readme, "README should document MCP")
     require("switchyard mcp config" in readme, "README should document copy-paste MCP setup")
     require("switchyard_create" in readme and "switchyard_list" in readme, "README should document MCP worktree tools")
+    require("switchyard_checkout" in readme and "switchyard_uncheckout" in readme, "README should document MCP checkout tools")
     require("switchyard skill install" in readme, "README should document bundled skill install")
     require("switchyard doctor --json" in readme, "README should document machine-readable doctor")
     require("switchyard-dev" in readme, "README should document publish package name")
@@ -97,6 +98,7 @@ def check_security_docs() -> None:
         require(needle in security, f"SECURITY.md missing {needle!r}")
     require("switchyard mcp config" in security, "SECURITY.md should document generated MCP setup")
     require("switchyard_create" in security, "SECURITY.md should mention MCP worktree creation")
+    require("switchyard_checkout" in security, "SECURITY.md should mention MCP checkout forwarding")
     ok("security docs")
 
 
@@ -117,6 +119,10 @@ def check_skill() -> None:
     require("description:" in text and "Switchyard" in text.split("---", 2)[1], "skill description missing")
     require("switchyard_brief" in text, "skill should teach MCP tool order")
     require("switchyard_create" in text, "skill should teach MCP worktree creation")
+    require(
+        "switchyard_checkout" in text and "switchyard_uncheckout" in text,
+        "skill should teach MCP checkout forwarding",
+    )
     require("switchyard mcp config" in text, "skill should teach generated MCP setup")
     require("switchyard doctor --json" in text, "skill should teach machine-readable doctor")
     require("/path/to/project" not in text, "skill should not ship path placeholders")
@@ -178,9 +184,18 @@ def check_mcp_smoke() -> None:
         result = run([sys.executable, "-m", "switchyard", "mcp", "--cwd", str(root)], env=env, input_text=payload)
         lines = [json.loads(line) for line in result.stdout.splitlines()]
         require(lines[0]["result"]["serverInfo"]["name"] == "switchyard", "MCP initialize failed")
+        instructions = lines[0]["result"]["instructions"]
+        require("switchyard_checkout" in instructions and "switchyard_uncheckout" in instructions, "MCP instructions incomplete")
         tool_names = {tool["name"] for tool in lines[1]["result"]["tools"]}
         require(
-            {"switchyard_brief", "switchyard_create", "switchyard_list", "switchyard_up"}.issubset(tool_names),
+            {
+                "switchyard_brief",
+                "switchyard_create",
+                "switchyard_list",
+                "switchyard_up",
+                "switchyard_checkout",
+                "switchyard_uncheckout",
+            }.issubset(tool_names),
             "MCP tool list incomplete",
         )
         require(lines[2]["result"]["structuredContent"]["project"] == "demo", "MCP doctor failed")

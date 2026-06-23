@@ -14,7 +14,9 @@ from .runtime import (
     brief_for,
     format_log_tail,
     hydrate_status,
+    start_checkouts,
     start_services,
+    stop_checkouts,
     stop_services,
 )
 from .utils import slugify
@@ -27,7 +29,8 @@ INSTRUCTIONS = (
     "Switchyard exposes local runtime state for parallel agent worktrees. "
     "Prefer switchyard_brief first, then switchyard_where or switchyard_logs for focused context. "
     "Use switchyard_create when a requested branch runtime does not exist yet. "
-    "switchyard_create, switchyard_up, and switchyard_down change local state and should be treated as user-visible actions."
+    "switchyard_create, switchyard_up, switchyard_checkout, switchyard_uncheckout, and switchyard_down "
+    "change local state and should be treated as user-visible actions."
 )
 
 
@@ -139,6 +142,37 @@ TOOLS: dict[str, dict[str, Any]] = {
                 "services": {
                     "type": "array",
                     "description": "Optional service names. Empty starts every configured service.",
+                    "items": {"type": "string"},
+                },
+            }
+        ),
+    },
+    "switchyard_checkout": {
+        "title": "Map services to canonical ports",
+        "description": "Forward a running branch runtime back to configured canonical service ports.",
+        "inputSchema": object_schema(
+            {
+                **COMMON_CWD,
+                "branch": {"type": "string", "description": "Branch name for the running service runtime."},
+                "services": {
+                    "type": "array",
+                    "description": "Optional service names. Empty checks out every running service for the branch.",
+                    "items": {"type": "string"},
+                },
+            },
+            ["branch"],
+        ),
+    },
+    "switchyard_uncheckout": {
+        "title": "Stop canonical port mappings",
+        "description": "Stop Switchyard-managed canonical port forwarders.",
+        "inputSchema": object_schema(
+            {
+                **COMMON_CWD,
+                "branch": {"type": "string", "description": "Optional branch name. Omit to consider all branches."},
+                "services": {
+                    "type": "array",
+                    "description": "Optional service names. Empty stops every matching checkout.",
                     "items": {"type": "string"},
                 },
             }
@@ -361,6 +395,25 @@ def tool_up(arguments: dict[str, Any]) -> dict[str, Any]:
     return tool_result({"branch": branch, "worktree": str(worktree), "messages": messages})
 
 
+def tool_checkout(arguments: dict[str, Any]) -> dict[str, Any]:
+    cwd = cwd_from(arguments)
+    config, registry = load_project(cwd)
+    branch = string_argument(arguments, "branch", required=True)
+    services = normalize_services(arguments.get("services"))
+    assert branch is not None
+    messages = start_checkouts(config, registry, branch, services)
+    return tool_result({"branch": branch, "messages": messages})
+
+
+def tool_uncheckout(arguments: dict[str, Any]) -> dict[str, Any]:
+    cwd = cwd_from(arguments)
+    config, registry = load_project(cwd)
+    branch = string_argument(arguments, "branch")
+    services = normalize_services(arguments.get("services"))
+    messages = stop_checkouts(config, registry, branch, services)
+    return tool_result({"branch": branch, "messages": messages})
+
+
 def tool_down(arguments: dict[str, Any]) -> dict[str, Any]:
     cwd = cwd_from(arguments)
     config, registry = load_project(cwd)
@@ -379,6 +432,8 @@ TOOL_HANDLERS: dict[str, Callable[[dict[str, Any]], dict[str, Any]]] = {
     "switchyard_where": tool_where,
     "switchyard_logs": tool_logs,
     "switchyard_up": tool_up,
+    "switchyard_checkout": tool_checkout,
+    "switchyard_uncheckout": tool_uncheckout,
     "switchyard_down": tool_down,
 }
 

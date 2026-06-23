@@ -151,13 +151,15 @@ switchyard_brief
 switchyard_where
 switchyard_logs
 switchyard_up
+switchyard_checkout
+switchyard_uncheckout
 switchyard_down
 ```
 
 Agents should usually call `switchyard_brief` first, then `switchyard_where` or
 `switchyard_logs` for focused follow-up. `switchyard_create`, `switchyard_up`,
-and `switchyard_down` change local state, so MCP clients should keep user
-approval enabled for them.
+`switchyard_checkout`, `switchyard_uncheckout`, and `switchyard_down` change
+local state, so MCP clients should keep user approval enabled for them.
 
 ## Agent Skill
 
