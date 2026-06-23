@@ -179,8 +179,11 @@ def check_public_docs() -> None:
         require("switchyard_runtime_handoff" in doc_text, f"{doc_name} should document MCP runtime handoff prompt")
         require("switchyard_branch_runtime" in doc_text, f"{doc_name} should document MCP branch runtime prompt")
         require("read-only templates" in doc_text, f"{doc_name} should document MCP prompts as read-only")
-    require("MCP client compatibility fixtures" in contributing, "CONTRIBUTING should point MCP work at compatibility fixtures")
-    require("MCP client compatibility fixtures" in architecture, "architecture roadmap should treat MCP server as shipped")
+    require((ROOT / "tests/fixtures/mcp_readonly_smoke.jsonl").exists(), "MCP read-only compatibility fixture missing")
+    require((ROOT / "tests/fixtures/mcp_action_smoke.jsonl").exists(), "MCP action compatibility fixture missing")
+    require("tests/fixtures/mcp_*.jsonl" in contributing, "CONTRIBUTING should point MCP work at compatibility fixtures")
+    require("tests/fixtures/mcp_*.jsonl" in architecture, "architecture docs should point at MCP compatibility fixtures")
+    require("MCP Compatibility" in architecture, "architecture should document MCP compatibility fixtures")
     require("MCP server wrapper" not in architecture + contributing, "public roadmap should not imply MCP server is missing")
     require("python3 scripts/release_check.py --skip-package" in agents, "AGENTS.md should point agents at release smoke gate")
     require((ROOT / ".github/workflows/ci.yml").exists(), "CI workflow missing")
@@ -361,24 +364,7 @@ def check_mcp_smoke() -> None:
         env = os.environ.copy()
         env["PYTHONPATH"] = str(ROOT / "src")
         env["SWITCHYARD_HOME"] = str(root / "home")
-        readonly_payload = "\n".join(
-            [
-                '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18"}}',
-                '{"jsonrpc":"2.0","id":2,"method":"tools/list"}',
-                '{"jsonrpc":"2.0","id":11,"method":"resources/list"}',
-                '{"jsonrpc":"2.0","id":12,"method":"resources/read","params":{"uri":"switchyard://project/brief"}}',
-                '{"jsonrpc":"2.0","id":13,"method":"resources/read","params":{"uri":"switchyard://agent/guide"}}',
-                '{"jsonrpc":"2.0","id":14,"method":"prompts/list"}',
-                '{"jsonrpc":"2.0","id":15,"method":"prompts/get","params":{"name":"switchyard_branch_runtime","arguments":{"branch":"feature/mcp","services":"web"}}}',
-                '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"switchyard_doctor","arguments":{}}}',
-                '{"jsonrpc":"2.0","id":6,"method":"tools/call","params":{"name":"switchyard_status","arguments":{}}}',
-                '{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"switchyard_up","arguments":{"branch":"feature/mcp","servies":["web"]}}}',
-                '{"jsonrpc":"2.0","id":8,"method":"tools/call","params":{"name":"switchyard_doctor","arguments":{"cwd":123}}}',
-                '{"jsonrpc":"2.0","id":9,"method":"tools/call","params":{"name":"switchyard_doctor","arguments":[]}}',
-                '{"jsonrpc":"2.0","id":10,"method":"initialize","params":{"protocolVersion":20250618}}',
-                "",
-            ]
-        )
+        readonly_payload = read("tests/fixtures/mcp_readonly_smoke.jsonl") + "\n"
         result = run([sys.executable, "-m", "switchyard", "mcp"], cwd=server_cwd, env=env, input_text=readonly_payload)
         lines = [json.loads(line) for line in result.stdout.splitlines()]
         require(lines[0]["result"]["serverInfo"]["name"] == "switchyard", "MCP initialize failed")
@@ -453,13 +439,7 @@ def check_mcp_smoke() -> None:
         )
         require(not (root / "home").exists(), "read-only MCP context should not initialize Switchyard state")
 
-        action_payload = "\n".join(
-            [
-                '{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"switchyard_create","arguments":{"branch":"feature/mcp"}}}',
-                '{"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"name":"switchyard_list","arguments":{}}}',
-                "",
-            ]
-        )
+        action_payload = read("tests/fixtures/mcp_action_smoke.jsonl") + "\n"
         result = run([sys.executable, "-m", "switchyard", "mcp"], cwd=server_cwd, env=env, input_text=action_payload)
         action_lines = [json.loads(line) for line in result.stdout.splitlines()]
         require(action_lines[0]["result"]["structuredContent"]["created"] is True, "MCP create failed")

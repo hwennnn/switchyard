@@ -96,9 +96,15 @@ This is useful for tools that hard-code `localhost:3000`.
 
 Switchyard should integrate instead of replacing good tools:
 
-- MCP client compatibility fixtures and agent workflow helpers.
 - Worktrunk adapter for worktree creation.
 - Portless or Caddy adapter for production-grade local URL/TLS/WebSocket routing.
 - Docker Compose adapter for container stacks.
 - process-compose or Overmind adapter for advanced process supervision.
 - `socat` adapter for raw TCP canonical port checkout.
+
+## MCP Compatibility
+
+MCP client compatibility fixtures live in `tests/fixtures/mcp_*.jsonl`.
+`scripts/release_check.py` replays those JSON-RPC request streams against the
+stdio server so tools, resources, prompts, validation errors, and read-only
+state behavior stay compatible as the server evolves.

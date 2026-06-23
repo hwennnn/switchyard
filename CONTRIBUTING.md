@@ -33,5 +33,7 @@ Good first areas:
 - Portless backend adapter.
 - Worktrunk worktree adapter.
 - Docker Compose adapter.
-- MCP client compatibility fixtures.
 - Better health checks.
+
+MCP protocol changes should update the compatibility fixtures in
+`tests/fixtures/mcp_*.jsonl` and keep `scripts/release_check.py` consuming them.
