@@ -552,6 +552,18 @@ def check_mcp_smoke() -> None:
         )
         require(worktree_brief["branch"] == "feature/mcp", "MCP worktree launch should default to worktree branch")
         require(worktree_brief["configured_services"] == ["web"], "MCP worktree launch should keep configured services")
+        run([sys.executable, "-m", "switchyard", "mcp", "config", "--name", "demo"], cwd=root, env=env)
+        result = run(
+            [sys.executable, "-m", "switchyard", "mcp", "--project", "demo"],
+            cwd=worktree,
+            env=env,
+            input_text='{"jsonrpc":"2.0","id":22,"method":"resources/read","params":{"uri":"switchyard://project/brief"}}\n',
+        )
+        alias_worktree_brief = json.loads(json.loads(result.stdout)["result"]["contents"][0]["text"])
+        require(
+            alias_worktree_brief["branch"] == "feature/mcp",
+            "MCP alias launch from a registered worktree should keep the worktree branch",
+        )
     ok("MCP smoke")
 
 
@@ -781,6 +793,13 @@ def build_and_check_package() -> None:
         require(
             "feature/install" in mcp_lines[2]["result"]["messages"][0]["content"]["text"],
             "installed mcp prompts should resolve local project alias",
+        )
+        result = run([str(python), "-m", "switchyard", "mcp", "--project", "switchyard"], cwd=installed_worktree, env=env, input_text=mcp_payload)
+        mcp_lines = [json.loads(line) for line in result.stdout.splitlines()]
+        alias_worktree_brief = json.loads(mcp_lines[1]["result"]["contents"][0]["text"])
+        require(
+            alias_worktree_brief["branch"] == "feature/installed-worktree",
+            "installed mcp alias launch from a registered worktree should keep the worktree branch",
         )
         result = run([str(python), "-m", "switchyard", "skill", "show"], cwd=root, env=env)
         require("switchyard_brief" in result.stdout, "installed package missing bundled skill")

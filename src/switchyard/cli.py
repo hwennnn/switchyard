@@ -516,11 +516,20 @@ def cmd_forward(args: argparse.Namespace) -> int:
 
 def cmd_mcp(args: argparse.Namespace) -> int:
     try:
+        launch_cwd = Path.cwd().resolve()
         root = resolve_mcp_server_root(getattr(args, "mcp_cwd", None), getattr(args, "mcp_project", None))
     except Exception as exc:
         return fail(str(exc))
-    os.chdir(root)
-    return serve_mcp(root)
+    server_cwd = root
+    if getattr(args, "mcp_project", None) and not getattr(args, "mcp_cwd", None):
+        try:
+            registered_root = registered_mcp_worktree_project_root(launch_cwd)
+        except FileNotFoundError:
+            registered_root = None
+        if registered_root and registered_root.resolve() == root.resolve():
+            server_cwd = launch_cwd
+    os.chdir(server_cwd)
+    return serve_mcp(server_cwd)
 
 
 def mcp_setup_cwd(args: argparse.Namespace) -> str | None:
