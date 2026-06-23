@@ -67,8 +67,11 @@ def check_metadata() -> None:
     data = tomllib.loads(read("pyproject.toml"))
     project = data["project"]
     require(project["name"] == "switchyard-dev", "PyPI package name should be switchyard-dev")
+    require(project["description"] == "Local HTTP runtimes for parallel AI agent worktrees.", "package description should be launch-specific")
     require(project["requires-python"] == ">=3.11", "requires-python should be >=3.11")
     require(project["license"] == "MIT", "license should be MIT")
+    keywords = set(project["keywords"])
+    require({"agents", "ai-agents", "mcp", "git-worktree", "localhost"}.issubset(keywords), "package keywords should cover agent/MCP/localhost positioning")
     classifiers = project["classifiers"]
     require("Programming Language :: Python :: 3.13" in classifiers, "classifiers should advertise Python 3.13")
     urls = project["urls"]
@@ -144,6 +147,7 @@ def check_public_docs() -> None:
     require("Agents should usually read `switchyard://project/brief` first" in readme, "README should teach resource-first MCP flow")
     require("Agents should usually call `switchyard_brief` first" not in readme, "README should not teach tool-first MCP flow")
     require("## Status" in readme, "README should include current project status")
+    require("Stdio MCP tools, resources, and prompts" in readme, "README status should mention shipped MCP resources and prompts")
     require("MCP initialize + doctor" in readme, "README should document benchmark guardrails")
     require("python3 scripts/benchmark.py --runs 3" in readme, "README should document benchmark reproduction")
     require("python3 scripts/release_check.py" in readme, "README should document release readiness reproduction")

@@ -5,12 +5,12 @@ build-backend = "hatchling.build"
 [project]
 name = "switchyard-dev"
 dynamic = ["version"]
-description = "Local runtimes for parallel agent worktrees."
+description = "Local HTTP runtimes for parallel AI agent worktrees."
 readme = "README.md"
 requires-python = ">=3.11"
 license = "MIT"
 authors = [{ name = "Switchyard Contributors" }]
-keywords = ["agents", "git-worktree", "localhost", "devtools", "process-manager"]
+keywords = ["agents", "ai-agents", "mcp", "git-worktree", "localhost", "devtools", "process-manager"]
 classifiers = [
   "Development Status :: 3 - Alpha",
   "Environment :: Console",

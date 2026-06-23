@@ -37,7 +37,7 @@ What works today:
 - Git worktree creation with env link/copy preflight.
 - Dynamic loopback ports and branch-scoped `.localhost` URLs.
 - Agent-readable JSON for setup, logs, runtime state, and checkout mappings.
-- Stdio MCP tools with schemas, annotations, and local mutation boundaries.
+- Stdio MCP tools, resources, and prompts with schemas, annotations, and local mutation boundaries.
 - One-command Codex MCP setup using local project aliases, not path args.
 - Bundled Codex skill for agent workflow guidance.
 
