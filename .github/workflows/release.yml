@@ -120,6 +120,27 @@ jobs:
           assert "cwd =" not in data["config_text"]
           assert str(smoke_project) not in data["config_text"]
           PY
+          (cd "$smoke_project" && switchyard mcp install --json > "$smoke_project/mcp-install.json")
+          SMOKE_PROJECT="$smoke_project" CODEX_HOME="$CODEX_HOME" python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          smoke_project = Path(os.environ["SMOKE_PROJECT"]).resolve()
+          codex_config = Path(os.environ["CODEX_HOME"], "config.toml")
+          text = (smoke_project / "mcp-install.json").read_text()
+          data = json.loads(text)
+          config_text = codex_config.read_text()
+          assert data["ok"] is True
+          assert data["dry_run"] is False
+          assert data["registered"] is True
+          assert data["args"][-2:] == ["--project", "switchyard"]
+          assert data["codex_config_path"] == str(codex_config)
+          assert "cwd =" not in data["config_text"]
+          assert "cwd =" not in config_text
+          assert str(smoke_project) not in data["config_text"]
+          assert str(smoke_project) not in config_text
+          PY
           printf '%s\n' \
             '{"jsonrpc":"2.0","id":1,"method":"resources/read","params":{"uri":"switchyard://project/brief"}}' \
             '{"jsonrpc":"2.0","id":2,"method":"prompts/get","params":{"name":"switchyard_branch_runtime","arguments":{"branch":"feature/release","services":"web"}}}' \

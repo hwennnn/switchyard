@@ -113,6 +113,27 @@ assert data["args"][-2:] == ["--project", "switchyard"]
 assert "cwd =" not in data["config_text"]
 assert str(project) not in data["config_text"]
 PY
+(cd "$project" && switchyard mcp install --json > "$tmp/mcp-install.json")
+PROJECT="$project" CODEX_HOME="$CODEX_HOME" TMP="$tmp" python3 - <<'PY'
+import json
+import os
+from pathlib import Path
+
+project = Path(os.environ["PROJECT"]).resolve()
+codex_config = Path(os.environ["CODEX_HOME"], "config.toml")
+text = Path(os.environ["TMP"], "mcp-install.json").read_text()
+data = json.loads(text)
+config_text = codex_config.read_text()
+assert data["ok"] is True
+assert data["dry_run"] is False
+assert data["registered"] is True
+assert data["args"][-2:] == ["--project", "switchyard"]
+assert data["codex_config_path"] == str(codex_config)
+assert "cwd =" not in data["config_text"]
+assert "cwd =" not in config_text
+assert str(project) not in data["config_text"]
+assert str(project) not in config_text
+PY
 printf '%s\n\n' '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"switchyard_doctor","arguments":{}}}' \
   | switchyard mcp --project switchyard \
   | grep release-smoke
