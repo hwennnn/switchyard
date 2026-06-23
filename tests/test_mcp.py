@@ -206,6 +206,72 @@ port = 8000
         self.assertFalse(result["isError"])
         self.assertEqual(result["structuredContent"], {"services": []})
 
+    def test_status_tool_scopes_to_registered_worktree_cwd(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            workspace = Path(temp)
+            root = workspace / "project"
+            worktree = workspace / "feature-demo"
+            root.mkdir()
+            worktree.mkdir()
+            (root / "switchyard.toml").write_text(
+                """
+[project]
+name = "demo"
+
+[services.web]
+command = "python -m http.server {port}"
+port = 8000
+"""
+            )
+
+            with patch.dict(os.environ, {"SWITCHYARD_HOME": str(workspace / "home")}):
+                config = load_config(root / "switchyard.toml")
+                registry = Registry()
+                registry.ensure_project(config)
+                registry.upsert_worktree(config, "feature/demo", worktree)
+                for branch, port in [("feature/demo", 41000), ("feature/other", 41001)]:
+                    branch_slug = branch.replace("/", "-")
+                    registry.upsert_service(
+                        config,
+                        {
+                            "project": config.name,
+                            "branch": branch,
+                            "service": "web",
+                            "pid": 0,
+                            "command": "python -m http.server",
+                            "port": port,
+                            "url": f"http://web.{branch_slug}.demo.localhost:7331",
+                            "log_file": str(workspace / f"{branch_slug}.log"),
+                        },
+                    )
+                set_server_root(root)
+                try:
+                    root_response = handle_request(
+                        {
+                            "jsonrpc": "2.0",
+                            "id": 15,
+                            "method": "tools/call",
+                            "params": {"name": "switchyard_status", "arguments": {}},
+                        }
+                    )
+                    worktree_response = handle_request(
+                        {
+                            "jsonrpc": "2.0",
+                            "id": 16,
+                            "method": "tools/call",
+                            "params": {"name": "switchyard_status", "arguments": {"cwd": str(worktree)}},
+                        }
+                    )
+                finally:
+                    set_server_root(None)
+
+        self.assertFalse(root_response["result"]["isError"])
+        self.assertFalse(worktree_response["result"]["isError"])
+        root_branches = {item["branch"] for item in root_response["result"]["structuredContent"]["services"]}
+        worktree_services = worktree_response["result"]["structuredContent"]["services"]
+        self.assertEqual(root_branches, {"feature/demo", "feature/other"})
+        self.assertEqual([item["branch"] for item in worktree_services], ["feature/demo"])
+
     def test_create_tool_creates_worktree_and_list_reports_it(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
