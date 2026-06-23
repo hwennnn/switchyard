@@ -14,6 +14,7 @@ from .utils import (
     find_free_port,
     now_iso,
     port_is_free,
+    process_command_contains,
     pid_running,
     recent_error_lines,
     render_command,
@@ -85,6 +86,10 @@ def stop_proxy(config: ProjectConfig, registry: Registry) -> bool:
     record = registry.get_proxy(config.proxy.port)
     if not record:
         return True
+    pid = int(record.get("pid", 0))
+    if pid_running(pid) and not process_command_contains(pid, "switchyard proxy serve"):
+        registry.remove_proxy(config.proxy.port)
+        return True
     ok = stop_process_group(int(record.get("pid", 0)))
     if ok:
         registry.remove_proxy(config.proxy.port)
@@ -92,6 +97,16 @@ def stop_proxy(config: ProjectConfig, registry: Registry) -> bool:
 
 
 def start_checkouts(
+    config: ProjectConfig,
+    registry: Registry,
+    branch: str,
+    selected: list[str] | None = None,
+) -> list[str]:
+    with registry.exclusive_project_lock(config.root):
+        return _start_checkouts_locked(config, registry, branch, selected)
+
+
+def _start_checkouts_locked(
     config: ProjectConfig,
     registry: Registry,
     branch: str,
@@ -128,22 +143,23 @@ def start_checkouts(
         log_path = registry.log_path(config, branch, f"checkout-{service_name}")
         log = log_path.open("ab", buffering=0)
         env = child_pythonpath(os.environ)
+        checkout_command = [
+            sys.executable,
+            "-m",
+            "switchyard",
+            "forward",
+            "serve",
+            "--host",
+            str(record.get("backend_host", "127.0.0.1")),
+            "--port",
+            str(desired_port),
+            "--target-host",
+            str(record.get("backend_host", "127.0.0.1")),
+            "--target-port",
+            str(actual_port),
+        ]
         process = subprocess.Popen(
-            [
-                sys.executable,
-                "-m",
-                "switchyard",
-                "forward",
-                "serve",
-                "--host",
-                str(record.get("backend_host", "127.0.0.1")),
-                "--port",
-                str(desired_port),
-                "--target-host",
-                str(record.get("backend_host", "127.0.0.1")),
-                "--target-port",
-                str(actual_port),
-            ],
+            checkout_command,
             stdout=log,
             stderr=log,
             stdin=subprocess.DEVNULL,
@@ -158,6 +174,7 @@ def start_checkouts(
                 "branch_slug": slugify(branch),
                 "service": service_name,
                 "pid": process.pid,
+                "command": " ".join(checkout_command),
                 "listen_host": str(record.get("backend_host", "127.0.0.1")),
                 "listen_port": desired_port,
                 "target_host": str(record.get("backend_host", "127.0.0.1")),
@@ -178,13 +195,28 @@ def stop_checkouts(
     branch: str | None = None,
     selected: list[str] | None = None,
 ) -> list[str]:
+    with registry.exclusive_project_lock(config.root):
+        return _stop_checkouts_locked(config, registry, branch, selected)
+
+
+def _stop_checkouts_locked(
+    config: ProjectConfig,
+    registry: Registry,
+    branch: str | None = None,
+    selected: list[str] | None = None,
+) -> list[str]:
     messages: list[str] = []
     selected_slugs = {slugify(item) for item in selected} if selected else None
     for record in registry.checkouts(config.root, branch):
         service_name = str(record.get("service"))
         if selected_slugs and service_name not in selected_slugs:
             continue
-        ok = stop_process_group(int(record.get("pid", 0)))
+        pid = int(record.get("pid", 0))
+        if pid_running(pid) and not process_command_contains(pid, str(record.get("command", ""))):
+            registry.remove_checkout(config.root, str(record.get("branch")), service_name)
+            messages.append(f"removed stale checkout for {service_name}; pid {pid} no longer matches")
+            continue
+        ok = stop_process_group(pid)
         if ok:
             registry.remove_checkout(config.root, str(record.get("branch")), service_name)
             messages.append(f"unchecked {service_name} from canonical port {record.get('listen_port')}")
@@ -233,10 +265,26 @@ def start_services(
     worktree: Path,
     selected: list[str] | None = None,
 ) -> list[str]:
-    messages = [ensure_proxy(config, registry)]
+    with registry.exclusive_project_lock(config.root):
+        return _start_services_locked(config, registry, branch, worktree, selected)
+
+
+def _start_services_locked(
+    config: ProjectConfig,
+    registry: Registry,
+    branch: str,
+    worktree: Path,
+    selected: list[str] | None = None,
+) -> list[str]:
     selected_slugs = {slugify(item) for item in selected} if selected else set(config.services)
+    unknown = sorted(selected_slugs - set(config.services))
+    if unknown:
+        raise ValueError(f"unknown service(s): {', '.join(unknown)}")
+
+    messages = [ensure_proxy(config, registry)]
     allocated: dict[str, int] = {}
     avoid = [int(record["port"]) for record in registry.services() if pid_running(int(record.get("pid", 0)))]
+    peer_ports: dict[str, int] = {}
 
     for service_name, service in config.services.items():
         if service_name not in selected_slugs:
@@ -249,6 +297,16 @@ def start_services(
         allocated[service_name] = port
 
     urls = {name: service_url(config, branch, name) for name in allocated}
+    for record in registry.services(config.root, branch):
+        service_name = str(record.get("service"))
+        if service_name not in config.services:
+            continue
+        if not pid_running(int(record.get("pid", 0))):
+            continue
+        if record.get("url") and record.get("port"):
+            urls.setdefault(service_name, str(record["url"]))
+            peer_ports[service_name] = int(record["port"])
+    peer_ports.update(allocated)
 
     for service_name, port in allocated.items():
         service = config.services[service_name]
@@ -285,7 +343,8 @@ def start_services(
         )
         for other_name, other_url in urls.items():
             env[f"SWITCHYARD_{other_name.upper()}_URL"] = other_url
-            env[f"SWITCHYARD_{other_name.upper()}_PORT"] = str(allocated[other_name])
+            if other_name in peer_ports:
+                env[f"SWITCHYARD_{other_name.upper()}_PORT"] = str(peer_ports[other_name])
 
         process = subprocess.Popen(
             command,
@@ -310,6 +369,16 @@ def stop_services(
     branch: str | None = None,
     selected: list[str] | None = None,
 ) -> list[str]:
+    with registry.exclusive_project_lock(config.root):
+        return _stop_services_locked(config, registry, branch, selected)
+
+
+def _stop_services_locked(
+    config: ProjectConfig,
+    registry: Registry,
+    branch: str | None = None,
+    selected: list[str] | None = None,
+) -> list[str]:
     messages: list[str] = []
     selected_slugs = {slugify(item) for item in selected} if selected else None
     records = registry.services(config.root, branch)
@@ -318,9 +387,15 @@ def stop_services(
         if selected_slugs and service not in selected_slugs:
             continue
         pid = int(record.get("pid", 0))
+        if pid_running(pid) and not process_command_contains(pid, str(record.get("command", ""))):
+            registry.remove_service(config.root, str(record.get("branch")), service)
+            messages.append(f"removed stale record for {service}; pid {pid} no longer matches")
+            continue
         checkout = registry.find_checkout(config.root, service, str(record.get("branch")))
         if checkout:
-            stop_process_group(int(checkout.get("pid", 0)))
+            checkout_pid = int(checkout.get("pid", 0))
+            if (not pid_running(checkout_pid)) or process_command_contains(checkout_pid, str(checkout.get("command", ""))):
+                stop_process_group(checkout_pid)
             registry.remove_checkout(config.root, str(record.get("branch")), service)
         ok = stop_process_group(pid)
         if ok:

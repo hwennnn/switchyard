@@ -44,7 +44,43 @@ port = 3000
             with self.assertRaises(ValueError):
                 load_config(config_path)
 
+    def test_rejects_env_paths_that_escape_project(self) -> None:
+        bad_paths = ["../secret", "/tmp/secret", ".", "..", " nested"]
+        for bad_path in bad_paths:
+            with self.subTest(bad_path=bad_path), tempfile.TemporaryDirectory() as temp:
+                root = Path(temp)
+                config_path = root / "switchyard.toml"
+                config_path.write_text(
+                    f"""
+[env]
+link = ["{bad_path}"]
+
+[services.web]
+command = "python -m http.server {{port}}"
+port = 8000
+"""
+                )
+
+                with self.assertRaises(ValueError):
+                    load_config(config_path)
+
+    def test_rejects_service_slug_collisions(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            config_path = root / "switchyard.toml"
+            config_path.write_text(
+                """
+[services."api/server"]
+command = "one"
+
+[services."api-server"]
+command = "two"
+"""
+            )
+
+            with self.assertRaises(ValueError):
+                load_config(config_path)
+
 
 if __name__ == "__main__":
     unittest.main()
-

@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "switchyard-dev"
-version = "0.1.0"
+dynamic = ["version"]
 description = "Local runtimes for parallel agent worktrees."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -34,3 +34,6 @@ sy = "switchyard.cli:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/switchyard"]
+
+[tool.hatch.version]
+path = "src/switchyard/__init__.py"

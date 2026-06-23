@@ -308,9 +308,10 @@ def cmd_forward(args: argparse.Namespace) -> int:
 
 
 def cmd_mcp(args: argparse.Namespace) -> int:
+    root = Path(args.cwd).expanduser().resolve() if args.cwd else Path.cwd().resolve()
     if args.cwd:
-        os.chdir(Path(args.cwd).expanduser().resolve())
-    return serve_mcp()
+        os.chdir(root)
+    return serve_mcp(root)
 
 
 def build_parser() -> argparse.ArgumentParser:

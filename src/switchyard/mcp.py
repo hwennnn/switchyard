@@ -20,6 +20,8 @@ from .utils import slugify
 
 
 PROTOCOL_VERSION = "2025-06-18"
+SUPPORTED_PROTOCOL_VERSIONS = {PROTOCOL_VERSION}
+SERVER_ROOT: Path | None = None
 INSTRUCTIONS = (
     "Switchyard exposes local runtime state for parallel agent worktrees. "
     "Prefer switchyard_brief first, then switchyard_where or switchyard_logs for focused context. "
@@ -44,7 +46,7 @@ def object_schema(properties: dict[str, Any], required: list[str] | None = None)
 COMMON_CWD = {
     "cwd": {
         "type": "string",
-        "description": f"Project path or subdirectory. Defaults to the MCP server cwd. Must contain {CONFIG_NAME}.",
+        "description": f"Optional path under the MCP server startup directory. Defaults to the server cwd. Must contain {CONFIG_NAME}.",
     }
 }
 
@@ -138,8 +140,17 @@ TOOLS: dict[str, dict[str, Any]] = {
 
 
 def cwd_from(arguments: dict[str, Any]) -> Path:
+    root = SERVER_ROOT or Path.cwd().resolve()
     cwd = arguments.get("cwd")
-    return Path(str(cwd)).expanduser().resolve() if cwd else Path.cwd().resolve()
+    resolved = Path(str(cwd)).expanduser().resolve() if cwd else root
+    if resolved != root and not resolved.is_relative_to(root):
+        raise McpError(-32602, f"cwd must stay under MCP server root: {root}")
+    return resolved
+
+
+def set_server_root(root: Path | None) -> None:
+    global SERVER_ROOT
+    SERVER_ROOT = root.resolve() if root else None
 
 
 def load_project(cwd: Path):
@@ -311,10 +322,11 @@ def handle_request(message: dict[str, Any]) -> dict[str, Any] | None:
         return None
     if method == "initialize":
         requested = str(message.get("params", {}).get("protocolVersion") or PROTOCOL_VERSION)
+        negotiated = requested if requested in SUPPORTED_PROTOCOL_VERSIONS else PROTOCOL_VERSION
         return response(
             message_id,
             {
-                "protocolVersion": requested,
+                "protocolVersion": negotiated,
                 "capabilities": {"tools": {"listChanged": False}},
                 "serverInfo": {"name": "switchyard", "title": "Switchyard", "version": __version__},
                 "instructions": INSTRUCTIONS,
@@ -342,7 +354,8 @@ def handle_request(message: dict[str, Any]) -> dict[str, Any] | None:
     return error_response(message_id, -32601, f"method not found: {method}")
 
 
-def serve_mcp() -> int:
+def serve_mcp(root: Path | None = None) -> int:
+    set_server_root(root or Path.cwd())
     for line in sys.stdin:
         line = line.strip()
         if not line:

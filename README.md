@@ -5,11 +5,11 @@
 [![MCP](https://img.shields.io/badge/MCP-stdio-5f43e9)](docs/MCP.md)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 ![Local First](https://img.shields.io/badge/local--first-no%20cloud-0f766e)
-![Agent Native](https://img.shields.io/badge/agent--native-brief%20%2B%20MCP-111827)
+![MCP Ready](https://img.shields.io/badge/MCP-ready-111827)
 
-Local runtimes for parallel agent worktrees.
+Run every AI coding task in its own local runtime, with isolated ports, logs, URLs, and agent-readable status.
 
-Switchyard is a lightweight local control plane for developers running multiple AI coding agents against the same repository. Each task gets an isolated git worktree, its own service processes, dynamic ports, stable local URLs, logs, status, and an agent-readable summary.
+Switchyard lets you run multiple AI coding agents against one repo without port fights, mystery processes, or lost terminal state. Each task gets an isolated git worktree plus its own services, URLs, logs, and runtime summary.
 
 It is intentionally local-first:
 
@@ -22,6 +22,8 @@ It is intentionally local-first:
 ## Why
 
 Git worktrees isolate code, but they do not isolate your local runtime. If two worktrees both want `localhost:3000`, `localhost:8080`, `.env.local`, and the same terminal scrollback, you are back to manual bookkeeping.
+
+Without Switchyard, parallel agent work means babysitting ports, terminals, env files, and logs. With Switchyard, agents can ask the runtime where everything is.
 
 Switchyard gives each branch a named runtime:
 
@@ -39,7 +41,35 @@ switchyard logs web --branch feature/login
 switchyard mcp
 ```
 
-## Install For Development
+Example output:
+
+```json
+{
+  "services": [
+    {
+      "service": "web",
+      "status": "running",
+      "url": "http://web.feature-login.entropic.localhost:7331",
+      "port": 41000
+    }
+  ],
+  "recent_errors": []
+}
+```
+
+## Install
+
+Switchyard is pre-release. The PyPI package name is `switchyard-dev`; the installed commands are `switchyard` and `sy`.
+
+Once published:
+
+```sh
+pipx install switchyard-dev
+# or
+uv tool install switchyard-dev
+```
+
+From source:
 
 ```sh
 cd switchyard
@@ -63,6 +93,13 @@ switchyard init
 switchyard create feature/login
 switchyard up feature/login
 switchyard open web feature/login
+```
+
+Typical `up` output:
+
+```txt
+started proxy on 127.0.0.1:7331
+started web on :41000 -> http://web.feature-login.entropic.localhost:7331
 ```
 
 View state:
@@ -121,6 +158,22 @@ Agents should usually call `switchyard_brief` first, then `switchyard_where` or
 `switchyard_logs` for focused follow-up. `switchyard_up` and `switchyard_down`
 start or stop local processes, so MCP clients should keep user approval enabled.
 
+## Agent Skill
+
+The repo includes a Codex skill at `skills/switchyard` for agents that prefer
+skill-guided workflows:
+
+```sh
+mkdir -p ~/.codex/skills
+cp -R skills/switchyard ~/.codex/skills/switchyard
+```
+
+Use it with prompts like:
+
+```txt
+Use $switchyard to inspect this project's local agent runtime.
+```
+
 ## Config
 
 ```toml
@@ -175,9 +228,9 @@ Commands may use tokens:
 {project_slug}
 ```
 
-## Canonical Port Checkout
+## When A Tool Requires localhost:3000
 
-Some tools hard-code `localhost:3000`. If Switchyard had to move a service to a dynamic port, you can map one branch back to canonical ports:
+Some dev tools refuse dynamic ports. Checkout maps one branch back onto the canonical port while the rest stay isolated:
 
 ```sh
 switchyard checkout feature/login web
@@ -195,7 +248,7 @@ Undo:
 switchyard uncheckout --branch feature/login web
 ```
 
-The built-in checkout forwarder is HTTP-focused. Raw TCP services like Postgres/Redis should use a future `socat`/Compose adapter.
+Today, checkout is HTTP-focused. Raw TCP services such as Postgres and Redis are not yet managed by the built-in forwarder.
 
 ## Commands
 
@@ -236,8 +289,9 @@ SWITCHYARD_HOME=/tmp/switchyard switchyard status
 ## Safety Defaults
 
 - Binds to `127.0.0.1` by default.
-- Kills only PIDs it launched and recorded.
+- Stops only recorded service PIDs whose command still matches the registry.
 - Does not edit tracked `.env` files.
+- Rejects env paths outside the project/worktree.
 - Keeps generated state outside the repo by default.
 - No public sharing, ngrok, Tailscale, or LAN exposure in v0.
 

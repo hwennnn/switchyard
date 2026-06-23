@@ -1,6 +1,9 @@
 # Switchyard Agent Guide
 
-Switchyard is a local runtime control plane for parallel agent worktrees.
+This file is for coding agents working on Switchyard itself.
+
+Switchyard gives agents a compact runtime map before they touch the shell:
+services, URLs, ports, logs, changed files, and recent errors.
 
 ## Default Workflow
 

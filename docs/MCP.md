@@ -1,6 +1,9 @@
 # Switchyard MCP
 
-Switchyard includes a dependency-free stdio MCP server:
+Switchyard's MCP server lets agents discover local runtime state without
+scraping terminals, guessing ports, or reading stale logs.
+
+It is a dependency-free stdio server:
 
 ```sh
 switchyard mcp --cwd /path/to/project
@@ -31,15 +34,13 @@ codex mcp add switchyard -- switchyard mcp --cwd /path/to/project
 
 ## Tools
 
-```txt
-switchyard_doctor
-switchyard_status
-switchyard_brief
-switchyard_where
-switchyard_logs
-switchyard_up
-switchyard_down
-```
+- `switchyard_doctor`: project config, proxy, services, and Switchyard version.
+- `switchyard_status`: registered services with running/stale state.
+- `switchyard_brief`: compact project/runtime summary for agent context.
+- `switchyard_where`: URL, port, PID, worktree, and log path for one service.
+- `switchyard_logs`: recent log tail for one service or branch.
+- `switchyard_up`: start local services for a branch/worktree.
+- `switchyard_down`: stop Switchyard-managed services.
 
 Recommended agent flow:
 
@@ -51,6 +52,8 @@ Recommended agent flow:
 ## Safety
 
 - The MCP server is local stdio, not a network listener.
+- `--cwd` pins the server to one project root; tool calls cannot jump to a
+  different local repository.
 - `switchyard_up` starts local processes from `switchyard.toml`.
 - `switchyard_down` stops Switchyard-managed PIDs.
 - Keep client approval enabled for write/action tools.

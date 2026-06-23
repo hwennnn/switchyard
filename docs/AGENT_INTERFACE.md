@@ -1,4 +1,4 @@
-# Agent Interface
+# How Agents Use Switchyard
 
 Switchyard is designed so agents do not need to infer local runtime state from terminal scrollback.
 

@@ -46,7 +46,37 @@ class RegistryTests(unittest.TestCase):
             self.assertEqual(registry.get_worktree(root, "feature-login")["branch"], "feature/login")
             self.assertEqual(registry.find_route("web.feature-login.demo.localhost:7331")["port"], 42123)
 
+    def test_rejects_branch_slug_collisions(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            home = Path(temp) / "home"
+            root = Path(temp) / "repo"
+            root.mkdir()
+            registry = Registry(home)
+            config = project_config(root)
+
+            registry.ensure_project(config)
+            registry.upsert_worktree(config, "feature/login", Path(temp) / "one")
+
+            with self.assertRaises(ValueError):
+                registry.upsert_worktree(config, "feature-login", Path(temp) / "two")
+
+    def test_default_paths_include_project_hash(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            home = Path(temp) / "home"
+            root_one = Path(temp) / "one"
+            root_two = Path(temp) / "two"
+            root_one.mkdir()
+            root_two.mkdir()
+            registry = Registry(home)
+
+            one = project_config(root_one)
+            two = project_config(root_two)
+
+            self.assertNotEqual(
+                registry.default_worktree_path(one, "feature/demo").parent,
+                registry.default_worktree_path(two, "feature/demo").parent,
+            )
+
 
 if __name__ == "__main__":
     unittest.main()
-

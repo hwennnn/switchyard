@@ -28,3 +28,5 @@ jobs:
       - name: End-to-end smoke test
         run: python scripts/e2e_smoke.py
 
+      - name: Release readiness
+        run: python scripts/release_check.py --skip-package

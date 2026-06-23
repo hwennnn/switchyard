@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from contextlib import contextmanager
+import hashlib
 import json
 import tempfile
 from pathlib import Path
@@ -18,6 +20,7 @@ class Registry:
         ensure_dir(self.home)
         ensure_dir(self.home / "logs")
         ensure_dir(self.home / "worktrees")
+        ensure_dir(self.home / "locks")
         self.path = self.home / "state.json"
 
     def read(self) -> dict[str, Any]:
@@ -45,37 +48,70 @@ class Registry:
     def project_key(self, root: Path) -> str:
         return str(root.resolve())
 
+    def project_dir_name(self, config: ProjectConfig) -> str:
+        digest = hashlib.sha256(str(config.root.resolve()).encode()).hexdigest()[:8]
+        return f"{config.slug}-{digest}"
+
+    @contextmanager
+    def exclusive_lock(self, name: str):
+        lock_path = self.home / "locks" / f"{name}.lock"
+        ensure_dir(lock_path.parent)
+        with lock_path.open("w") as lock:
+            try:
+                import fcntl
+
+                fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
+            except ImportError:
+                fcntl = None
+            try:
+                yield
+            finally:
+                if fcntl is not None:
+                    fcntl.flock(lock.fileno(), fcntl.LOCK_UN)
+
+    @contextmanager
+    def exclusive_project_lock(self, root: Path):
+        digest = hashlib.sha256(str(root.resolve()).encode()).hexdigest()[:16]
+        with self.exclusive_lock(f"project-{digest}"):
+            yield
+
+    @contextmanager
+    def exclusive_state_lock(self):
+        with self.exclusive_lock("state"):
+            yield
+
     def ensure_project(self, config: ProjectConfig) -> dict[str, Any]:
-        data = self.read()
-        key = self.project_key(config.root)
-        project = data["projects"].setdefault(
-            key,
-            {
-                "name": config.name,
-                "slug": config.slug,
-                "root": str(config.root),
-                "config": str(config.path),
-                "created_at": now_iso(),
-                "updated_at": now_iso(),
-                "worktrees": {},
-                "services": {},
-                "checkouts": {},
-            },
-        )
-        project.update(
-            {
-                "name": config.name,
-                "slug": config.slug,
-                "root": str(config.root),
-                "config": str(config.path),
-                "updated_at": now_iso(),
-            }
-        )
-        project.setdefault("worktrees", {})
-        project.setdefault("services", {})
-        project.setdefault("checkouts", {})
-        self.write(data)
-        return project
+        with self.exclusive_state_lock():
+            data = self.read()
+            key = self.project_key(config.root)
+            project = data["projects"].setdefault(
+                key,
+                {
+                    "name": config.name,
+                    "slug": config.slug,
+                    "root": str(config.root),
+                    "config": str(config.path),
+                    "created_at": now_iso(),
+                    "updated_at": now_iso(),
+                    "worktrees": {},
+                    "services": {},
+                    "checkouts": {},
+                },
+            )
+            project.update(
+                {
+                    "name": config.name,
+                    "slug": config.slug,
+                    "root": str(config.root),
+                    "config": str(config.path),
+                    "updated_at": now_iso(),
+                }
+            )
+            project.setdefault("worktrees", {})
+            project.setdefault("services", {})
+            project.setdefault("checkouts", {})
+            self.write(data)
+            return project
 
     def default_worktree_path(self, config: ProjectConfig, branch: str) -> Path:
         branch_slug = slugify(branch)
@@ -84,10 +120,10 @@ class Registry:
             if not base.is_absolute():
                 base = config.root / base
             return (base / branch_slug).resolve()
-        return (self.home / "worktrees" / config.slug / branch_slug).resolve()
+        return (self.home / "worktrees" / self.project_dir_name(config) / branch_slug).resolve()
 
     def log_path(self, config: ProjectConfig, branch: str, service: str) -> Path:
-        path = self.home / "logs" / config.slug / slugify(branch) / f"{slugify(service)}.log"
+        path = self.home / "logs" / self.project_dir_name(config) / slugify(branch) / f"{slugify(service)}.log"
         ensure_dir(path.parent)
         return path
 
@@ -97,17 +133,23 @@ class Registry:
         return path
 
     def upsert_worktree(self, config: ProjectConfig, branch: str, path: Path) -> None:
-        data = self.read()
-        key = self.project_key(config.root)
-        project = data["projects"].setdefault(key, {"worktrees": {}, "services": {}, "checkouts": {}})
-        project.setdefault("worktrees", {})[slugify(branch)] = {
-            "branch": branch,
-            "slug": slugify(branch),
-            "path": str(path.resolve()),
-            "updated_at": now_iso(),
-        }
-        project.update({"name": config.name, "slug": config.slug, "root": str(config.root), "config": str(config.path)})
-        self.write(data)
+        with self.exclusive_state_lock():
+            data = self.read()
+            key = self.project_key(config.root)
+            project = data["projects"].setdefault(key, {"worktrees": {}, "services": {}, "checkouts": {}})
+            worktrees = project.setdefault("worktrees", {})
+            branch_slug = slugify(branch)
+            existing = worktrees.get(branch_slug)
+            if existing and existing.get("branch") != branch:
+                raise ValueError(f"branch names collide after slugging: {existing.get('branch')} and {branch}")
+            worktrees[branch_slug] = {
+                "branch": branch,
+                "slug": branch_slug,
+                "path": str(path.resolve()),
+                "updated_at": now_iso(),
+            }
+            project.update({"name": config.name, "slug": config.slug, "root": str(config.root), "config": str(config.path)})
+            self.write(data)
 
     def get_project(self, root: Path) -> dict[str, Any] | None:
         return self.read()["projects"].get(self.project_key(root))
@@ -129,19 +171,21 @@ class Registry:
         return f"{slugify(branch)}::{slugify(service)}"
 
     def upsert_service(self, config: ProjectConfig, record: dict[str, Any]) -> None:
-        data = self.read()
-        key = self.project_key(config.root)
-        project = data["projects"].setdefault(key, {"worktrees": {}, "services": {}, "checkouts": {}})
-        project.update({"name": config.name, "slug": config.slug, "root": str(config.root), "config": str(config.path)})
-        project.setdefault("services", {})[self.service_key(record["branch"], record["service"])] = record
-        self.write(data)
+        with self.exclusive_state_lock():
+            data = self.read()
+            key = self.project_key(config.root)
+            project = data["projects"].setdefault(key, {"worktrees": {}, "services": {}, "checkouts": {}})
+            project.update({"name": config.name, "slug": config.slug, "root": str(config.root), "config": str(config.path)})
+            project.setdefault("services", {})[self.service_key(record["branch"], record["service"])] = record
+            self.write(data)
 
     def remove_service(self, root: Path, branch: str, service: str) -> None:
-        data = self.read()
-        project = data["projects"].get(self.project_key(root))
-        if project:
-            project.get("services", {}).pop(self.service_key(branch, service), None)
-        self.write(data)
+        with self.exclusive_state_lock():
+            data = self.read()
+            project = data["projects"].get(self.project_key(root))
+            if project:
+                project.get("services", {}).pop(self.service_key(branch, service), None)
+            self.write(data)
 
     def services(self, root: Path | None = None, branch: str | None = None) -> list[dict[str, Any]]:
         data = self.read()
@@ -172,12 +216,13 @@ class Registry:
         return None
 
     def upsert_checkout(self, config: ProjectConfig, record: dict[str, Any]) -> None:
-        data = self.read()
-        key = self.project_key(config.root)
-        project = data["projects"].setdefault(key, {"worktrees": {}, "services": {}, "checkouts": {}})
-        project.update({"name": config.name, "slug": config.slug, "root": str(config.root), "config": str(config.path)})
-        project.setdefault("checkouts", {})[self.service_key(record["branch"], record["service"])] = record
-        self.write(data)
+        with self.exclusive_state_lock():
+            data = self.read()
+            key = self.project_key(config.root)
+            project = data["projects"].setdefault(key, {"worktrees": {}, "services": {}, "checkouts": {}})
+            project.update({"name": config.name, "slug": config.slug, "root": str(config.root), "config": str(config.path)})
+            project.setdefault("checkouts", {})[self.service_key(record["branch"], record["service"])] = record
+            self.write(data)
 
     def checkouts(self, root: Path, branch: str | None = None) -> list[dict[str, Any]]:
         project = self.get_project(root)
@@ -195,21 +240,24 @@ class Registry:
         return project.get("checkouts", {}).get(self.service_key(branch, service))
 
     def remove_checkout(self, root: Path, branch: str, service: str) -> None:
-        data = self.read()
-        project = data["projects"].get(self.project_key(root))
-        if project:
-            project.get("checkouts", {}).pop(self.service_key(branch, service), None)
-        self.write(data)
+        with self.exclusive_state_lock():
+            data = self.read()
+            project = data["projects"].get(self.project_key(root))
+            if project:
+                project.get("checkouts", {}).pop(self.service_key(branch, service), None)
+            self.write(data)
 
     def set_proxy(self, port: int, record: dict[str, Any]) -> None:
-        data = self.read()
-        data.setdefault("proxies", {})[str(port)] = record
-        self.write(data)
+        with self.exclusive_state_lock():
+            data = self.read()
+            data.setdefault("proxies", {})[str(port)] = record
+            self.write(data)
 
     def get_proxy(self, port: int) -> dict[str, Any] | None:
         return self.read().get("proxies", {}).get(str(port))
 
     def remove_proxy(self, port: int) -> None:
-        data = self.read()
-        data.setdefault("proxies", {}).pop(str(port), None)
-        self.write(data)
+        with self.exclusive_state_lock():
+            data = self.read()
+            data.setdefault("proxies", {}).pop(str(port), None)
+            self.write(data)

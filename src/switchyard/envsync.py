@@ -3,14 +3,26 @@ from __future__ import annotations
 import shutil
 from pathlib import Path
 
-from .config import EnvConfig
+from .config import EnvConfig, validate_env_path
+
+
+def safe_env_pair(source_root: Path, worktree: Path, item: str) -> tuple[Path, Path]:
+    relative = validate_env_path(item)
+    source_base = source_root.resolve()
+    target_base = worktree.resolve()
+    source = (source_base / relative).resolve(strict=False)
+    target = (target_base / relative).resolve(strict=False)
+    if not source.is_relative_to(source_base):
+        raise ValueError(f"env source escapes project root: {item}")
+    if not target.is_relative_to(target_base):
+        raise ValueError(f"env target escapes worktree: {item}")
+    return source, target
 
 
 def sync_env_files(source_root: Path, worktree: Path, env: EnvConfig, force: bool = False) -> list[str]:
     actions: list[str] = []
     for item in env.link:
-        source = source_root / item
-        target = worktree / item
+        source, target = safe_env_pair(source_root, worktree, item)
         if not source.exists():
             actions.append(f"missing link source {item}")
             continue
@@ -27,8 +39,7 @@ def sync_env_files(source_root: Path, worktree: Path, env: EnvConfig, force: boo
         actions.append(f"linked {item}")
 
     for item in env.copy:
-        source = source_root / item
-        target = worktree / item
+        source, target = safe_env_pair(source_root, worktree, item)
         if not source.exists():
             actions.append(f"missing copy source {item}")
             continue
@@ -44,4 +55,3 @@ def sync_env_files(source_root: Path, worktree: Path, env: EnvConfig, force: boo
             shutil.copy2(source, target)
         actions.append(f"copied {item}")
     return actions
-

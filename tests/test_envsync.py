@@ -25,7 +25,18 @@ class EnvSyncTests(unittest.TestCase):
             self.assertTrue((worktree / ".env").is_symlink())
             self.assertEqual((worktree / ".env.local").read_text(), "LOCAL=source\n")
 
+    def test_rejects_direct_escape_paths_before_mutation(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp) / "root"
+            worktree = Path(temp) / "worktree"
+            root.mkdir()
+            worktree.mkdir()
+
+            with self.assertRaises(ValueError):
+                sync_env_files(root, worktree, EnvConfig(link=["../secret"]), force=True)
+
+            self.assertFalse((Path(temp) / "secret").exists())
+
 
 if __name__ == "__main__":
     unittest.main()
-

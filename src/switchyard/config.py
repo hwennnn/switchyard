@@ -67,6 +67,25 @@ def discover_config(start: Path) -> Path | None:
     return None
 
 
+def validate_env_path(value: str) -> str:
+    path = Path(value)
+    if not value or value.strip() != value:
+        raise ValueError(f"invalid env path: {value!r}")
+    if path.is_absolute():
+        raise ValueError(f"env path must be relative: {value}")
+    if value in {".", ".."} or any(part in {"", ".", ".."} for part in path.parts):
+        raise ValueError(f"env path must stay inside the project: {value}")
+    return value
+
+
+def env_list(raw: object, key: str) -> list[str]:
+    if raw is None:
+        return []
+    if not isinstance(raw, list) or not all(isinstance(item, str) for item in raw):
+        raise ValueError(f"[env].{key} must be a list of strings")
+    return [validate_env_path(item) for item in raw]
+
+
 def load_config(path: Path) -> ProjectConfig:
     path = path.resolve()
     with path.open("rb") as handle:
@@ -96,6 +115,8 @@ def load_config(path: Path) -> ProjectConfig:
         if not command:
             raise ValueError(f"[services.{name_key}] command is required")
         service_name = slugify(str(name_key))
+        if service_name in services:
+            raise ValueError(f"service names collide after slugging: {name_key}")
         env = service_raw.get("env", {})
         if not isinstance(env, dict):
             raise ValueError(f"[services.{name_key}.env] must be a table")
@@ -114,8 +135,8 @@ def load_config(path: Path) -> ProjectConfig:
         path=path,
         worktree_root=worktree_root,
         env=EnvConfig(
-            link=[str(item) for item in env_raw.get("link", [])],
-            copy=[str(item) for item in env_raw.get("copy", [])],
+            link=env_list(env_raw.get("link", []), "link"),
+            copy=env_list(env_raw.get("copy", []), "copy"),
         ),
         proxy=ProxyConfig(
             host=str(proxy_raw.get("host", "127.0.0.1")),
@@ -176,4 +197,3 @@ end = 49999
 command = "{command}"
 port = {port}
 """
-

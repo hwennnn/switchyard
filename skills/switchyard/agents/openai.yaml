@@ -1,0 +1,4 @@
+interface:
+  display_name: "Switchyard"
+  short_description: "Inspect local agent runtimes"
+  default_prompt: "Use $switchyard to inspect this project's local agent runtime."

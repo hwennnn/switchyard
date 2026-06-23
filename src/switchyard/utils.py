@@ -49,14 +49,26 @@ def run(
     )
 
 
-def port_is_free(port: int, host: str = "127.0.0.1") -> bool:
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        try:
-            sock.bind((host, port))
-        except OSError:
-            return False
+def _can_bind(family: socket.AddressFamily, address: tuple) -> bool:
+    try:
+        with socket.socket(family, socket.SOCK_STREAM) as sock:
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            sock.bind(address)
+    except OSError:
+        return False
     return True
+
+
+def port_is_free(port: int, host: str = "127.0.0.1") -> bool:
+    checks: list[tuple[socket.AddressFamily, tuple]] = []
+    if ":" in host:
+        checks.append((socket.AF_INET6, (host, port, 0, 0)))
+    else:
+        checks.append((socket.AF_INET, (host, port)))
+        checks.append((socket.AF_INET, ("0.0.0.0", port)))
+        if socket.has_ipv6:
+            checks.append((socket.AF_INET6, ("::", port, 0, 0)))
+    return all(_can_bind(family, address) for family, address in checks)
 
 
 def find_free_port(
@@ -85,6 +97,22 @@ def pid_running(pid: int | None) -> bool:
     except PermissionError:
         return True
     return True
+
+
+def process_command_contains(pid: int, expected: str | None) -> bool:
+    if not expected or not pid_running(pid):
+        return False
+    try:
+        result = subprocess.run(
+            ["ps", "-p", str(pid), "-o", "command="],
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            check=False,
+        )
+    except Exception:
+        return False
+    return result.returncode == 0 and expected in result.stdout
 
 
 def stop_process_group(pid: int, timeout: float = 5.0) -> bool:
@@ -177,4 +205,3 @@ def print_table(headers: list[str], rows: list[list[object]]) -> None:
 def fail(message: str, code: int = 1) -> int:
     print(f"error: {message}", file=sys.stderr)
     return code
-
