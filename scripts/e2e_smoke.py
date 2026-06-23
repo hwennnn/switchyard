@@ -30,6 +30,25 @@ def free_port() -> int:
         return int(sock.getsockname()[1])
 
 
+def cleanup(repo: Path, env: dict[str, str]) -> None:
+    subprocess.run(
+        [sys.executable, "-m", "switchyard", "down", "--branch", "feature/demo"],
+        cwd=repo,
+        env=env,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        check=False,
+    )
+    subprocess.run(
+        [sys.executable, "-m", "switchyard", "proxy", "stop"],
+        cwd=repo,
+        env=env,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        check=False,
+    )
+
+
 def main() -> int:
     with tempfile.TemporaryDirectory(prefix="switchyard-e2e-") as temp:
         temp_path = Path(temp)
@@ -46,12 +65,13 @@ def main() -> int:
         blocker.bind(("127.0.0.1", desired_port))
         blocker.listen()
 
-        run(["git", "init"], repo, env)
-        run(["git", "config", "user.email", "switchyard@example.test"], repo, env)
-        run(["git", "config", "user.name", "Switchyard Test"], repo, env)
+        try:
+            run(["git", "init"], repo, env)
+            run(["git", "config", "user.email", "switchyard@example.test"], repo, env)
+            run(["git", "config", "user.name", "Switchyard Test"], repo, env)
 
-        (repo / "app.py").write_text(
-            """
+            (repo / "app.py").write_text(
+                """
 import os
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
@@ -68,9 +88,9 @@ class Handler(BaseHTTPRequestHandler):
 port = int(os.environ["PORT"])
 ThreadingHTTPServer(("127.0.0.1", port), Handler).serve_forever()
 """
-        )
-        (repo / "switchyard.toml").write_text(
-            f"""
+            )
+            (repo / "switchyard.toml").write_text(
+                f"""
 [project]
 name = "demo"
 
@@ -86,49 +106,49 @@ copy = []
 command = "{sys.executable} app.py"
 port = {desired_port}
 """
-        )
-        run(["git", "add", "."], repo, env)
-        run(["git", "commit", "-m", "initial"], repo, env)
+            )
+            run(["git", "add", "."], repo, env)
+            run(["git", "commit", "-m", "initial"], repo, env)
 
-        run([sys.executable, "-m", "switchyard", "create", "feature/demo"], repo, env)
-        run([sys.executable, "-m", "switchyard", "up", "feature/demo"], repo, env)
-        blocker.close()
+            run([sys.executable, "-m", "switchyard", "create", "feature/demo"], repo, env)
+            run([sys.executable, "-m", "switchyard", "up", "feature/demo"], repo, env)
+            blocker.close()
 
-        request = urllib.request.Request(
-            f"http://127.0.0.1:{proxy_port}/",
-            headers={"Host": "web.feature-demo.demo.localhost"},
-        )
-        body = ""
-        for _ in range(30):
-            try:
-                with urllib.request.urlopen(request, timeout=1) as response:
-                    body = response.read().decode()
-                    break
-            except Exception:
-                time.sleep(0.2)
-        if body != "hello feature/demo web":
-            print("unexpected proxy response:", body)
-            return 1
+            request = urllib.request.Request(
+                f"http://127.0.0.1:{proxy_port}/",
+                headers={"Host": "web.feature-demo.demo.localhost"},
+            )
+            body = ""
+            for _ in range(30):
+                try:
+                    with urllib.request.urlopen(request, timeout=1) as response:
+                        body = response.read().decode()
+                        break
+                except Exception:
+                    time.sleep(0.2)
+            if body != "hello feature/demo web":
+                print("unexpected proxy response:", body)
+                return 1
 
-        run([sys.executable, "-m", "switchyard", "checkout", "feature/demo", "web"], repo, env)
-        canonical_body = ""
-        for _ in range(30):
-            try:
-                with urllib.request.urlopen(f"http://127.0.0.1:{desired_port}/", timeout=1) as response:
-                    canonical_body = response.read().decode()
-                    break
-            except Exception:
-                time.sleep(0.2)
-        if canonical_body != "hello feature/demo web":
-            print("unexpected canonical response:", canonical_body)
-            return 1
+            run([sys.executable, "-m", "switchyard", "checkout", "feature/demo", "web"], repo, env)
+            canonical_body = ""
+            for _ in range(30):
+                try:
+                    with urllib.request.urlopen(f"http://127.0.0.1:{desired_port}/", timeout=1) as response:
+                        canonical_body = response.read().decode()
+                        break
+                except Exception:
+                    time.sleep(0.2)
+            if canonical_body != "hello feature/demo web":
+                print("unexpected canonical response:", canonical_body)
+                return 1
 
-        run([sys.executable, "-m", "switchyard", "down", "--branch", "feature/demo"], repo, env)
-        run([sys.executable, "-m", "switchyard", "proxy", "stop"], repo, env)
-        print("E2E OK")
+            print("E2E OK")
+        finally:
+            blocker.close()
+            cleanup(repo, env)
     return 0
 
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

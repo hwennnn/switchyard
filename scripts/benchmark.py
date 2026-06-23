@@ -91,6 +91,25 @@ port = {free_port()}
     return repo
 
 
+def cleanup(repo: Path, env: dict[str, str]) -> None:
+    subprocess.run(
+        [sys.executable, "-m", "switchyard", "down", "--branch", "feature/bench"],
+        cwd=str(repo),
+        env=env,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        check=False,
+    )
+    subprocess.run(
+        [sys.executable, "-m", "switchyard", "proxy", "stop"],
+        cwd=str(repo),
+        env=env,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        check=False,
+    )
+
+
 def source_bytes() -> int:
     total = 0
     for path in (REPO_ROOT / "src").rglob("*.py"):
@@ -117,56 +136,58 @@ def run_once() -> dict[str, object]:
         env["SWITCHYARD_HOME"] = str(root / "home")
         repo = create_repo(root, env)
 
-        metrics = []
-        metrics.append(timed("doctor", lambda: run([sys.executable, "-m", "switchyard", "doctor"], repo, env).stdout))
-        metrics.append(
-            timed(
-                "mcp_initialize_and_doctor",
-                lambda: run(
-                    [sys.executable, "-m", "switchyard", "mcp"],
-                    repo,
-                    env,
-                    "\n".join(
-                        [
-                            '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18"}}',
-                            '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"switchyard_doctor","arguments":{}}}',
-                            "",
-                        ]
-                    ),
-                ).stdout,
+        try:
+            metrics = []
+            metrics.append(timed("doctor", lambda: run([sys.executable, "-m", "switchyard", "doctor"], repo, env).stdout))
+            metrics.append(
+                timed(
+                    "mcp_initialize_and_doctor",
+                    lambda: run(
+                        [sys.executable, "-m", "switchyard", "mcp"],
+                        repo,
+                        env,
+                        "\n".join(
+                            [
+                                '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18"}}',
+                                '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"switchyard_doctor","arguments":{}}}',
+                                "",
+                            ]
+                        ),
+                    ).stdout,
+                )
             )
-        )
-        metrics.append(timed("create_worktree", lambda: run([sys.executable, "-m", "switchyard", "create", "feature/bench"], repo, env).stdout))
-        metrics.append(timed("up_web", lambda: run([sys.executable, "-m", "switchyard", "up", "feature/bench", "web"], repo, env).stdout))
+            metrics.append(timed("create_worktree", lambda: run([sys.executable, "-m", "switchyard", "create", "feature/bench"], repo, env).stdout))
+            metrics.append(timed("up_web", lambda: run([sys.executable, "-m", "switchyard", "up", "feature/bench", "web"], repo, env).stdout))
 
-        config = json.loads((Path(env["SWITCHYARD_HOME"]) / "state.json").read_text())
-        project = next(iter(config["projects"].values()))
-        service = next(iter(project["services"].values()))
-        proxy_port = int(service["url"].rsplit(":", 1)[1])
-        host = str(service["hostname"])
-        request = urllib.request.Request(f"http://127.0.0.1:{proxy_port}/", headers={"Host": host})
+            config = json.loads((Path(env["SWITCHYARD_HOME"]) / "state.json").read_text())
+            project = next(iter(config["projects"].values()))
+            service = next(iter(project["services"].values()))
+            proxy_port = int(service["url"].rsplit(":", 1)[1])
+            host = str(service["hostname"])
+            request = urllib.request.Request(f"http://127.0.0.1:{proxy_port}/", headers={"Host": host})
 
-        def fetch() -> str:
-            for _ in range(30):
-                try:
-                    with urllib.request.urlopen(request, timeout=1) as response:
-                        return response.read().decode()
-                except Exception:
-                    time.sleep(0.1)
-            raise RuntimeError("service did not answer through proxy")
+            def fetch() -> str:
+                for _ in range(30):
+                    try:
+                        with urllib.request.urlopen(request, timeout=1) as response:
+                            return response.read().decode()
+                    except Exception:
+                        time.sleep(0.1)
+                raise RuntimeError("service did not answer through proxy")
 
-        metrics.append(timed("proxy_fetch", fetch))
-        brief = timed("brief_json", lambda: run([sys.executable, "-m", "switchyard", "brief", "feature/bench", "--json"], repo, env).stdout)
-        brief["bytes"] = len(str(brief["result"]).encode())
-        brief["has_checkouts"] = "checkouts" in json.loads(str(brief["result"]))
-        metrics.append(brief)
-        metrics.append(timed("down", lambda: run([sys.executable, "-m", "switchyard", "down", "--branch", "feature/bench"], repo, env).stdout))
-        run([sys.executable, "-m", "switchyard", "proxy", "stop"], repo, env)
-        return {
-            "metrics": [{key: value for key, value in item.items() if key != "result"} for item in metrics],
-            "source_bytes": source_bytes(),
-            "repo_bytes": tree_bytes(REPO_ROOT),
-        }
+            metrics.append(timed("proxy_fetch", fetch))
+            brief = timed("brief_json", lambda: run([sys.executable, "-m", "switchyard", "brief", "feature/bench", "--json"], repo, env).stdout)
+            brief["bytes"] = len(str(brief["result"]).encode())
+            brief["has_checkouts"] = "checkouts" in json.loads(str(brief["result"]))
+            metrics.append(brief)
+            metrics.append(timed("down", lambda: run([sys.executable, "-m", "switchyard", "down", "--branch", "feature/bench"], repo, env).stdout))
+            return {
+                "metrics": [{key: value for key, value in item.items() if key != "result"} for item in metrics],
+                "source_bytes": source_bytes(),
+                "repo_bytes": tree_bytes(REPO_ROOT),
+            }
+        finally:
+            cleanup(repo, env)
 
 
 def summarize(runs: list[dict[str, object]]) -> dict[str, object]:
