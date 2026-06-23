@@ -507,12 +507,13 @@ def codex_mcp_add_args(name: str, root: Path) -> list[str]:
 
 def mcp_config_text(name: str, root: Path) -> str:
     validate_mcp_name(name)
-    args = ["mcp", "--cwd", str(root)]
+    args = ["mcp"]
     args_text = ", ".join(json.dumps(item) for item in args)
     return (
         f"[mcp_servers.{name}]\n"
         'command = "switchyard"\n'
         f"args = [{args_text}]\n"
+        f"cwd = {json.dumps(str(root))}\n"
         "startup_timeout_sec = 10\n"
         "tool_timeout_sec = 60\n"
         'default_tools_approval_mode = "prompt"\n'

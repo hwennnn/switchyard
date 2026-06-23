@@ -167,13 +167,14 @@ port = 8000
         self.assertFalse(data["ok"])
         self.assertIn("switchyard.toml", data["error"])
 
-    def test_mcp_config_text_pins_real_root(self) -> None:
+    def test_mcp_config_text_uses_codex_cwd(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp).resolve()
 
             text = mcp_config_text("switchyard", root)
 
-        self.assertIn('args = ["mcp", "--cwd", ', text)
+        self.assertIn('args = ["mcp"]', text)
+        self.assertIn(f'cwd = "{root}"', text)
         self.assertIn(str(root), text)
         self.assertNotIn("/path/to/project", text)
 

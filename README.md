@@ -135,8 +135,9 @@ project root and adds the MCP server without making you type a path:
 switchyard mcp install
 ```
 
-To inspect the config first, use the setup helper. It prints TOML and the
-matching `codex mcp add` command with the real project root already filled in:
+To inspect the config first, use the setup helper. It prints TOML that uses
+Codex's `cwd` field, so the server command stays `switchyard mcp` instead of
+making you hand-edit a path inside the args:
 
 ```sh
 switchyard mcp config

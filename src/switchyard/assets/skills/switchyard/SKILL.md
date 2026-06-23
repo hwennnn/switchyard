@@ -70,9 +70,10 @@ switchyard mcp config
 ```
 
 `switchyard mcp install` detects the project root and runs `codex mcp add`.
-`switchyard mcp config` prints the trusted config snippet and equivalent command
-with the detected project root already filled in. Keep approval enabled for
-tools that create worktrees, start port forwarders, or start/stop services.
+`switchyard mcp config` prints the trusted config snippet with Codex's `cwd`
+field, keeping the server command itself as `switchyard mcp`. Keep approval
+enabled for tools that create worktrees, start port forwarders, or start/stop
+services.
 
 ## Safety
 

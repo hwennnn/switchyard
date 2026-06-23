@@ -18,8 +18,8 @@ switchyard mcp config
 ```
 
 `switchyard mcp install` detects the root and adds the server with `codex mcp
-add`. `switchyard mcp config` prints a trusted config snippet and equivalent
-command with the detected project root already filled in.
+add`. `switchyard mcp config` prints a trusted config snippet that uses Codex's
+`cwd` field, keeping the server command itself as `switchyard mcp`.
 
 ## Codex Skill
 

@@ -16,6 +16,7 @@
 - MCP tool annotations for read-only discovery and local mutation safety hints.
 - MCP output schemas for structured agent tool results.
 - One-command Codex MCP setup with `switchyard mcp install`.
+- Generated MCP config uses Codex `cwd` so server args stay pathless.
 - MCP worktree create/list tools for agent-managed branch runtimes.
 - MCP checkout/uncheckout tools for canonical local port mappings.
 - Bundled Codex skill with `switchyard skill show/install`.

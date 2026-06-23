@@ -29,8 +29,8 @@ you. To inspect the config first, generate ready-to-paste setup text:
 switchyard mcp config
 ```
 
-The helper prints both TOML and the equivalent Codex CLI command with the
-detected project root filled in. Use `--name` for multiple projects:
+The helper prints TOML that uses Codex's native `cwd` field, plus the equivalent
+Codex CLI command. Use `--name` for multiple projects:
 
 ```sh
 switchyard mcp install --name switchyard-entropic
@@ -84,8 +84,8 @@ so agents can read tool results without scraping text.
 ## Safety
 
 - The MCP server is local stdio, not a network listener.
-- `switchyard mcp install` and `switchyard mcp config` pin the server command to one detected
-  project root; tool calls cannot jump to a different local repository.
+- `switchyard mcp install` and `switchyard mcp config` pin project lookup to one
+  detected root; tool calls cannot jump to a different local repository.
 - `switchyard_create` creates a local git worktree and syncs configured env files.
 - `switchyard_up` starts local processes from `switchyard.toml`.
 - `switchyard_checkout` starts local canonical-port forwarders.
