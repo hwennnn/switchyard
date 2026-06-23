@@ -61,6 +61,13 @@ python3 scripts/benchmark.py --runs 3
 python3 scripts/release_check.py
 ```
 
+To smoke path-free MCP setup for any Switchyard project, run this from that
+checkout:
+
+```sh
+python3 scripts/mcp_project_smoke.py .
+```
+
 ## Why
 
 Git worktrees isolate code, but they do not isolate your local runtime. If two worktrees both want `localhost:3000`, `localhost:8080`, `.env.local`, and the same terminal scrollback, you are back to manual bookkeeping.

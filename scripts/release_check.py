@@ -184,6 +184,7 @@ def check_public_docs() -> None:
     require("From a repository checkout:" in readme, "README should qualify repo-only release scripts")
     require("python3 scripts/benchmark.py --runs 3" in readme, "README should document benchmark reproduction")
     require("python3 scripts/release_check.py" in readme, "README should document release readiness reproduction")
+    require("python3 scripts/mcp_project_smoke.py ." in readme, "README should document reusable MCP project smoke harness")
     require("switchyard-dev" in readme, "README should document publish package name")
     require("brief --json" in readme, "README should show agent-readable state")
     require("`configured_services`" in readme, "README should document configured services in brief output")
@@ -209,6 +210,7 @@ def check_public_docs() -> None:
     require((ROOT / "docs/MCP.md").exists(), "docs/MCP.md missing")
     require((ROOT / "docs/RELEASE.md").exists(), "docs/RELEASE.md missing")
     require((ROOT / "AGENTS.md").exists(), "AGENTS.md missing")
+    require((ROOT / "scripts/mcp_project_smoke.py").exists(), "MCP project smoke harness missing")
     architecture = read("docs/ARCHITECTURE.md")
     mcp_doc = read("docs/MCP.md")
     agent_interface = read("docs/AGENT_INTERFACE.md")
@@ -706,6 +708,7 @@ def check_cli_json_smoke() -> None:
                 """
             )
         )
+        (root / "app").mkdir()
         result = run([sys.executable, "-m", "switchyard", "doctor", "--json"], cwd=root, env=env)
         data = json.loads(result.stdout)
         require(data["ok"] is True, "doctor --json should report ok")
@@ -791,6 +794,24 @@ def check_cli_json_smoke() -> None:
         projects = projects_json["projects"]
         require(projects and projects[0]["name"] == "switchyard", "mcp projects should list registered alias")
         require(projects[0]["status"] == "ok", "mcp projects should report healthy alias")
+        result = run(
+            [
+                sys.executable,
+                str(ROOT / "scripts/mcp_project_smoke.py"),
+                "--json",
+                "--nested",
+                "app",
+                "--name",
+                "release-smoke",
+                str(root),
+            ],
+            cwd=ROOT,
+        )
+        project_smoke = json.loads(result.stdout)
+        require(project_smoke["ok"] is True, "MCP project smoke harness should pass")
+        require(project_smoke["cwd"] == str((root / "app").resolve()), "MCP project smoke harness should run from the nested cwd")
+        require(project_smoke["alias"]["name"] == "release-smoke", "MCP project smoke harness should use the requested alias")
+        require(project_smoke["alias"]["status"] == "ok", "MCP project smoke harness should report a healthy alias")
         env["CODEX_HOME"] = str(root / "codex-home")
         result = run([sys.executable, "-m", "switchyard", "mcp", "install", "--json"], cwd=root, env=env)
         install_result = json.loads(result.stdout)
