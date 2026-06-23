@@ -376,8 +376,8 @@ TOOLS: dict[str, dict[str, Any]] = {
 
 def cwd_from(arguments: dict[str, Any]) -> Path:
     root = SERVER_ROOT or Path.cwd().resolve()
-    cwd = arguments.get("cwd")
-    resolved = Path(str(cwd)).expanduser().resolve() if cwd else root
+    cwd = string_argument(arguments, "cwd")
+    resolved = Path(cwd).expanduser().resolve() if cwd else root
     if resolved != root and not resolved.is_relative_to(root) and not registered_worktree_cwd(root, resolved):
         raise McpError(-32602, f"cwd must stay under MCP server root or a registered worktree: {root}")
     return resolved

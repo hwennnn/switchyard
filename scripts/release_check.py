@@ -254,6 +254,7 @@ def check_mcp_smoke() -> None:
                 '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"switchyard_doctor","arguments":{}}}',
                 '{"jsonrpc":"2.0","id":6,"method":"tools/call","params":{"name":"switchyard_status","arguments":{}}}',
                 '{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"switchyard_up","arguments":{"branch":"feature/mcp","servies":["web"]}}}',
+                '{"jsonrpc":"2.0","id":8,"method":"tools/call","params":{"name":"switchyard_doctor","arguments":{"cwd":123}}}',
                 "",
             ]
         )
@@ -299,6 +300,8 @@ def check_mcp_smoke() -> None:
         require(lines[3]["result"]["structuredContent"] == {"services": []}, "MCP status should return services envelope")
         require(lines[4]["result"]["isError"] is True, "MCP tools should reject unknown arguments")
         require("unexpected argument(s): servies" in lines[4]["result"]["content"][0]["text"], "MCP typo error should be clear")
+        require(lines[5]["result"]["isError"] is True, "MCP tools should reject non-string cwd")
+        require("cwd must be a string" in lines[5]["result"]["content"][0]["text"], "MCP cwd type error should be clear")
         require(not (root / "home").exists(), "read-only MCP doctor should not initialize Switchyard state")
 
         action_payload = "\n".join(

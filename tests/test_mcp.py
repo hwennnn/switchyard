@@ -541,6 +541,26 @@ port = 8000
                 self.assertTrue(result["isError"])
                 self.assertIn("unexpected argument(s)", result["content"][0]["text"])
 
+    def test_tools_reject_non_string_cwd_before_project_lookup(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            set_server_root(root)
+            try:
+                response = handle_request(
+                    {
+                        "jsonrpc": "2.0",
+                        "id": 31,
+                        "method": "tools/call",
+                        "params": {"name": "switchyard_doctor", "arguments": {"cwd": 123}},
+                    }
+                )
+            finally:
+                set_server_root(None)
+
+        result = response["result"]
+        self.assertTrue(result["isError"])
+        self.assertIn("cwd must be a string", result["content"][0]["text"])
+
     def test_tool_cwd_must_stay_under_server_root(self) -> None:
         with tempfile.TemporaryDirectory() as allowed, tempfile.TemporaryDirectory() as other:
             allowed_root = Path(allowed)
