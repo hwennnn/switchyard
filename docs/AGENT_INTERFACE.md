@@ -40,7 +40,8 @@ not contain `cwd`, `--cwd`, or an absolute project path. It uses
 Use
 `switchyard mcp config --json` or `switchyard mcp install --dry-run --json`
 when an agent needs machine-readable setup details or a setup error envelope. Use
-`switchyard mcp projects --json` to inspect registered aliases.
+`switchyard mcp projects --json` to inspect registered aliases and confirm the
+local `home`/`state_path` used for alias lookup.
 
 Clients that support MCP resources can read stable, read-only context before
 choosing a tool:

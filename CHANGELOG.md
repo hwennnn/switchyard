@@ -37,6 +37,7 @@
 - MCP setup chooses a launchable server command while keeping project lookup on local aliases.
 - MCP setup commands expose machine-readable JSON for agents and scripts.
 - MCP setup JSON returns `ok: false` error envelopes for setup failures.
+- MCP alias inspection JSON reports the local registry `home` and `state_path`.
 - Pathless MCP server startup auto-pins to the nearest `switchyard.toml`.
 - MCP startup from registered worktrees now uses the parent project and branch-scoped defaults.
 - MCP install writes the full Codex config block directly instead of shelling out to `codex mcp add`.
@@ -58,6 +59,7 @@
 - PyPI metadata advertises the tested Python versions and source/documentation links.
 - Release gates smoke installed-wheel MCP setup and stdio server behavior.
 - Agent and contributor docs align with the shipped MCP server and release smoke gate.
+- Agent docs clarify explicit env replacement safety with `--force-env`.
 - Minimal sdist allowlist with package-content checks.
 - Pinned CI actions and multi-run benchmark release gate.
 - Validated example configs, including a full-stack peer-placeholder example.

@@ -110,14 +110,16 @@ client launches later.
 Use `switchyard mcp config --json` or
 `switchyard mcp install --dry-run --json` when an agent needs machine-readable
 setup details or setup errors instead of prose/TOML scraping.
-Use `switchyard mcp projects --json` to inspect registered aliases.
+Use `switchyard mcp projects --json` to inspect registered aliases and confirm
+the local `home`/`state_path` used for alias lookup.
 Use `--name` for multiple projects; use `--force` only when intentionally
 replacing an alias.
 
 ## Safety
 
 - Treat `switchyard.toml` commands as executable project code.
-- Do not edit tracked `.env` files.
+- Do not replace existing env targets unless the user explicitly asked for
+  `--force-env`; never add tracked secret files.
 - Do not kill processes that Switchyard did not launch.
 - Prefer targeted service actions over broad runtime changes.
 - Treat `switchyard_create` as a visible filesystem/git action.

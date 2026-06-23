@@ -53,7 +53,8 @@ absolute project path, or placeholder project paths in MCP client config.
 If `SWITCHYARD_HOME` is set, setup JSON/config should include
 `[mcp_servers.name.env]` so the alias remains resolvable when the MCP client
 launches later.
-Use `switchyard mcp projects --json` to inspect local aliases.
+Use `switchyard mcp projects --json` to inspect local aliases and confirm the
+`home`/`state_path` used for alias lookup.
 
 ## Runtime Actions
 
@@ -74,7 +75,8 @@ switchyard down --branch feature/name web
 
 ## Safety
 
-- Do not edit tracked `.env` files.
+- Do not replace existing env targets unless the user explicitly asked for
+  `--force-env`; never add tracked secret files.
 - Do not kill processes that Switchyard did not launch.
 - Treat service commands in `switchyard.toml` as project code.
 - Keep MCP approval enabled for `switchyard_create`, `switchyard_up`, `switchyard_checkout`, `switchyard_uncheckout`, and `switchyard_down`.

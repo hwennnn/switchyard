@@ -220,6 +220,9 @@ To see registered aliases:
 switchyard mcp projects --json
 ```
 
+The JSON includes `home` and `state_path` so agents can tell which local
+Switchyard registry they are inspecting.
+
 Use `--name` if you want a different MCP server name. If an alias already
 points at another project, Switchyard refuses to repoint it unless you pass
 `--force`. Start from the checkout you are configuring so setup stays path-free:

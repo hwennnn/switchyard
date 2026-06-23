@@ -69,6 +69,9 @@ List registered aliases from anywhere:
 switchyard mcp projects --json
 ```
 
+The JSON includes `home` and `state_path`, which lets agents confirm the exact
+local Switchyard registry used for alias lookup.
+
 ## Resources
 
 Clients that support MCP resources can read stable, read-only context before
@@ -164,5 +167,5 @@ so agents can read tool results without scraping text.
   compatibility escape hatch for older automation, not the normal setup path.
 - Use `--project <name>` when an MCP client starts the server outside the
   project tree.
-- Use `switchyard mcp projects --json` to inspect local alias registrations and
-  spot stale project paths.
+- Use `switchyard mcp projects --json` to inspect local alias registrations,
+  confirm the `home`/`state_path`, and spot stale project paths.

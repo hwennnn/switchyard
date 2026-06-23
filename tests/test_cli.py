@@ -339,6 +339,8 @@ command = "python -m http.server {port}"
 
         self.assertEqual(config_code, 0)
         self.assertEqual(projects_code, 0)
+        self.assertEqual(data["home"], str(root / "home"))
+        self.assertEqual(data["state_path"], str(root / "home" / "state.json"))
         self.assertEqual(
             data["projects"],
             [
@@ -383,7 +385,9 @@ command = "python -m http.server {port}"
             data = json.loads(stdout.getvalue())
 
         self.assertEqual(code, 0)
-        self.assertEqual(data, {"projects": []})
+        self.assertEqual(data["home"], str(home))
+        self.assertEqual(data["state_path"], str(home / "state.json"))
+        self.assertEqual(data["projects"], [])
         self.assertFalse(home.exists())
 
     def test_mcp_config_refuses_alias_collision_without_force(self) -> None:

@@ -749,9 +749,10 @@ def install_mcp_config(name: str, root: Path, path: Path | None = None) -> tuple
     return config_path, action
 
 
-def mcp_project_records() -> list[dict[str, object]]:
+def mcp_project_records(registry: Registry | None = None) -> list[dict[str, object]]:
+    registry = registry or Registry(create=False)
     records: list[dict[str, object]] = []
-    for record in Registry(create=False).project_aliases():
+    for record in registry.project_aliases():
         root = Path(record["root"]).expanduser().resolve()
         config_path = root / CONFIG_NAME
         if not config_path.exists():
@@ -765,6 +766,16 @@ def mcp_project_records() -> list[dict[str, object]]:
             }
         )
     return records
+
+
+def mcp_projects_payload() -> dict[str, object]:
+    registry = Registry(create=False)
+    home = registry.home.expanduser().resolve()
+    return {
+        "home": str(home),
+        "state_path": str((home / "state.json").resolve()),
+        "projects": mcp_project_records(registry),
+    }
 
 
 def cmd_mcp_config(args: argparse.Namespace) -> int:
@@ -896,10 +907,12 @@ def cmd_mcp_install(args: argparse.Namespace) -> int:
 
 
 def cmd_mcp_projects(args: argparse.Namespace) -> int:
-    records = mcp_project_records()
+    payload = mcp_projects_payload()
+    records = list(payload["projects"])
     if args.json:
-        print(json.dumps({"projects": records}, indent=2, sort_keys=True))
+        print(json.dumps(payload, indent=2, sort_keys=True))
         return 0
+    print(f"state home: {payload['home']}")
     if not records:
         print("no registered MCP projects")
         return 0
