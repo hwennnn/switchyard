@@ -123,6 +123,8 @@ def check_public_docs() -> None:
     require("switchyard doctor --json" in release_workflow, "release workflow should smoke doctor JSON from wheel")
     require("switchyard mcp config" in release_workflow, "release workflow should smoke MCP config from wheel")
     require("switchyard mcp install --dry-run" in release_workflow, "release workflow should smoke MCP install dry run")
+    require('args = ["mcp", "--project", "switchyard"]' in release_workflow, "release workflow should smoke alias MCP config")
+    require('cwd = "$smoke_project"' not in release_workflow, "release workflow should not expect Codex cwd MCP config")
     require("Validate release tag" in release_workflow, "release workflow should validate release tag")
     require("GITHUB_REF_TYPE" in release_workflow, "release workflow should require a tag ref")
     require("CHANGELOG.md must finalize" in release_workflow, "release workflow should require finalized changelog")
