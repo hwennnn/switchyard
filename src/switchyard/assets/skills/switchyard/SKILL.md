@@ -104,6 +104,9 @@ falls back to the current Python interpreter with
 config should not contain `cwd`, `--cwd`, or an absolute project path. Keep
 approval enabled for tools that create worktrees, start port forwarders, or
 start/stop services.
+Use `switchyard mcp config --json` or
+`switchyard mcp install --dry-run --json` when an agent needs machine-readable
+setup details instead of prose/TOML scraping.
 Use `switchyard mcp projects --json` to inspect registered aliases.
 Use `--name` for multiple projects; use `--force` only when intentionally
 replacing an alias.

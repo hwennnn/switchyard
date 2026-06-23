@@ -36,6 +36,8 @@ Python interpreter with
 `args = ["-m", "switchyard", "mcp", "--project", "name"]`. The alias keeps MCP
 client setup free of hand-written project paths. Generated Codex config should
 not contain `cwd`, `--cwd`, or an absolute project path. Use
+`switchyard mcp config --json` or `switchyard mcp install --dry-run --json`
+when an agent needs machine-readable setup details. Use
 `switchyard mcp projects --json` to inspect registered aliases.
 
 Clients that support MCP resources can read stable, read-only context before

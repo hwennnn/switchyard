@@ -202,7 +202,12 @@ alias and prints ready-to-paste TOML:
 
 ```sh
 switchyard mcp config
+switchyard mcp config --json
+switchyard mcp install --dry-run --json
 ```
+
+Use `--json` when an agent or script needs the generated TOML, launch command,
+and alias state without scraping prose.
 
 To see registered aliases:
 
@@ -389,8 +394,8 @@ switchyard open <service> [branch]
 switchyard where <service> [branch] [--json]
 switchyard brief [branch] [--json]
 switchyard mcp [--project name]
-switchyard mcp config [--name name] [--cwd other-checkout] [--force]
-switchyard mcp install [--name name] [--cwd other-checkout] [--dry-run] [--force]
+switchyard mcp config [--name name] [--cwd other-checkout] [--force] [--json]
+switchyard mcp install [--name name] [--cwd other-checkout] [--dry-run] [--force] [--json]
 switchyard mcp projects [--json]
 switchyard skill show
 switchyard skill install [--target dir] [--force]

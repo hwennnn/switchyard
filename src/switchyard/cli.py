@@ -636,12 +636,12 @@ def mcp_launch_config(name: str) -> tuple[str, list[str], list[str]]:
     )
 
 
-def mcp_config_text(name: str, _root: Path) -> str:
+def mcp_config_payload(name: str) -> dict[str, object]:
     validate_mcp_name(name)
     command, args, comments = mcp_launch_config(name)
     args_text = ", ".join(json.dumps(item) for item in args)
     comment_text = "".join(f"{comment}\n" for comment in comments)
-    return (
+    config_text = (
         f"[mcp_servers.{name}]\n"
         f"{comment_text}"
         f"command = {json.dumps(command)}\n"
@@ -650,6 +650,18 @@ def mcp_config_text(name: str, _root: Path) -> str:
         "tool_timeout_sec = 60\n"
         'default_tools_approval_mode = "prompt"\n'
     )
+    return {
+        "name": name,
+        "config_text": config_text,
+        "command": command,
+        "args": args,
+        "comments": comments,
+        "uses_python_fallback": args[:2] == ["-m", "switchyard"],
+    }
+
+
+def mcp_config_text(name: str, _root: Path) -> str:
+    return str(mcp_config_payload(name)["config_text"])
 
 
 def codex_config_path() -> Path:
@@ -712,17 +724,44 @@ def mcp_project_records() -> list[dict[str, object]]:
 
 
 def cmd_mcp_config(args: argparse.Namespace) -> int:
+    json_output = bool(getattr(args, "json", False))
     try:
         root, found_config = resolve_mcp_config_root(mcp_setup_cwd(args), getattr(args, "mcp_project", None))
-        text = mcp_config_text(args.name, root)
+        payload = mcp_config_payload(args.name)
+        text = str(payload["config_text"])
     except Exception as exc:
+        if json_output:
+            print(json.dumps({"ok": False, "error": str(exc)}, indent=2, sort_keys=True))
+            return 1
         return fail(str(exc))
     if not found_config:
-        return fail(f"could not find {CONFIG_NAME} from {root}; run `switchyard init` there first")
+        message = f"could not find {CONFIG_NAME} from {root}; run `switchyard init` there first"
+        if json_output:
+            print(json.dumps({"ok": False, "error": message}, indent=2, sort_keys=True))
+            return 1
+        return fail(message)
     try:
         register_mcp_project(args.name, root, force=args.force)
     except Exception as exc:
+        if json_output:
+            print(json.dumps({"ok": False, "error": str(exc)}, indent=2, sort_keys=True))
+            return 1
         return fail(str(exc))
+    if json_output:
+        print(
+            json.dumps(
+                {
+                    "ok": True,
+                    "name": args.name,
+                    "registered": True,
+                    "codex_config_path": str(codex_config_path()),
+                    **payload,
+                },
+                indent=2,
+                sort_keys=True,
+            )
+        )
+        return 0
     print(f"# Registered local MCP project: {args.name}")
     print("# Paste into ~/.codex/config.toml, or run `switchyard mcp install`.")
     print()
@@ -731,18 +770,48 @@ def cmd_mcp_config(args: argparse.Namespace) -> int:
 
 
 def cmd_mcp_install(args: argparse.Namespace) -> int:
+    json_output = bool(getattr(args, "json", False))
     try:
         root, found_config = resolve_mcp_config_root(mcp_setup_cwd(args), getattr(args, "mcp_project", None))
-        text = mcp_config_text(args.name, root)
+        payload = mcp_config_payload(args.name)
+        text = str(payload["config_text"])
     except Exception as exc:
+        if json_output:
+            print(json.dumps({"ok": False, "error": str(exc)}, indent=2, sort_keys=True))
+            return 1
         return fail(str(exc))
     if not found_config:
-        return fail(f"could not find {CONFIG_NAME} from {root}; run `switchyard init` there first")
+        message = f"could not find {CONFIG_NAME} from {root}; run `switchyard init` there first"
+        if json_output:
+            print(json.dumps({"ok": False, "error": message}, indent=2, sort_keys=True))
+            return 1
+        return fail(message)
     try:
         validate_mcp_project_alias(args.name, root, force=args.force)
     except Exception as exc:
+        if json_output:
+            print(json.dumps({"ok": False, "error": str(exc)}, indent=2, sort_keys=True))
+            return 1
         return fail(str(exc))
     if args.dry_run:
+        if json_output:
+            print(
+                json.dumps(
+                    {
+                        "ok": True,
+                        "dry_run": True,
+                        "name": args.name,
+                        "registered": False,
+                        "would_register": args.name,
+                        "would_replace": bool(args.force),
+                        "would_update": str(codex_config_path()),
+                        **payload,
+                    },
+                    indent=2,
+                    sort_keys=True,
+                )
+            )
+            return 0
         print(f"# Would update: {codex_config_path()}")
         print(f"# Would register local MCP project: {args.name}")
         print("# Dry run only: the alias is not registered. Use `switchyard mcp config` for pasteable setup.")
@@ -755,7 +824,28 @@ def cmd_mcp_install(args: argparse.Namespace) -> int:
         register_mcp_project(args.name, root, force=args.force)
         config_path, action = install_mcp_config(args.name, root)
     except Exception as exc:
+        if json_output:
+            print(json.dumps({"ok": False, "error": str(exc)}, indent=2, sort_keys=True))
+            return 1
         return fail(str(exc))
+    if json_output:
+        print(
+            json.dumps(
+                {
+                    "ok": True,
+                    "dry_run": False,
+                    "name": args.name,
+                    "registered": True,
+                    "action": action,
+                    "codex_config_path": str(config_path),
+                    "server_project": args.name,
+                    **payload,
+                },
+                indent=2,
+                sort_keys=True,
+            )
+        )
+        return 0
     print(f"{action} Codex MCP server {args.name!r} in {config_path}")
     print(f"server project: {args.name}")
     return 0
@@ -930,11 +1020,13 @@ def build_parser() -> argparse.ArgumentParser:
     mcp_config.add_argument("--cwd", help="Escape hatch: generate config for another checkout")
     mcp_config.add_argument("--name", default="switchyard", help="MCP server name in Codex config")
     mcp_config.add_argument("--force", action="store_true", help="Replace an existing alias that points to another project")
+    mcp_config.add_argument("--json", action="store_true", help="Print machine-readable setup details")
     mcp_install = mcp_sub.add_parser("install", help="Add this project to Codex MCP config")
     mcp_install.add_argument("--cwd", help="Escape hatch: install config for another checkout")
     mcp_install.add_argument("--name", default="switchyard", help="MCP server name in Codex config")
     mcp_install.add_argument("--dry-run", action="store_true", help="Print the Codex config update without writing it")
     mcp_install.add_argument("--force", action="store_true", help="Replace an existing alias that points to another project")
+    mcp_install.add_argument("--json", action="store_true", help="Print machine-readable install details")
     mcp_projects = mcp_sub.add_parser("projects", help="List registered MCP project aliases")
     mcp_projects.add_argument("--json", action="store_true")
     mcp.set_defaults(func=cmd_mcp)

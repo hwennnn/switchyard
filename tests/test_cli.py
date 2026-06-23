@@ -471,6 +471,29 @@ command = "python -m http.server {port}"
         with self.assertRaises(ValueError):
             mcp_config_text("bad name", Path.cwd())
 
+    def test_mcp_config_json_registers_alias(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp).resolve()
+            self.write_config(root)
+
+            stdout = StringIO()
+            with patch.dict(os.environ, {"SWITCHYARD_HOME": str(root / "home")}), chdir(root):
+                with redirect_stdout(stdout), redirect_stderr(StringIO()):
+                    code = main(["mcp", "config", "--json", "--name", "switchyard-demo"])
+                state = Registry(root / "home", create=False).read()
+
+            data = json.loads(stdout.getvalue())
+
+        self.assertEqual(code, 0)
+        self.assertTrue(data["ok"])
+        self.assertTrue(data["registered"])
+        self.assertEqual(data["name"], "switchyard-demo")
+        self.assertEqual(data["args"][-2:], ["--project", "switchyard-demo"])
+        self.assertIn('"--project", "switchyard-demo"', data["config_text"])
+        self.assertNotIn("cwd =", data["config_text"])
+        self.assertNotIn(str(root), stdout.getvalue())
+        self.assertEqual(state["project_aliases"]["switchyard-demo"], str(root))
+
     def test_mcp_install_dry_run_detects_project_root(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp).resolve()
@@ -490,6 +513,30 @@ command = "python -m http.server {port}"
         self.assertNotIn("cwd =", stdout.getvalue())
         self.assertNotIn(str(root), stdout.getvalue())
         self.assertNotIn("/path/to/project", stdout.getvalue())
+
+    def test_mcp_install_dry_run_json_does_not_register_alias(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp).resolve()
+            home = root / "home"
+            codex_home = root / "codex-home"
+            self.write_config(root)
+
+            stdout = StringIO()
+            with patch.dict(os.environ, {"CODEX_HOME": str(codex_home), "SWITCHYARD_HOME": str(home)}), chdir(root):
+                with redirect_stdout(stdout), redirect_stderr(StringIO()):
+                    code = main(["mcp", "install", "--dry-run", "--json", "--name", "switchyard-demo"])
+
+            data = json.loads(stdout.getvalue())
+
+        self.assertEqual(code, 0)
+        self.assertTrue(data["ok"])
+        self.assertTrue(data["dry_run"])
+        self.assertFalse(data["registered"])
+        self.assertEqual(data["would_register"], "switchyard-demo")
+        self.assertEqual(data["would_update"], str(codex_home / "config.toml"))
+        self.assertEqual(data["args"][-2:], ["--project", "switchyard-demo"])
+        self.assertFalse(home.exists())
+        self.assertFalse((codex_home / "config.toml").exists())
 
     def test_mcp_install_help_describes_toml_update(self) -> None:
         stdout = StringIO()
@@ -556,6 +603,29 @@ command = "python -m http.server {port}"
         self.assertEqual(state["project_aliases"]["switchyard-demo"], str(root))
         self.assertIn("Codex MCP server", stdout.getvalue())
         self.assertIn("server project: switchyard-demo", stdout.getvalue())
+
+    def test_mcp_install_json_writes_codex_config(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp).resolve()
+            codex_home = root / "codex-home"
+            self.write_config(root)
+
+            stdout = StringIO()
+            with patch.dict(os.environ, {"CODEX_HOME": str(codex_home), "SWITCHYARD_HOME": str(root / "home")}):
+                with chdir(root), redirect_stdout(stdout), redirect_stderr(StringIO()):
+                    code = main(["mcp", "install", "--json", "--name", "switchyard-demo"])
+
+            data = json.loads(stdout.getvalue())
+            config_text = (codex_home / "config.toml").read_text()
+
+        self.assertEqual(code, 0)
+        self.assertTrue(data["ok"])
+        self.assertFalse(data["dry_run"])
+        self.assertTrue(data["registered"])
+        self.assertIn(data["action"], {"added", "updated", "unchanged"})
+        self.assertEqual(data["codex_config_path"], str(codex_home / "config.toml"))
+        self.assertEqual(data["server_project"], "switchyard-demo")
+        self.assertIn('"--project", "switchyard-demo"', config_text)
 
     def test_mcp_install_updates_existing_server_block(self) -> None:
         with tempfile.TemporaryDirectory() as temp:

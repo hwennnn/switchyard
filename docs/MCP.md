@@ -44,9 +44,12 @@ To inspect the config first, generate ready-to-paste setup text:
 
 ```sh
 switchyard mcp config
+switchyard mcp config --json
 ```
 
 The helper registers the local project alias and prints the same path-free TOML.
+Use `--json` for machine-readable setup details, including the generated TOML,
+launch command, and alias registration state.
 Use `--name` for multiple projects:
 
 ```sh
