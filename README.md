@@ -239,6 +239,13 @@ switchyard://agent/guide
 
 These MCP resources do not initialize Switchyard state.
 
+MCP clients that expose prompts can offer ready-made agent workflows:
+
+```txt
+switchyard_runtime_handoff
+switchyard_branch_runtime
+```
+
 Shell-only agents can run `switchyard brief --json` from a registered worktree;
 Switchyard resolves the parent project and current branch automatically.
 

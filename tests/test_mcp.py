@@ -31,6 +31,7 @@ class McpTests(unittest.TestCase):
         self.assertEqual(response["result"]["protocolVersion"], "2025-06-18")
         self.assertIn("tools", response["result"]["capabilities"])
         self.assertIn("resources", response["result"]["capabilities"])
+        self.assertIn("prompts", response["result"]["capabilities"])
         self.assertIn("instructions", response["result"])
         self.assertIn("switchyard_checkout", response["result"]["instructions"])
         self.assertIn("switchyard_uncheckout", response["result"]["instructions"])
@@ -170,6 +171,66 @@ port = 8000
                         "jsonrpc": "2.0",
                         "id": 6,
                         "method": "resources/read",
+                        "params": params,
+                    }
+                )
+
+                self.assertIn("error", response)
+                self.assertIn(expected, response["error"]["message"])
+
+    def test_prompts_list_and_get_agent_workflows(self) -> None:
+        list_response = handle_request({"jsonrpc": "2.0", "id": 7, "method": "prompts/list"})
+        prompts = {prompt["name"]: prompt for prompt in list_response["result"]["prompts"]}
+
+        self.assertIn("switchyard_runtime_handoff", prompts)
+        self.assertIn("switchyard_branch_runtime", prompts)
+        self.assertEqual(prompts["switchyard_branch_runtime"]["arguments"][0]["name"], "branch")
+        self.assertTrue(prompts["switchyard_branch_runtime"]["arguments"][0]["required"])
+
+        handoff_response = handle_request(
+            {
+                "jsonrpc": "2.0",
+                "id": 8,
+                "method": "prompts/get",
+                "params": {"name": "switchyard_runtime_handoff"},
+            }
+        )
+        branch_response = handle_request(
+            {
+                "jsonrpc": "2.0",
+                "id": 9,
+                "method": "prompts/get",
+                "params": {
+                    "name": "switchyard_branch_runtime",
+                    "arguments": {"branch": "feature/demo", "services": "web api"},
+                },
+            }
+        )
+
+        handoff_text = handoff_response["result"]["messages"][0]["content"]["text"]
+        branch_text = branch_response["result"]["messages"][0]["content"]["text"]
+        self.assertIn("switchyard://project/brief", handoff_text)
+        self.assertIn("switchyard_create", handoff_text)
+        self.assertIn("feature/demo", branch_text)
+        self.assertIn("web api", branch_text)
+        self.assertIn("switchyard_up", branch_text)
+
+    def test_prompts_get_rejects_missing_branch_and_bad_arguments(self) -> None:
+        cases = [
+            ({"name": "switchyard_branch_runtime"}, "branch is required"),
+            ({"name": "switchyard_branch_runtime", "arguments": {"branch": 123}}, "arguments must be an object of strings"),
+            ({"name": "switchyard_runtime_handoff", "arguments": []}, "arguments must be an object"),
+            ({"name": "missing"}, "unknown prompt"),
+            ({}, "name must be a string"),
+        ]
+
+        for params, expected in cases:
+            with self.subTest(expected=expected):
+                response = handle_request(
+                    {
+                        "jsonrpc": "2.0",
+                        "id": 10,
+                        "method": "prompts/get",
                         "params": params,
                     }
                 )

@@ -69,6 +69,18 @@ choosing a tool:
 Project resources use the server root detected by `switchyard mcp` or resolved
 from `--project <name>`. Reading resources does not initialize Switchyard state.
 
+## Prompts
+
+Clients that support MCP prompts can expose ready-made Switchyard workflows:
+
+- `switchyard_runtime_handoff`: starts an agent session with the brief,
+  doctor, focused service lookup, and approval boundaries.
+- `switchyard_branch_runtime`: accepts `branch` and optional `services`
+  arguments and guides an agent through worktree creation and service startup.
+
+Prompts are read-only templates. They do not create worktrees, start services,
+or write Switchyard state.
+
 ## Tools
 
 - `switchyard_doctor`: project config, proxy, services, Switchyard version, and

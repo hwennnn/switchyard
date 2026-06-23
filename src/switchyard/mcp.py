@@ -71,6 +71,32 @@ RESOURCES: list[dict[str, str]] = [
         "mimeType": "text/markdown",
     },
 ]
+PROMPTS: list[dict[str, Any]] = [
+    {
+        "name": "switchyard_runtime_handoff",
+        "title": "Switchyard Runtime Handoff",
+        "description": "Start an agent session by reading Switchyard runtime state before shell exploration.",
+    },
+    {
+        "name": "switchyard_branch_runtime",
+        "title": "Switchyard Branch Runtime",
+        "description": "Guide an agent through creating or starting a branch runtime with user-visible actions.",
+        "arguments": [
+            {
+                "name": "branch",
+                "title": "Branch",
+                "description": "Branch name for the worktree/runtime.",
+                "required": True,
+            },
+            {
+                "name": "services",
+                "title": "Services",
+                "description": "Optional space-separated service names. Leave empty for all configured services.",
+                "required": False,
+            },
+        ],
+    },
+]
 
 
 class McpError(Exception):
@@ -527,6 +553,53 @@ def read_resource(uri: str) -> dict[str, Any]:
     raise McpError(-32004, f"unknown resource: {uri}")
 
 
+def list_prompts() -> list[dict[str, Any]]:
+    return [dict(prompt) for prompt in PROMPTS]
+
+
+def prompt_text(name: str, arguments: dict[str, str]) -> str:
+    if name == "switchyard_runtime_handoff":
+        return (
+            "Use Switchyard as the local runtime source of truth for this project.\n\n"
+            "1. Read `switchyard://project/brief` if MCP resources are available; otherwise call `switchyard_brief`.\n"
+            "2. Read `switchyard://project/doctor` or call `switchyard_doctor` if setup or env files look suspicious.\n"
+            "3. Use `switchyard_where` for a specific service URL/port/log path.\n"
+            "4. Use `switchyard_logs` only for focused debugging.\n"
+            "5. Ask for approval before `switchyard_create`, `switchyard_up`, `switchyard_checkout`, `switchyard_uncheckout`, or `switchyard_down`."
+        )
+    if name == "switchyard_branch_runtime":
+        branch = arguments.get("branch", "").strip()
+        if not branch:
+            raise McpError(-32602, "branch is required")
+        services = arguments.get("services", "").strip()
+        service_text = services or "all configured services"
+        return (
+            f"Prepare the Switchyard runtime for branch `{branch}` and services: {service_text}.\n\n"
+            "1. Read `switchyard://project/brief` or call `switchyard_brief` to see current runtime state.\n"
+            "2. If the branch worktree is missing and the user wants it, call `switchyard_create` with that branch.\n"
+            "3. Before starting services, check `switchyard://project/doctor` or `switchyard_doctor` for `env_warnings`.\n"
+            "4. If the user approved runtime changes, call `switchyard_up` with the branch and selected services.\n"
+            "5. Report URLs from `switchyard_where` or the resulting brief, and read logs only for services that need debugging."
+        )
+    raise McpError(-32602, f"unknown prompt: {name}")
+
+
+def get_prompt(name: str, arguments: dict[str, str]) -> dict[str, Any]:
+    prompt = next((item for item in PROMPTS if item["name"] == name), None)
+    if not prompt:
+        raise McpError(-32602, f"unknown prompt: {name}")
+    text = prompt_text(name, arguments)
+    return {
+        "description": prompt.get("description"),
+        "messages": [
+            {
+                "role": "user",
+                "content": {"type": "text", "text": text},
+            }
+        ],
+    }
+
+
 def normalize_services(value: Any) -> list[str] | None:
     if value in (None, []):
         return None
@@ -757,6 +830,19 @@ def optional_string(value: Any, label: str, default: str) -> str:
     return value
 
 
+def optional_string_map(value: Any, label: str) -> dict[str, str]:
+    if value is None:
+        return {}
+    if not isinstance(value, dict):
+        raise McpError(-32602, f"{label} must be an object")
+    result: dict[str, str] = {}
+    for key, item in value.items():
+        if not isinstance(key, str) or not isinstance(item, str):
+            raise McpError(-32602, f"{label} must be an object of strings")
+        result[key] = item
+    return result
+
+
 def handle_request(message: dict[str, Any]) -> dict[str, Any] | None:
     method = message.get("method")
     message_id = message.get("id")
@@ -779,6 +865,7 @@ def handle_request(message: dict[str, Any]) -> dict[str, Any] | None:
                 "capabilities": {
                     "tools": {"listChanged": False},
                     "resources": {"subscribe": False, "listChanged": False},
+                    "prompts": {"listChanged": False},
                 },
                 "serverInfo": {"name": "switchyard", "title": "Switchyard", "version": __version__},
                 "instructions": INSTRUCTIONS,
@@ -799,6 +886,20 @@ def handle_request(message: dict[str, Any]) -> dict[str, Any] | None:
             return error_response(message_id, exc.code, exc.message)
         except Exception as exc:
             return error_response(message_id, -32000, str(exc))
+    if method == "prompts/list":
+        return response(message_id, {"prompts": list_prompts()})
+    if method == "prompts/get":
+        try:
+            params = optional_object(message.get("params"), "params")
+            name = params.get("name")
+            if not isinstance(name, str) or not name:
+                raise McpError(-32602, "name must be a string")
+            arguments = optional_string_map(params.get("arguments"), "arguments")
+            return response(message_id, get_prompt(name, arguments))
+        except McpError as exc:
+            return error_response(message_id, exc.code, exc.message)
+        except Exception as exc:
+            return error_response(message_id, -32603, str(exc))
     if method == "tools/list":
         return response(message_id, {"tools": [{"name": name, **definition} for name, definition in TOOLS.items()]})
     if method == "tools/call":

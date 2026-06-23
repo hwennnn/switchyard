@@ -26,8 +26,12 @@ switchyard logs web --branch feature/name -n 120 --json
 For MCP clients, prefer:
 
 ```txt
-switchyard_brief -> switchyard_where -> switchyard_logs
+switchyard://project/brief -> switchyard_where -> switchyard_logs
 ```
+
+If MCP resources are unavailable, call `switchyard_brief` first. If MCP prompts
+are available, `switchyard_runtime_handoff` starts the same read-only workflow
+and `switchyard_branch_runtime` guides branch runtime setup.
 
 Use `switchyard_create` only when the user asked for a missing branch runtime.
 

@@ -41,6 +41,10 @@ If MCP tools are available, use this order:
 `switchyard://project/doctor` exposes project setup and `env_warnings`.
 `switchyard://agent/guide` exposes a short read-only workflow guide.
 
+If MCP prompts are available, `switchyard_runtime_handoff` starts a read-only
+runtime inspection workflow, and `switchyard_branch_runtime` guides branch
+runtime setup while leaving all mutations to explicit tools.
+
 MCP tool annotations mark discovery tools as read-only, `switchyard_up` as a
 conservative project-command action, and runtime tools as mutations; still keep
 user approval enabled for mutation tools.

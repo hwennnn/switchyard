@@ -61,3 +61,6 @@ clients that surface tool risk in their approval UI.
 MCP resources such as `switchyard://project/brief`,
 `switchyard://project/doctor`, and `switchyard://agent/guide` are read-only and
 do not initialize Switchyard state.
+MCP prompts such as `switchyard_runtime_handoff` and
+`switchyard_branch_runtime` are read-only templates; runtime changes still
+happen only through the mutation tools above.

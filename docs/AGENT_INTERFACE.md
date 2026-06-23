@@ -43,6 +43,16 @@ switchyard://agent/guide
 
 Reading these resources does not initialize Switchyard state.
 
+Clients that support MCP prompts can expose ready-made workflows:
+
+```txt
+switchyard_runtime_handoff
+switchyard_branch_runtime
+```
+
+Prompts are read-only templates. Runtime changes still happen only through the
+mutation tools.
+
 ## Codex Skill
 
 Install the bundled skill when an agent benefits from Switchyard-specific
