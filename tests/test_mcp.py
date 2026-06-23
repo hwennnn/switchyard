@@ -97,6 +97,16 @@ class McpTests(unittest.TestCase):
         self.assertIn("services", tools["switchyard_status"]["outputSchema"]["properties"])
         self.assertIn("logs", tools["switchyard_logs"]["outputSchema"]["properties"])
 
+    def test_tools_list_describes_worktree_scoped_branch_defaults(self) -> None:
+        response = handle_request({"jsonrpc": "2.0", "id": 2, "method": "tools/list"})
+
+        tools = {tool["name"]: tool for tool in response["result"]["tools"]}
+        for name in ["switchyard_status", "switchyard_uncheckout", "switchyard_down"]:
+            with self.subTest(name=name):
+                description = tools[name]["inputSchema"]["properties"]["branch"]["description"]
+                self.assertIn("registered worktree branch", description)
+                self.assertIn("project root", description)
+
     def test_doctor_tool_returns_structured_content(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)

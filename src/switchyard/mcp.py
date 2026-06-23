@@ -96,6 +96,14 @@ DESTRUCTIVE_LOCAL_TOOL = {
 NULLABLE_STRING = {"type": ["string", "null"]}
 NULLABLE_INTEGER = {"type": ["integer", "null"]}
 STRING_ARRAY = string_array_schema()
+BRANCH_FILTER_DESCRIPTION = (
+    "Optional branch name or slug. Defaults to the registered worktree branch when cwd is inside one; "
+    "from the project root, omit to include all branches."
+)
+STOP_BRANCH_DESCRIPTION = (
+    "Optional branch name. Defaults to the registered worktree branch when cwd is inside one; "
+    "from the project root, omit to stop all matching Switchyard-managed state."
+)
 
 PROXY_OUTPUT_SCHEMA = object_schema(
     {
@@ -219,7 +227,7 @@ TOOLS: dict[str, dict[str, Any]] = {
         "inputSchema": object_schema(
             {
                 **COMMON_CWD,
-                "branch": {"type": "string", "description": "Optional branch name or slug to filter services."},
+                "branch": {"type": "string", "description": BRANCH_FILTER_DESCRIPTION},
             }
         ),
         "outputSchema": STATUS_OUTPUT_SCHEMA,
@@ -336,7 +344,7 @@ TOOLS: dict[str, dict[str, Any]] = {
         "inputSchema": object_schema(
             {
                 **COMMON_CWD,
-                "branch": {"type": "string", "description": "Optional branch name. Omit to consider all branches."},
+                "branch": {"type": "string", "description": STOP_BRANCH_DESCRIPTION},
                 "services": {
                     "type": "array",
                     "description": "Optional service names. Empty stops every matching checkout.",
@@ -353,7 +361,7 @@ TOOLS: dict[str, dict[str, Any]] = {
         "inputSchema": object_schema(
             {
                 **COMMON_CWD,
-                "branch": {"type": "string", "description": "Optional branch name. Omit to consider all branches."},
+                "branch": {"type": "string", "description": STOP_BRANCH_DESCRIPTION},
                 "services": {
                     "type": "array",
                     "description": "Optional service names. Empty stops every matching service.",

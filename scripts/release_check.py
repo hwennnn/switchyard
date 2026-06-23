@@ -279,6 +279,12 @@ def check_mcp_smoke() -> None:
         require(tools["switchyard_up"]["annotations"]["destructiveHint"] is True, "switchyard_up should be conservative")
         require(tools["switchyard_up"]["annotations"]["openWorldHint"] is True, "switchyard_up should account for configured commands")
         require(tools["switchyard_down"]["annotations"]["destructiveHint"] is True, "switchyard_down should be destructive")
+        for name in ["switchyard_status", "switchyard_uncheckout", "switchyard_down"]:
+            branch_description = tools[name]["inputSchema"]["properties"]["branch"]["description"]
+            require(
+                "registered worktree branch" in branch_description and "project root" in branch_description,
+                f"{name} should describe worktree-scoped branch defaults",
+            )
         require(all("outputSchema" in tool for tool in tools.values()), "MCP tools should include output schemas")
         require(
             "services" in tools["switchyard_status"]["outputSchema"]["properties"],

@@ -15,6 +15,7 @@
 - Stdio MCP server for agent-readable runtime state.
 - MCP tool annotations for read-only discovery and local mutation safety hints.
 - MCP output schemas for structured agent tool results.
+- MCP input schemas describe registered-worktree branch defaults for safer agent calls.
 - One-command Codex MCP setup with `switchyard mcp install`.
 - Generated MCP config uses Codex `cwd` so server args stay pathless.
 - Pathless MCP server startup auto-pins to the nearest `switchyard.toml`.
