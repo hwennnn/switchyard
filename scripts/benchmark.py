@@ -158,6 +158,7 @@ def run_once() -> dict[str, object]:
         metrics.append(timed("proxy_fetch", fetch))
         brief = timed("brief_json", lambda: run([sys.executable, "-m", "switchyard", "brief", "feature/bench", "--json"], repo, env).stdout)
         brief["bytes"] = len(str(brief["result"]).encode())
+        brief["has_checkouts"] = "checkouts" in json.loads(str(brief["result"]))
         metrics.append(brief)
         metrics.append(timed("down", lambda: run([sys.executable, "-m", "switchyard", "down", "--branch", "feature/bench"], repo, env).stdout))
         run([sys.executable, "-m", "switchyard", "proxy", "stop"], repo, env)
@@ -185,6 +186,18 @@ def summarize(runs: list[dict[str, object]]) -> dict[str, object]:
         ]
         if bytes_values:
             entry["bytes"] = int(median(bytes_values))
+        bool_keys = sorted(
+            {
+                key
+                for run in runs
+                for metric in run["metrics"]
+                if metric["name"] == name
+                for key, value in metric.items()
+                if isinstance(value, bool)
+            }
+        )
+        for key in bool_keys:
+            entry[key] = all(bool(next(metric[key] for metric in run["metrics"] if metric["name"] == name)) for run in runs)
         metrics.append(entry)
     return {
         "runs": len(runs),

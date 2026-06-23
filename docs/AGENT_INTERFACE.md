@@ -80,6 +80,16 @@ For a compact overview:
       "log_file": "/Users/me/.switchyard/logs/entropic/feature-login/web.log"
     }
   ],
+  "checkouts": [
+    {
+      "service": "web",
+      "status": "running",
+      "listen_host": "127.0.0.1",
+      "listen_port": 3000,
+      "target_host": "127.0.0.1",
+      "target_port": 41000
+    }
+  ],
   "changed_files": [" M src/app.tsx"],
   "recent_errors": []
 }

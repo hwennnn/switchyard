@@ -78,6 +78,7 @@ def check_public_docs() -> None:
     require("switchyard doctor --json" in readme, "README should document machine-readable doctor")
     require("switchyard-dev" in readme, "README should document publish package name")
     require("brief --json" in readme, "README should show agent-readable state")
+    require('"checkouts"' in readme, "README should show checkout state in brief output")
     require("No public tunnels" in readme, "README should state local-first safety")
     require((ROOT / "docs/MCP.md").exists(), "docs/MCP.md missing")
     require((ROOT / "docs/RELEASE.md").exists(), "docs/RELEASE.md missing")
@@ -239,6 +240,7 @@ def check_benchmark() -> None:
     require(metrics["mcp_initialize_and_doctor"]["median_ms"] < 2500, "MCP smoke benchmark is too slow")
     require(metrics["up_web"]["median_ms"] < 5000, "service startup benchmark is too slow")
     require(metrics["brief_json"]["bytes"] < 12000, "brief output is too large for agent context")
+    require(metrics["brief_json"]["has_checkouts"] is True, "brief output should include checkout state")
     require(data["source_bytes"] < 250_000, "source tree is unexpectedly large")
     ok("benchmark thresholds")
 

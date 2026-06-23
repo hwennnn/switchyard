@@ -420,10 +420,28 @@ def hydrate_status(records: list[dict[str, object]]) -> list[dict[str, object]]:
     return hydrated
 
 
+def hydrate_checkouts(records: list[dict[str, object]]) -> list[dict[str, object]]:
+    hydrated = []
+    for record in records:
+        next_record = dict(record)
+        pid = int(next_record.get("pid", 0))
+        command = str(next_record.get("command", ""))
+        running = pid_running(pid) and process_command_contains(pid, command)
+        next_record["status"] = "running" if running else "stale"
+        log_file = Path(str(next_record.get("log_file", "")))
+        next_record["recent_errors"] = recent_error_lines(log_file)
+        hydrated.append(next_record)
+    return hydrated
+
+
 def brief_for(config: ProjectConfig, registry: Registry, branch: str | None, changed_files: list[str]) -> dict[str, object]:
     records = hydrate_status(registry.services(config.root, branch))
+    checkouts = hydrate_checkouts(registry.checkouts(config.root, branch))
     errors = []
     for record in records:
+        for line in record.get("recent_errors", []):
+            errors.append({"service": record.get("service"), "line": line})
+    for record in checkouts:
         for line in record.get("recent_errors", []):
             errors.append({"service": record.get("service"), "line": line})
     return {
@@ -440,6 +458,19 @@ def brief_for(config: ProjectConfig, registry: Registry, branch: str | None, cha
                 "log_file": record.get("log_file"),
             }
             for record in records
+        ],
+        "checkouts": [
+            {
+                "service": record.get("service"),
+                "branch": record.get("branch"),
+                "status": record.get("status"),
+                "listen_host": record.get("listen_host"),
+                "listen_port": record.get("listen_port"),
+                "target_host": record.get("target_host"),
+                "target_port": record.get("target_port"),
+                "log_file": record.get("log_file"),
+            }
+            for record in checkouts
         ],
         "changed_files": changed_files[:50],
         "recent_errors": errors[:20],

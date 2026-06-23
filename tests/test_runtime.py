@@ -9,6 +9,7 @@ from unittest.mock import patch
 from switchyard.config import EnvConfig, PortsConfig, ProjectConfig, ProxyConfig, ServiceConfig
 from switchyard.registry import Registry
 from switchyard.runtime import start_services
+from switchyard.runtime import brief_for
 from switchyard.runtime import stop_checkouts
 from switchyard.runtime import stop_services
 from switchyard.runtime import service_hostname, service_url
@@ -145,6 +146,51 @@ class RuntimeTests(unittest.TestCase):
                 self.assertIsNone(process.poll())
                 self.assertIn("removed stale checkout", checkout_messages[0])
                 self.assertIsNone(registry.find_checkout(config.root, "web", "feature/demo"))
+            finally:
+                process.terminate()
+                process.wait(timeout=5)
+
+    def test_brief_includes_canonical_checkouts(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp) / "repo"
+            home = Path(temp) / "home"
+            root.mkdir()
+            config = ProjectConfig(
+                name="Demo",
+                root=root,
+                path=root / "switchyard.toml",
+                worktree_root=None,
+                env=EnvConfig(),
+                proxy=ProxyConfig(port=7331),
+                ports=PortsConfig(),
+                services={"web": ServiceConfig(name="web", command="python app.py", port=3000)},
+            )
+            registry = Registry(home)
+            process = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(30)"], start_new_session=True)
+            try:
+                registry.ensure_project(config)
+                registry.upsert_checkout(
+                    config,
+                    {
+                        "project": config.name,
+                        "branch": "feature/demo",
+                        "service": "web",
+                        "pid": process.pid,
+                        "command": "definitely-not-this-process",
+                        "listen_host": "127.0.0.1",
+                        "listen_port": 3000,
+                        "target_host": "127.0.0.1",
+                        "target_port": 41000,
+                        "log_file": str(root / "checkout-web.log"),
+                    },
+                )
+
+                brief = brief_for(config, registry, "feature/demo", [])
+
+                self.assertEqual(brief["checkouts"][0]["service"], "web")
+                self.assertEqual(brief["checkouts"][0]["status"], "stale")
+                self.assertEqual(brief["checkouts"][0]["listen_port"], 3000)
+                self.assertEqual(brief["checkouts"][0]["target_port"], 41000)
             finally:
                 process.terminate()
                 process.wait(timeout=5)

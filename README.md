@@ -53,6 +53,7 @@ Example output:
       "port": 41000
     }
   ],
+  "checkouts": [],
   "recent_errors": []
 }
 ```

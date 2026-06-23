@@ -312,6 +312,14 @@ def cmd_brief(args: argparse.Namespace) -> int:
             print(f"- {service['service']} [{service['status']}]: {service['url']}")
     else:
         print("services: none")
+    if brief["checkouts"]:
+        print("checkouts:")
+        for checkout in brief["checkouts"]:
+            print(
+                f"- {checkout['service']} [{checkout['status']}]: "
+                f"{checkout['listen_host']}:{checkout['listen_port']} -> "
+                f"{checkout['target_host']}:{checkout['target_port']}"
+            )
     if brief["changed_files"]:
         print("changed files:")
         for line in brief["changed_files"][:20]:

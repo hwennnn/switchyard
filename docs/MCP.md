@@ -35,7 +35,7 @@ switchyard mcp config --name switchyard-entropic
 - `switchyard_create`: create a managed git worktree and sync configured env files.
 - `switchyard_list`: registered Switchyard worktrees for the project.
 - `switchyard_status`: registered services with running/stale state.
-- `switchyard_brief`: compact project/runtime summary for agent context.
+- `switchyard_brief`: compact project/runtime summary, including service and checkout state.
 - `switchyard_where`: URL, port, PID, worktree, and log path for one service.
 - `switchyard_logs`: recent log tail for one service or branch.
 - `switchyard_up`: start local services for a branch/worktree.
