@@ -46,6 +46,9 @@ switchyard mcp install --name switchyard-entropic
 switchyard mcp config --name switchyard-entropic
 ```
 
+Switchyard refuses to repoint an existing alias at a different project unless
+you pass `--force`.
+
 List registered aliases from anywhere:
 
 ```sh

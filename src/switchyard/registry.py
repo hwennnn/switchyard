@@ -118,10 +118,18 @@ class Registry:
             self.write(data)
             return project
 
-    def register_project_alias(self, alias: str, root: Path) -> None:
+    def register_project_alias(self, alias: str, root: Path, force: bool = False) -> None:
         with self.exclusive_state_lock():
             data = self.read()
-            data.setdefault("project_aliases", {})[alias] = str(root.resolve())
+            aliases = data.setdefault("project_aliases", {})
+            resolved = str(root.resolve())
+            existing = aliases.get(alias)
+            if existing and str(Path(str(existing)).expanduser().resolve()) != resolved and not force:
+                raise ValueError(
+                    f"MCP project alias {alias!r} already points to {existing}; "
+                    "use --name for another project or --force to replace it"
+                )
+            aliases[alias] = resolved
             self.write(data)
 
     def resolve_project_alias(self, alias: str) -> Path | None:

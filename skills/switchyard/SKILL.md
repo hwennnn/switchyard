@@ -87,6 +87,8 @@ snippet with `args = ["mcp", "--project", "name"]`, keeping setup free of
 hard-coded project paths. Keep approval enabled for tools that create
 worktrees, start port forwarders, or start/stop services.
 Use `switchyard mcp projects --json` to inspect registered aliases.
+Use `--name` for multiple projects; use `--force` only when intentionally
+replacing an alias.
 
 ## Safety
 

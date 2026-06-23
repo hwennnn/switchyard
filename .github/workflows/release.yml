@@ -61,6 +61,8 @@ jobs:
           python -m pip install dist/*.whl
           switchyard --version
           smoke_project="$(mktemp -d)"
+          export SWITCHYARD_HOME="$smoke_project/switchyard-home"
+          export CODEX_HOME="$smoke_project/codex-home"
           cat > "$smoke_project/switchyard.toml" <<'EOF'
           [project]
           name = "release-smoke"

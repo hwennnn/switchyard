@@ -560,9 +560,19 @@ def validate_mcp_name(name: str) -> None:
         raise ValueError("MCP server name must contain only letters, numbers, underscores, and dashes")
 
 
-def register_mcp_project(name: str, root: Path) -> None:
+def validate_mcp_project_alias(name: str, root: Path, force: bool = False) -> None:
     validate_mcp_name(name)
-    Registry().register_project_alias(name, root)
+    existing = Registry(create=False).resolve_project_alias(name)
+    if existing and existing != root.resolve() and not force:
+        raise ValueError(
+            f"MCP project alias {name!r} already points to {existing}; "
+            "use --name for another project or --force to replace it"
+        )
+
+
+def register_mcp_project(name: str, root: Path, force: bool = False) -> None:
+    validate_mcp_name(name)
+    Registry().register_project_alias(name, root, force=force)
 
 
 def mcp_config_text(name: str, _root: Path) -> str:
@@ -587,12 +597,13 @@ def codex_config_path() -> Path:
 def upsert_mcp_config_text(existing: str, name: str, root: Path) -> tuple[str, str]:
     table = mcp_config_text(name, root).rstrip() + "\n"
     header = f"[mcp_servers.{name}]"
-    server_prefix = re.escape(header[:-1])
-    next_other_table = rf"^\[(?!mcp_servers\.{re.escape(name)}(?:\.|\]))"
-    pattern = re.compile(rf"(?ms)^{server_prefix}(?:\.[^\]]+)?\]\n.*?(?={next_other_table}|\Z)")
+    pattern = re.compile(rf"(?ms)^{re.escape(header)}\n.*?(?=^\[|\Z)")
     if pattern.search(existing):
         updated = pattern.sub(table, existing, count=1)
         action = "updated"
+    elif match := re.search(rf"(?m)^\[mcp_servers\.{re.escape(name)}\.", existing):
+        updated = existing[: match.start()] + table + "\n" + existing[match.start() :]
+        action = "added"
     elif existing.strip():
         updated = existing.rstrip() + "\n\n" + table
         action = "added"
@@ -646,7 +657,7 @@ def cmd_mcp_config(args: argparse.Namespace) -> int:
     if not found_config:
         return fail(f"could not find {CONFIG_NAME} from {root}; run `switchyard init` there first")
     try:
-        register_mcp_project(args.name, root)
+        register_mcp_project(args.name, root, force=args.force)
     except Exception as exc:
         return fail(str(exc))
     print(f"# Registered local MCP project: {args.name}")
@@ -664,14 +675,21 @@ def cmd_mcp_install(args: argparse.Namespace) -> int:
         return fail(str(exc))
     if not found_config:
         return fail(f"could not find {CONFIG_NAME} from {root}; run `switchyard init` there first")
+    try:
+        validate_mcp_project_alias(args.name, root, force=args.force)
+    except Exception as exc:
+        return fail(str(exc))
     if args.dry_run:
         print(f"# Would update: {codex_config_path()}")
         print(f"# Would register local MCP project: {args.name}")
+        print("# Dry run only: the alias is not registered. Use `switchyard mcp config` for pasteable setup.")
+        if args.force:
+            print("# Would replace any existing local MCP project alias with that name.")
         print()
         print(text, end="")
         return 0
     try:
-        register_mcp_project(args.name, root)
+        register_mcp_project(args.name, root, force=args.force)
         config_path, action = install_mcp_config(args.name, root)
     except Exception as exc:
         return fail(str(exc))
@@ -840,10 +858,12 @@ def build_parser() -> argparse.ArgumentParser:
     mcp_config = mcp_sub.add_parser("config", help="Print copy-paste Codex MCP config for this project")
     mcp_config.add_argument("--cwd", help="Project directory to generate config for")
     mcp_config.add_argument("--name", default="switchyard", help="MCP server name in Codex config")
+    mcp_config.add_argument("--force", action="store_true", help="Replace an existing alias that points to another project")
     mcp_install = mcp_sub.add_parser("install", help="Add this project to Codex MCP config")
     mcp_install.add_argument("--cwd", help="Project directory to install config for")
     mcp_install.add_argument("--name", default="switchyard", help="MCP server name in Codex config")
     mcp_install.add_argument("--dry-run", action="store_true", help="Print the Codex config update without writing it")
+    mcp_install.add_argument("--force", action="store_true", help="Replace an existing alias that points to another project")
     mcp_projects = mcp_sub.add_parser("projects", help="List registered MCP project aliases")
     mcp_projects.add_argument("--json", action="store_true")
     mcp.set_defaults(func=cmd_mcp)

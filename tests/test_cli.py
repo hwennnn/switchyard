@@ -321,6 +321,57 @@ command = "python -m http.server {port}"
         self.assertEqual(data, {"projects": []})
         self.assertFalse(home.exists())
 
+    def test_mcp_config_refuses_alias_collision_without_force(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            workspace = Path(temp).resolve()
+            first = workspace / "first"
+            second = workspace / "second"
+            first.mkdir()
+            second.mkdir()
+            self.write_config(first)
+            self.write_config(second)
+            home = workspace / "home"
+
+            with patch.dict(os.environ, {"SWITCHYARD_HOME": str(home)}), chdir(first):
+                with redirect_stdout(StringIO()), redirect_stderr(StringIO()):
+                    first_code = main(["mcp", "config"])
+
+            stderr = StringIO()
+            with patch.dict(os.environ, {"SWITCHYARD_HOME": str(home)}), chdir(second):
+                with redirect_stdout(StringIO()), redirect_stderr(stderr):
+                    second_code = main(["mcp", "config"])
+
+            state = Registry(home, create=False).read()
+
+        self.assertEqual(first_code, 0)
+        self.assertEqual(second_code, 1)
+        self.assertIn("already points", stderr.getvalue())
+        self.assertEqual(state["project_aliases"]["switchyard"], str(first))
+
+    def test_mcp_config_force_replaces_alias_collision(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            workspace = Path(temp).resolve()
+            first = workspace / "first"
+            second = workspace / "second"
+            first.mkdir()
+            second.mkdir()
+            self.write_config(first)
+            self.write_config(second)
+            home = workspace / "home"
+
+            with patch.dict(os.environ, {"SWITCHYARD_HOME": str(home)}), chdir(first):
+                with redirect_stdout(StringIO()), redirect_stderr(StringIO()):
+                    first_code = main(["mcp", "config"])
+            with patch.dict(os.environ, {"SWITCHYARD_HOME": str(home)}), chdir(second):
+                with redirect_stdout(StringIO()), redirect_stderr(StringIO()):
+                    second_code = main(["mcp", "config", "--force"])
+
+            state = Registry(home, create=False).read()
+
+        self.assertEqual(first_code, 0)
+        self.assertEqual(second_code, 0)
+        self.assertEqual(state["project_aliases"]["switchyard"], str(second))
+
     def test_mcp_command_launches_from_detected_project_root(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp).resolve()
@@ -352,6 +403,7 @@ command = "python -m http.server {port}"
         self.assertEqual(code, 0)
         self.assertIn("# Would update:", stdout.getvalue())
         self.assertIn("# Would register local MCP project: switchyard-demo", stdout.getvalue())
+        self.assertIn("Dry run only: the alias is not registered", stdout.getvalue())
         self.assertIn('args = ["mcp", "--project", "switchyard-demo"]', stdout.getvalue())
         self.assertNotIn("cwd =", stdout.getvalue())
         self.assertNotIn(str(root), stdout.getvalue())
@@ -441,8 +493,8 @@ command = "other"
         self.assertIn('args = ["mcp", "--project", "switchyard"]', text)
         self.assertNotIn("cwd =", text)
         self.assertNotIn("--cwd", text)
-        self.assertNotIn("[mcp_servers.switchyard.tools.switchyard_up]", text)
-        self.assertNotIn('approval_mode = "approve"', text)
+        self.assertIn("[mcp_servers.switchyard.tools.switchyard_up]", text)
+        self.assertIn('approval_mode = "approve"', text)
 
     def test_list_json_returns_registered_worktrees(self) -> None:
         with tempfile.TemporaryDirectory() as temp:

@@ -57,6 +57,12 @@ def read(path: str) -> str:
     return (ROOT / path).read_text(errors="replace")
 
 
+def project_version() -> str:
+    namespace: dict[str, str] = {}
+    exec(read("src/switchyard/__init__.py"), namespace)
+    return namespace["__version__"]
+
+
 def check_metadata() -> None:
     data = tomllib.loads(read("pyproject.toml"))
     project = data["project"]
@@ -81,6 +87,7 @@ def check_public_docs() -> None:
     require("switchyard mcp install" in readme, "README should document one-command MCP setup")
     require("switchyard mcp config" in readme, "README should document copy-paste MCP setup")
     require("switchyard mcp projects --json" in readme, "README should document MCP alias inspection")
+    require("unless you pass\n`--force`" in readme, "README should document MCP alias collision safety")
     require('args = ["mcp", "--project", "name"]' in readme, "README should document alias-based MCP config args")
     require("nearest `switchyard.toml`" in readme, "README should document pathless MCP launch")
     require("switchyard_create" in readme and "switchyard_list" in readme, "README should document MCP worktree tools")
@@ -131,6 +138,8 @@ def check_public_docs() -> None:
     require("switchyard mcp projects --json" in release_workflow, "release workflow should smoke MCP project aliases from wheel")
     require('"status": "ok"' in release_workflow, "release workflow should require healthy MCP alias status")
     require("switchyard mcp install --dry-run" in release_workflow, "release workflow should smoke MCP install dry run")
+    require('export SWITCHYARD_HOME="$smoke_project/switchyard-home"' in release_workflow, "release workflow should isolate Switchyard state")
+    require('export CODEX_HOME="$smoke_project/codex-home"' in release_workflow, "release workflow should isolate Codex config")
     require('args = ["mcp", "--project", "switchyard"]' in release_workflow, "release workflow should smoke alias MCP config")
     require('cwd = "$smoke_project"' not in release_workflow, "release workflow should not expect Codex cwd MCP config")
     require('export SWITCHYARD_HOME="$tmp/switchyard-home"' in release_doc, "release docs should isolate Switchyard state")
@@ -201,6 +210,7 @@ def check_skill() -> None:
     require("switchyard mcp install" in text, "skill should teach one-command MCP setup")
     require("switchyard mcp config" in text, "skill should teach generated MCP setup")
     require("switchyard mcp projects --json" in text, "skill should teach MCP alias inspection")
+    require("use `--force` only when intentionally" in text, "skill should teach cautious MCP alias replacement")
     require("local project alias" in text, "skill should teach alias-based MCP config args")
     require("nearest `switchyard.toml`" in text, "skill should teach pathless MCP launch")
     require("switchyard init --dry-run --json" in text, "skill should teach first-run setup preview")
@@ -402,6 +412,7 @@ def check_cli_json_smoke() -> None:
         result = run([sys.executable, "-m", "switchyard", "mcp", "install", "--dry-run"], cwd=root, env=env)
         require("# Would update:" in result.stdout, "mcp install dry run should print target config path")
         require('args = ["mcp", "--project", "switchyard"]' in result.stdout, "mcp install dry run should use project alias args")
+        require("Dry run only: the alias is not registered" in result.stdout, "mcp install dry run should explain alias is not registered")
         require("cwd =" not in result.stdout, "mcp install dry run should not require Codex cwd field")
         require(str(root.resolve()) not in result.stdout, "mcp install dry run should not print project paths into setup")
         require("/path/to/project" not in result.stdout, "mcp install dry run should not use path placeholders")
@@ -473,9 +484,10 @@ def build_and_check_package() -> None:
         wheel = next(path for path in artifacts if path.suffix == ".whl")
         with zipfile.ZipFile(wheel) as archive:
             wheel_names = archive.namelist()
+        require("switchyard/assets/skills/switchyard/SKILL.md" in wheel_names, "wheel should include packaged Switchyard skill")
         require(
-            any(name.startswith("switchyard/assets/skills/switchyard/") for name in wheel_names),
-            "wheel should include packaged Switchyard skill",
+            "switchyard/assets/skills/switchyard/agents/openai.yaml" in wheel_names,
+            "wheel should include packaged Switchyard skill agent config",
         )
         install_dir = root / "install"
         install_dir.mkdir()
@@ -484,7 +496,7 @@ def build_and_check_package() -> None:
         env["PYTHONPATH"] = str(install_dir)
         env["SWITCHYARD_HOME"] = str(root / "home")
         result = run([str(python), "-m", "switchyard", "--version"], cwd=root, env=env)
-        require("switchyard 0.1.0" in result.stdout, "installed package version check failed")
+        require(f"switchyard {project_version()}" in result.stdout, "installed package version check failed")
         smoke_project = root / "smoke-project"
         smoke_project.mkdir()
         (smoke_project / "switchyard.toml").write_text(
@@ -511,6 +523,7 @@ def build_and_check_package() -> None:
         result = run([str(python), "-m", "switchyard", "mcp", "install", "--dry-run"], cwd=smoke_project, env=env)
         require("# Would update:" in result.stdout, "installed mcp install dry run should print target config path")
         require('args = ["mcp", "--project", "switchyard"]' in result.stdout, "installed mcp install dry run should use project alias args")
+        require("Dry run only: the alias is not registered" in result.stdout, "installed mcp install dry run should explain alias is not registered")
         nested = smoke_project / "apps" / "web"
         nested.mkdir(parents=True)
         mcp_payload = "\n".join(
@@ -536,6 +549,7 @@ def build_and_check_package() -> None:
         skill_target = root / "skills"
         run([str(python), "-m", "switchyard", "skill", "install", "--target", str(skill_target)], cwd=root, env=env)
         require((skill_target / "switchyard" / "SKILL.md").exists(), "installed package could not install skill")
+        require((skill_target / "switchyard" / "agents" / "openai.yaml").exists(), "installed package could not install skill agent config")
     ok("package build, size, and install")
 
 
