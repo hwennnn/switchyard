@@ -106,8 +106,8 @@ jobs:
           PY
           (cd "$smoke_project" && switchyard mcp projects --json | grep '"name": "switchyard"')
           (cd "$smoke_project" && switchyard mcp projects --json | grep '"status": "ok"')
-          (cd "$smoke_project" && switchyard mcp smoke --json > "$tmp/mcp-smoke.json")
-          grep '"ok": true' "$tmp/mcp-smoke.json"
+          (cd "$smoke_project" && switchyard mcp smoke --json > "$smoke_project/mcp-smoke.json")
+          grep '"ok": true' "$smoke_project/mcp-smoke.json"
           ! (cd "$smoke_project" && switchyard mcp config | grep -F "cwd =")
           (cd "$smoke_project" && switchyard mcp install --dry-run | grep -F "# Would update:")
           (cd "$smoke_project" && switchyard mcp install --dry-run --json > "$smoke_project/mcp-install-dry-run.json")

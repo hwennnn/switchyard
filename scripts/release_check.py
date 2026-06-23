@@ -309,6 +309,8 @@ def check_public_docs() -> None:
     require("mcp-config.json" in release_workflow, "release workflow should validate MCP config JSON output")
     require("switchyard mcp projects --json" in release_workflow, "release workflow should smoke MCP project aliases from wheel")
     require("switchyard mcp smoke --json" in release_workflow, "release workflow should smoke MCP setup from wheel")
+    require('"$smoke_project/mcp-smoke.json"' in release_workflow, "release workflow should write MCP smoke output under the smoke project")
+    require('"$tmp/mcp-smoke.json"' not in release_workflow, "release workflow should not use an undefined tmp path for MCP smoke")
     require('"status": "ok"' in release_workflow, "release workflow should require healthy MCP alias status")
     require("switchyard mcp install --dry-run" in release_workflow, "release workflow should smoke MCP install dry run")
     require("switchyard mcp install --dry-run --json" in release_workflow, "release workflow should smoke MCP install dry-run JSON")
