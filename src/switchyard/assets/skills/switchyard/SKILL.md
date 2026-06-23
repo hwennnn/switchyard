@@ -13,6 +13,13 @@ compact state before broad shell exploration.
 
 ## First Move
 
+If the project has no `switchyard.toml`, preview first-run setup without writing
+files:
+
+```sh
+switchyard init --dry-run --json
+```
+
 Prefer the smallest state query that answers the question:
 
 ```sh

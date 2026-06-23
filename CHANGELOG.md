@@ -7,6 +7,7 @@
 - Env file link/copy support for worktrees.
 - Service registry, logs, status, `where`, and compact `brief` output.
 - Checkout mappings in compact `brief` output.
+- Machine-readable `init --dry-run --json` for first-run setup previews.
 - Machine-readable `doctor --json` for setup and release harnesses.
 - Machine-readable action output and error envelopes for `create`, `list`, `up`, `down`, `checkout`, and `uncheckout`.
 - Built-in local HTTP reverse proxy and canonical checkout forwarder.

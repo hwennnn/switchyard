@@ -14,7 +14,7 @@ import webbrowser
 from pathlib import Path
 
 from . import __version__
-from .config import CONFIG_NAME, default_config_text, discover_config, load_config
+from .config import CONFIG_NAME, default_config_text, detect_default_service, discover_config, load_config
 from .envsync import sync_env_files
 from .gittools import GitError, append_info_exclude, create_worktree, current_branch, repo_root, status_short
 from .mcp import serve_mcp
@@ -64,21 +64,62 @@ def resolve_branch_and_worktree(config, registry: Registry, branch: str | None, 
 
 def cmd_init(args: argparse.Namespace) -> int:
     cwd = Path.cwd()
+    in_git_repo = True
     try:
         root = repo_root(cwd)
     except GitError:
+        in_git_repo = False
         root = cwd.resolve()
     path = root / CONFIG_NAME
-    if path.exists() and not args.force:
-        return fail(f"{path} already exists; pass --force to overwrite")
-    path.write_text(default_config_text(root))
     local_state = root / ".switchyard"
+    config_exists = path.exists()
+    local_state_exists = local_state.exists()
+    blocked_by_existing_config = config_exists and not args.force
+    existing_config_message = f"{path} already exists; pass --force to overwrite"
+    command, port = detect_default_service(root)
+    config_text = default_config_text(root)
+    payload = {
+        "ok": True,
+        "action": "init",
+        "dry_run": bool(args.dry_run),
+        "written": False,
+        "created_config": False,
+        "overwrote_config": False,
+        "created_local_state": False,
+        "would_fail": blocked_by_existing_config,
+        "failure_reason": existing_config_message if blocked_by_existing_config else None,
+        "root": str(root),
+        "config": str(path),
+        "config_exists": config_exists,
+        "would_write_config": not blocked_by_existing_config,
+        "local_state": str(local_state),
+        "would_create_local_state": (not local_state_exists) and not blocked_by_existing_config,
+        "would_update_git_exclude": in_git_repo and not blocked_by_existing_config,
+        "detected_service": {"name": "web", "command": command, "port": port},
+        "config_text": config_text,
+    }
+    if args.dry_run:
+        if args.json:
+            print(json.dumps(payload, indent=2, sort_keys=True))
+        else:
+            print(config_text, end="")
+        return 0
+    if blocked_by_existing_config:
+        return fail_output(args, existing_config_message)
+    path.write_text(config_text)
     local_state.mkdir(exist_ok=True)
     (local_state / ".gitignore").write_text("*\n!.gitignore\n")
     try:
         append_info_exclude(root, ".switchyard/")
     except Exception:
         pass
+    payload["written"] = True
+    payload["created_config"] = not config_exists
+    payload["overwrote_config"] = config_exists
+    payload["created_local_state"] = not local_state_exists
+    if args.json:
+        print(json.dumps(payload, indent=2, sort_keys=True))
+        return 0
     print(f"created {path}")
     print("next: edit services if needed, then run `switchyard create feature/name`")
     return 0
@@ -553,6 +594,8 @@ def build_parser() -> argparse.ArgumentParser:
 
     init = sub.add_parser("init", help="Create switchyard.toml")
     init.add_argument("--force", action="store_true")
+    init.add_argument("--dry-run", action="store_true", help="Print the generated config without writing files")
+    init.add_argument("--json", action="store_true")
     init.set_defaults(func=cmd_init)
 
     doctor = sub.add_parser("doctor", help="Check local setup")

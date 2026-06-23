@@ -38,6 +38,102 @@ port = 8000
 """
         )
 
+    def test_init_dry_run_json_does_not_write_files(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp).resolve()
+
+            stdout = StringIO()
+            with chdir(root), redirect_stdout(stdout), redirect_stderr(StringIO()):
+                code = main(["init", "--dry-run", "--json"])
+
+            data = json.loads(stdout.getvalue())
+            self.assertEqual(code, 0)
+            self.assertTrue(data["ok"])
+            self.assertEqual(data["action"], "init")
+            self.assertTrue(data["dry_run"])
+            self.assertFalse(data["written"])
+            self.assertFalse(data["created_config"])
+            self.assertFalse(data["overwrote_config"])
+            self.assertFalse(data["created_local_state"])
+            self.assertFalse(data["would_fail"])
+            self.assertEqual(data["root"], str(root))
+            self.assertEqual(data["detected_service"]["name"], "web")
+            self.assertIn("[services.web]", data["config_text"])
+            self.assertFalse((root / "switchyard.toml").exists())
+            self.assertFalse((root / ".switchyard").exists())
+
+    def test_init_json_writes_repo_root_from_subdir(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp).resolve()
+            app = root / "packages" / "web"
+            app.mkdir(parents=True)
+            subprocess.run(["git", "init"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+            stdout = StringIO()
+            with chdir(app), redirect_stdout(stdout), redirect_stderr(StringIO()):
+                code = main(["init", "--json"])
+
+            data = json.loads(stdout.getvalue())
+            self.assertEqual(code, 0)
+            self.assertFalse(data["dry_run"])
+            self.assertTrue(data["written"])
+            self.assertTrue(data["created_config"])
+            self.assertFalse(data["overwrote_config"])
+            self.assertTrue(data["created_local_state"])
+            self.assertEqual(data["root"], str(root))
+            self.assertEqual(data["config"], str(root / "switchyard.toml"))
+            self.assertTrue((root / "switchyard.toml").exists())
+            self.assertTrue((root / ".switchyard" / ".gitignore").exists())
+
+    def test_init_json_existing_config_failure_stays_machine_readable(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp).resolve()
+            (root / "switchyard.toml").write_text("already here\n")
+
+            stdout = StringIO()
+            with chdir(root), redirect_stdout(stdout), redirect_stderr(StringIO()):
+                code = main(["init", "--json"])
+
+            data = json.loads(stdout.getvalue())
+
+        self.assertEqual(code, 1)
+        self.assertFalse(data["ok"])
+        self.assertIn("already exists", data["error"])
+
+    def test_init_dry_run_json_reports_existing_config_blocker(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp).resolve()
+            (root / "switchyard.toml").write_text("already here\n")
+
+            stdout = StringIO()
+            with chdir(root), redirect_stdout(stdout), redirect_stderr(StringIO()):
+                code = main(["init", "--dry-run", "--json"])
+
+            data = json.loads(stdout.getvalue())
+            self.assertEqual(code, 0)
+            self.assertTrue(data["ok"])
+            self.assertTrue(data["would_fail"])
+            self.assertIn("already exists", data["failure_reason"])
+            self.assertFalse(data["would_write_config"])
+            self.assertFalse(data["would_create_local_state"])
+            self.assertFalse((root / ".switchyard").exists())
+
+    def test_init_force_json_reports_overwrite(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp).resolve()
+            (root / "switchyard.toml").write_text("already here\n")
+
+            stdout = StringIO()
+            with chdir(root), redirect_stdout(stdout), redirect_stderr(StringIO()):
+                code = main(["init", "--force", "--json"])
+
+            data = json.loads(stdout.getvalue())
+            self.assertEqual(code, 0)
+            self.assertTrue(data["written"])
+            self.assertFalse(data["created_config"])
+            self.assertTrue(data["overwrote_config"])
+            self.assertIn("[services.web]", (root / "switchyard.toml").read_text())
+
     def test_doctor_json_success(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)

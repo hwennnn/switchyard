@@ -56,11 +56,13 @@ they create worktrees, start services, or change port mappings.
 Use:
 
 ```sh
+switchyard init --dry-run --json
 switchyard doctor --json
 switchyard list --json
 ```
 
-When checking setup or reporting why a project is not initialized.
+When checking setup, previewing first-run config, or reporting why a project is
+not initialized.
 
 Use:
 

@@ -76,6 +76,7 @@ def check_public_docs() -> None:
     require("switchyard_create" in readme and "switchyard_list" in readme, "README should document MCP worktree tools")
     require("switchyard_checkout" in readme and "switchyard_uncheckout" in readme, "README should document MCP checkout tools")
     require("switchyard skill install" in readme, "README should document bundled skill install")
+    require("switchyard init [--dry-run] [--json]" in readme, "README should document machine-readable init")
     require("switchyard doctor --json" in readme, "README should document machine-readable doctor")
     require("switchyard list [--json]" in readme, "README should document machine-readable worktree list")
     require("tool annotations" in readme, "README should document MCP tool annotations")
@@ -131,6 +132,7 @@ def check_skill() -> None:
     )
     require("switchyard mcp install" in text, "skill should teach one-command MCP setup")
     require("switchyard mcp config" in text, "skill should teach generated MCP setup")
+    require("switchyard init --dry-run --json" in text, "skill should teach first-run setup preview")
     require("switchyard doctor --json" in text, "skill should teach machine-readable doctor")
     require("switchyard list --json" in text, "skill should teach machine-readable worktree list")
     require("MCP tool annotations" in text, "skill should teach MCP safety annotations")
@@ -231,6 +233,18 @@ def check_mcp_smoke() -> None:
 def check_cli_json_smoke() -> None:
     with tempfile.TemporaryDirectory(prefix="switchyard-release-cli-") as temp:
         root = Path(temp)
+        env = os.environ.copy()
+        env["PYTHONPATH"] = str(ROOT / "src")
+        env["SWITCHYARD_HOME"] = str(root / "home")
+        result = run([sys.executable, "-m", "switchyard", "init", "--dry-run", "--json"], cwd=root, env=env)
+        init_data = json.loads(result.stdout)
+        require(init_data["ok"] is True, "init --dry-run --json should report ok")
+        require(init_data["dry_run"] is True and init_data["written"] is False, "init dry run should not write")
+        require(init_data["would_fail"] is False, "fresh init dry run should not report a blocker")
+        require(init_data["created_config"] is False, "init dry run should not report created config")
+        require("[services.web]" in init_data["config_text"], "init dry run should include generated config")
+        require(not (root / "switchyard.toml").exists(), "init dry run should not write switchyard.toml")
+        require(not (root / ".switchyard").exists(), "init dry run should not create local state")
         (root / "switchyard.toml").write_text(
             textwrap.dedent(
                 """
@@ -243,9 +257,6 @@ def check_cli_json_smoke() -> None:
                 """
             )
         )
-        env = os.environ.copy()
-        env["PYTHONPATH"] = str(ROOT / "src")
-        env["SWITCHYARD_HOME"] = str(root / "home")
         result = run([sys.executable, "-m", "switchyard", "doctor", "--json"], cwd=root, env=env)
         data = json.loads(result.stdout)
         require(data["ok"] is True, "doctor --json should report ok")

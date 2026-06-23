@@ -7,6 +7,13 @@ services, URLs, ports, logs, changed files, and recent errors.
 
 ## Default Workflow
 
+For a repository that has not been initialized, preview the generated config
+without writing files:
+
+```sh
+switchyard init --dry-run --json
+```
+
 Use compact state before broad shell exploration:
 
 ```sh

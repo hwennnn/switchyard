@@ -90,6 +90,7 @@ PYTHONPATH=src python3 -m switchyard --help
 Inside a git repository:
 
 ```sh
+switchyard init --dry-run
 switchyard init
 switchyard create feature/login
 switchyard up feature/login
@@ -265,7 +266,7 @@ Today, checkout is HTTP-focused. Raw TCP services such as Postgres and Redis are
 ## Commands
 
 ```txt
-switchyard init
+switchyard init [--dry-run] [--json]
 switchyard doctor [--json]
 switchyard create <branch> [--json]
 switchyard list [--json]
