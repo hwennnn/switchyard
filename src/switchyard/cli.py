@@ -538,12 +538,32 @@ def resolve_mcp_project_root(project: str) -> Path:
     return config_path.parent.resolve()
 
 
+def registered_mcp_worktree_project_root(cwd: Path) -> Path | None:
+    registered = Registry(create=False).find_worktree_containing(cwd)
+    if not registered:
+        return None
+    project, _ = registered
+    root_value = project.get("root")
+    if not root_value:
+        raise FileNotFoundError("registered MCP worktree has no parent project root; recreate it with `switchyard create`")
+    root = Path(str(root_value)).expanduser().resolve()
+    config_value = project.get("config")
+    config_path = Path(str(config_value)).expanduser().resolve() if config_value else root / CONFIG_NAME
+    if config_path.parent.resolve() != root or config_path.name != CONFIG_NAME:
+        raise FileNotFoundError("registered MCP worktree has an invalid parent project config path; recreate it with `switchyard create`")
+    if not config_path.exists():
+        raise FileNotFoundError(f"registered MCP worktree parent project no longer has {CONFIG_NAME}: {root}")
+    return root
+
+
 def resolve_mcp_server_root(cwd: str | None, project: str | None = None) -> Path:
     if cwd and project:
         raise ValueError("use either --cwd or --project, not both")
     if project:
         return resolve_mcp_project_root(project)
     root = Path(cwd).expanduser().resolve() if cwd else Path.cwd().resolve()
+    if registered_mcp_worktree_project_root(root):
+        return root
     config_path = discover_config(root)
     if config_path:
         return config_path.parent.resolve()
@@ -556,6 +576,9 @@ def resolve_mcp_config_root(cwd: str | None, project: str | None = None) -> tupl
     if project:
         return resolve_mcp_project_root(project), True
     root = Path(cwd).expanduser().resolve() if cwd else Path.cwd().resolve()
+    registered_root = registered_mcp_worktree_project_root(root)
+    if registered_root:
+        return registered_root, True
     config_path = discover_config(root)
     if config_path:
         return config_path.parent.resolve(), True

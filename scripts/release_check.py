@@ -514,6 +514,21 @@ def check_mcp_smoke() -> None:
         action_lines = [json.loads(line) for line in result.stdout.splitlines()]
         require(action_lines[0]["result"]["structuredContent"]["created"] is True, "MCP create failed")
         require(action_lines[1]["result"]["structuredContent"]["worktrees"][0]["branch"] == "feature/mcp", "MCP list failed")
+        worktree = Path(action_lines[0]["result"]["structuredContent"]["worktree"])
+        result = run(
+            [sys.executable, "-m", "switchyard", "mcp"],
+            cwd=worktree,
+            env=env,
+            input_text='{"jsonrpc":"2.0","id":21,"method":"resources/read","params":{"uri":"switchyard://project/brief"}}\n',
+        )
+        worktree_brief = json.loads(json.loads(result.stdout)["result"]["contents"][0]["text"])
+        require(worktree_brief["project"] == "demo", "MCP worktree launch should use parent project")
+        require(
+            Path(worktree_brief["project_root"]).resolve() == root.resolve(),
+            "MCP worktree launch should keep parent project root",
+        )
+        require(worktree_brief["branch"] == "feature/mcp", "MCP worktree launch should default to worktree branch")
+        require(worktree_brief["configured_services"] == ["web"], "MCP worktree launch should keep configured services")
     ok("MCP smoke")
 
 
@@ -656,6 +671,9 @@ def build_and_check_package() -> None:
         require(f"switchyard {project_version()}" in result.stdout, "installed package version check failed")
         smoke_project = root / "smoke-project"
         smoke_project.mkdir()
+        run(["git", "init"], cwd=smoke_project)
+        run(["git", "config", "user.email", "test@example.com"], cwd=smoke_project)
+        run(["git", "config", "user.name", "Test User"], cwd=smoke_project)
         (smoke_project / "switchyard.toml").write_text(
             textwrap.dedent(
                 """
@@ -667,6 +685,8 @@ def build_and_check_package() -> None:
                 """
             )
         )
+        run(["git", "add", "switchyard.toml"], cwd=smoke_project)
+        run(["git", "commit", "-m", "init"], cwd=smoke_project)
         result = run([str(python), "-m", "switchyard", "doctor", "--json"], cwd=smoke_project, env=env)
         require(json.loads(result.stdout)["project"]["name"] == "installed-demo", "installed doctor --json failed")
         result = run([str(python), "-m", "switchyard", "mcp", "config"], cwd=smoke_project, env=env)
@@ -704,6 +724,25 @@ def build_and_check_package() -> None:
         require(
             "feature/install" in mcp_lines[2]["result"]["messages"][0]["content"]["text"],
             "installed mcp prompts should render branch argument",
+        )
+        result = run([str(python), "-m", "switchyard", "create", "feature/installed-worktree", "--json"], cwd=smoke_project, env=env)
+        create_data = json.loads(result.stdout)
+        require(create_data["ok"] is True and create_data["branch"] == "feature/installed-worktree", "installed create --json failed")
+        installed_worktree = Path(create_data["worktree"])
+        result = run([str(python), "-m", "switchyard", "mcp"], cwd=installed_worktree, env=env, input_text=mcp_payload)
+        mcp_lines = [json.loads(line) for line in result.stdout.splitlines()]
+        require(
+            mcp_lines[0]["result"]["structuredContent"]["project"] == "installed-demo",
+            "installed mcp server should use parent project from registered worktree",
+        )
+        worktree_brief = json.loads(mcp_lines[1]["result"]["contents"][0]["text"])
+        require(
+            Path(worktree_brief["project_root"]).resolve() == smoke_project.resolve(),
+            "installed mcp resources should keep parent project root from registered worktree",
+        )
+        require(
+            worktree_brief["branch"] == "feature/installed-worktree",
+            "installed mcp resources should default to registered worktree branch",
         )
         result = run([str(python), "-m", "switchyard", "mcp", "--project", "switchyard"], cwd=root, env=env, input_text=mcp_payload)
         mcp_lines = [json.loads(line) for line in result.stdout.splitlines()]

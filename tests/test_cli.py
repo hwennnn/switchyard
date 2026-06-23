@@ -385,6 +385,66 @@ command = "python -m http.server {port}"
         self.assertEqual(code, 0)
         self.assertEqual(serve.call_args.args[0], root)
 
+    def test_mcp_command_launches_from_registered_worktree_cwd(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp).resolve()
+            worktree = root / ".worktrees" / "feature-demo"
+            worktree.mkdir(parents=True)
+            self.write_config(root)
+
+            with patch.dict(os.environ, {"SWITCHYARD_HOME": str(root / "home")}):
+                config = load_config(root / "switchyard.toml")
+                registry = Registry()
+                registry.ensure_project(config)
+                registry.upsert_worktree(config, "feature/demo", worktree)
+                with chdir(worktree), patch("switchyard.cli.serve_mcp", return_value=0) as serve:
+                    code = main(["mcp"])
+
+        self.assertEqual(code, 0)
+        self.assertEqual(serve.call_args.args[0], worktree)
+
+    def test_mcp_config_from_registered_worktree_registers_parent_project(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp).resolve()
+            worktree = root / ".worktrees" / "feature-demo"
+            worktree.mkdir(parents=True)
+            self.write_config(root)
+
+            stdout = StringIO()
+            with patch.dict(os.environ, {"SWITCHYARD_HOME": str(root / "home")}):
+                config = load_config(root / "switchyard.toml")
+                registry = Registry()
+                registry.ensure_project(config)
+                registry.upsert_worktree(config, "feature/demo", worktree)
+                with chdir(worktree), redirect_stdout(stdout), redirect_stderr(StringIO()):
+                    code = main(["mcp", "config", "--name", "switchyard-demo"])
+                state = Registry(root / "home", create=False).read()
+
+        self.assertEqual(code, 0)
+        self.assertEqual(state["project_aliases"]["switchyard-demo"], str(root))
+        self.assertNotIn(str(worktree), stdout.getvalue())
+
+    def test_mcp_registered_worktree_refuses_stale_parent_config_under_another_project(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            outer = Path(temp).resolve()
+            stale_root = outer / "stale"
+            worktree = stale_root / ".worktrees" / "feature-demo"
+            stale_root.mkdir()
+            worktree.mkdir(parents=True)
+            self.write_config(outer)
+            self.write_config(stale_root)
+
+            with patch.dict(os.environ, {"SWITCHYARD_HOME": str(outer / "home")}):
+                config = load_config(stale_root / "switchyard.toml")
+                registry = Registry()
+                registry.ensure_project(config)
+                registry.upsert_worktree(config, "feature/demo", worktree)
+                (stale_root / "switchyard.toml").unlink()
+                with self.assertRaises(FileNotFoundError) as raised:
+                    resolve_mcp_config_root(str(worktree))
+
+        self.assertIn("parent project no longer has switchyard.toml", str(raised.exception))
+
     def test_mcp_config_name_must_be_toml_safe(self) -> None:
         with self.assertRaises(ValueError):
             mcp_config_text("bad name", Path.cwd())
