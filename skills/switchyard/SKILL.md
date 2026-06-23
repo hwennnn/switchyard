@@ -112,6 +112,8 @@ Use `switchyard mcp config --json` or
 setup details or setup errors instead of prose/TOML scraping.
 Use `switchyard mcp projects --json` to inspect registered aliases and confirm
 the local `home`/`state_path` used for alias lookup.
+Use `switchyard mcp smoke --json` from a configured project when you need to
+verify path-free setup end to end with temporary local state.
 Use `--name` for multiple projects; use `--force` only when intentionally
 replacing an alias.
 

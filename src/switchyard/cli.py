@@ -6,6 +6,7 @@ import json
 import os
 import re
 import shutil
+import subprocess
 import sys
 import tempfile
 import time
@@ -345,7 +346,7 @@ def cmd_status(args: argparse.Namespace) -> int:
     except Exception as exc:
         return fail_output(args, str(exc))
     if args.json:
-        print(json.dumps(records, indent=2, sort_keys=True))
+        print(json.dumps({"services": records}, indent=2, sort_keys=True))
         return 0
     if not records:
         print("no services registered")
@@ -609,9 +610,10 @@ def validate_mcp_name(name: str) -> None:
         raise ValueError("MCP server name must contain only letters, numbers, underscores, and dashes")
 
 
-def validate_mcp_project_alias(name: str, root: Path, force: bool = False) -> None:
+def validate_mcp_project_alias(name: str, root: Path, force: bool = False, registry: Registry | None = None) -> None:
     validate_mcp_name(name)
-    existing = Registry(create=False).resolve_project_alias(name)
+    registry = registry or Registry(create=False)
+    existing = registry.resolve_project_alias(name)
     if existing and existing != root.resolve() and not force:
         raise ValueError(
             f"MCP project alias {name!r} already points to {existing}; "
@@ -619,26 +621,49 @@ def validate_mcp_project_alias(name: str, root: Path, force: bool = False) -> No
         )
 
 
-def register_mcp_project(name: str, root: Path, force: bool = False) -> None:
+def register_mcp_project(name: str, root: Path, force: bool = False, registry: Registry | None = None) -> None:
     validate_mcp_name(name)
-    Registry().register_project_alias(name, root, force=force)
+    registry = registry or Registry()
+    registry.register_project_alias(name, root, force=force)
 
 
-def mcp_launch_config(name: str) -> tuple[str, list[str], list[str]]:
+def path_within(path: Path, root: Path | None) -> bool:
+    if root is None:
+        return False
+    resolved_root = root.expanduser().resolve()
+    resolved_path = path.expanduser().resolve()
+    return resolved_path == resolved_root or resolved_path.is_relative_to(resolved_root)
+
+
+def mcp_launch_config(name: str, root: Path | None = None) -> tuple[str, list[str], list[str]]:
+    skipped_project_local = False
     invoked = Path(sys.argv[0]).expanduser()
     if invoked.name in {"switchyard", "sy"}:
         resolved = invoked.resolve()
         if resolved.exists():
-            return str(resolved), ["mcp", "--project", name], []
+            if not path_within(resolved, root):
+                return str(resolved), ["mcp", "--project", name], []
+            skipped_project_local = True
 
     resolved_switchyard = shutil.which("switchyard")
     if resolved_switchyard:
-        return resolved_switchyard, ["mcp", "--project", name], []
+        switchyard_path = Path(resolved_switchyard).expanduser().resolve()
+        if not path_within(switchyard_path, root):
+            return str(switchyard_path), ["mcp", "--project", name], []
+        skipped_project_local = True
+
+    comments = []
+    if skipped_project_local:
+        comments.append("# Ignored a project-local `switchyard` executable to keep MCP config path-free.")
+    if path_within(Path(sys.executable), root):
+        comments.append("# Install Switchyard on PATH with pipx/pip so the MCP client can launch it.")
+        return "switchyard", ["mcp", "--project", name], comments
 
     return (
         sys.executable,
         ["-m", "switchyard", "mcp", "--project", name],
-        [
+        comments
+        + [
             "# `switchyard` was not found on PATH; this uses the current Python interpreter.",
             "# If Codex cannot launch it, install Switchyard with pipx or rerun from the target virtualenv.",
         ],
@@ -649,12 +674,20 @@ def explicit_mcp_env(existing: dict[str, str] | None = None) -> dict[str, str]:
     env = dict(existing or {})
     if "SWITCHYARD_HOME" in os.environ:
         env["SWITCHYARD_HOME"] = str(switchyard_home().expanduser().resolve())
+    elif "SWITCHYARD_HOME" in env:
+        env["SWITCHYARD_HOME"] = str(Path(env["SWITCHYARD_HOME"]).expanduser().resolve())
     return env
 
 
-def mcp_config_payload(name: str, existing_env: dict[str, str] | None = None) -> dict[str, object]:
+def mcp_registry_for_env(env: dict[str, str], create: bool = True) -> Registry:
+    if "SWITCHYARD_HOME" in env:
+        return Registry(Path(env["SWITCHYARD_HOME"]).expanduser().resolve(), create=create)
+    return Registry(create=create)
+
+
+def mcp_config_payload(name: str, existing_env: dict[str, str] | None = None, root: Path | None = None) -> dict[str, object]:
     validate_mcp_name(name)
-    command, args, comments = mcp_launch_config(name)
+    command, args, comments = mcp_launch_config(name, root=root)
     env = explicit_mcp_env(existing_env)
     args_text = ", ".join(json.dumps(item) for item in args)
     comment_text = "".join(f"{comment}\n" for comment in comments)
@@ -684,7 +717,7 @@ def mcp_config_payload(name: str, existing_env: dict[str, str] | None = None) ->
 
 
 def mcp_config_text(name: str, _root: Path) -> str:
-    return str(mcp_config_payload(name)["config_text"])
+    return str(mcp_config_payload(name, root=_root)["config_text"])
 
 
 def codex_config_path() -> Path:
@@ -695,7 +728,7 @@ def codex_config_path() -> Path:
 def upsert_mcp_config_text(existing: str, name: str, root: Path) -> tuple[str, str]:
     original = existing
     existing_env = existing_mcp_env(existing, name)
-    table = str(mcp_config_payload(name, existing_env)["config_text"]).rstrip() + "\n"
+    table = str(mcp_config_payload(name, existing_env, root=root)["config_text"]).rstrip() + "\n"
     header = f"[mcp_servers.{name}]"
     env_header = f"[mcp_servers.{name}.env]"
     existing = re.compile(rf"(?ms)^{re.escape(env_header)}\n.*?(?=^\[|\Z)").sub("", existing)
@@ -782,8 +815,9 @@ def cmd_mcp_config(args: argparse.Namespace) -> int:
     json_output = bool(getattr(args, "json", False))
     try:
         root, found_config = resolve_mcp_config_root(mcp_setup_cwd(args), getattr(args, "mcp_project", None))
-        payload = mcp_config_payload(args.name)
+        payload = mcp_config_payload(args.name, root=root)
         text = str(payload["config_text"])
+        registry = mcp_registry_for_env(payload["env"], create=False)
     except Exception as exc:
         if json_output:
             print(json.dumps({"ok": False, "error": str(exc)}, indent=2, sort_keys=True))
@@ -796,7 +830,7 @@ def cmd_mcp_config(args: argparse.Namespace) -> int:
             return 1
         return fail(message)
     try:
-        register_mcp_project(args.name, root, force=args.force)
+        register_mcp_project(args.name, root, force=args.force, registry=registry)
     except Exception as exc:
         if json_output:
             print(json.dumps({"ok": False, "error": str(exc)}, indent=2, sort_keys=True))
@@ -828,8 +862,15 @@ def cmd_mcp_install(args: argparse.Namespace) -> int:
     json_output = bool(getattr(args, "json", False))
     try:
         root, found_config = resolve_mcp_config_root(mcp_setup_cwd(args), getattr(args, "mcp_project", None))
-        payload = mcp_config_payload(args.name)
+        config_path = codex_config_path()
+        existing = config_path.read_text() if config_path.exists() else ""
+        if existing.strip():
+            tomllib.loads(existing)
+        existing_env = existing_mcp_env(existing, args.name)
+        payload = mcp_config_payload(args.name, existing_env, root=root)
         text = str(payload["config_text"])
+        registry = mcp_registry_for_env(payload["env"], create=False)
+        _, action = upsert_mcp_config_text(existing, args.name, root)
     except Exception as exc:
         if json_output:
             print(json.dumps({"ok": False, "error": str(exc)}, indent=2, sort_keys=True))
@@ -842,7 +883,7 @@ def cmd_mcp_install(args: argparse.Namespace) -> int:
             return 1
         return fail(message)
     try:
-        validate_mcp_project_alias(args.name, root, force=args.force)
+        validate_mcp_project_alias(args.name, root, force=args.force, registry=registry)
     except Exception as exc:
         if json_output:
             print(json.dumps({"ok": False, "error": str(exc)}, indent=2, sort_keys=True))
@@ -859,7 +900,7 @@ def cmd_mcp_install(args: argparse.Namespace) -> int:
                         "registered": False,
                         "would_register": args.name,
                         "would_replace": bool(args.force),
-                        "would_update": str(codex_config_path()),
+                        "would_update": str(config_path),
                         **payload,
                     },
                     indent=2,
@@ -876,8 +917,8 @@ def cmd_mcp_install(args: argparse.Namespace) -> int:
         print(text, end="")
         return 0
     try:
-        register_mcp_project(args.name, root, force=args.force)
         config_path, action = install_mcp_config(args.name, root)
+        register_mcp_project(args.name, root, force=args.force, registry=registry)
     except Exception as exc:
         if json_output:
             print(json.dumps({"ok": False, "error": str(exc)}, indent=2, sort_keys=True))
@@ -918,6 +959,195 @@ def cmd_mcp_projects(args: argparse.Namespace) -> int:
         return 0
     rows = [[item["name"], item["status"], item["root"]] for item in records]
     print_table(["name", "status", "root"], rows)
+    return 0
+
+
+def mcp_smoke_rpc_payload() -> str:
+    messages = [
+        {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "initialize",
+            "params": {
+                "protocolVersion": "2024-11-05",
+                "capabilities": {},
+                "clientInfo": {"name": "switchyard-mcp-smoke", "version": "0"},
+            },
+        },
+        {"jsonrpc": "2.0", "method": "notifications/initialized", "params": {}},
+        {
+            "jsonrpc": "2.0",
+            "id": 2,
+            "method": "resources/read",
+            "params": {"uri": "switchyard://project/brief"},
+        },
+    ]
+    return "\n".join(json.dumps(message) for message in messages) + "\n"
+
+
+def run_mcp_smoke_command(args: list[str], cwd: Path, env: dict[str, str], stdin: str | None = None) -> str:
+    result = subprocess.run(
+        [sys.executable, "-m", "switchyard", *args],
+        cwd=str(cwd),
+        env=env,
+        input=stdin,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(
+            f"switchyard {' '.join(args)} failed with exit code {result.returncode}\n"
+            f"stdout:\n{result.stdout}\n"
+            f"stderr:\n{result.stderr}"
+        )
+    return result.stdout
+
+
+def run_mcp_smoke_process(command: str, args: list[str], cwd: Path, env: dict[str, str], stdin: str) -> str:
+    result = subprocess.run(
+        [command, *args],
+        cwd=str(cwd),
+        env=env,
+        input=stdin,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(
+            f"configured MCP server failed with exit code {result.returncode}\n"
+            f"stdout:\n{result.stdout}\n"
+            f"stderr:\n{result.stderr}"
+        )
+    return result.stdout
+
+
+def find_mcp_alias(projects: list[dict[str, object]], name: str) -> dict[str, object] | None:
+    for alias in projects:
+        if alias.get("name") == name:
+            return alias
+    return None
+
+
+def mcp_smoke(project: Path, nested: str | None, name: str) -> dict[str, object]:
+    cwd = (project / nested).expanduser().resolve() if nested else project.expanduser().resolve()
+    if not cwd.is_dir():
+        raise FileNotFoundError(f"smoke cwd is not a directory: {cwd}")
+    root, found_config = resolve_mcp_config_root(str(cwd))
+    if not found_config:
+        raise FileNotFoundError(f"could not find {CONFIG_NAME} from {cwd}; run `switchyard init` there first")
+    config_name = f"{name}-config"
+
+    with tempfile.TemporaryDirectory(prefix="switchyard-mcp-smoke-") as temp:
+        temp_path = Path(temp)
+        env = os.environ.copy()
+        package_root = Path(__file__).resolve().parents[1]
+        existing_pythonpath = env.get("PYTHONPATH")
+        env["PYTHONPATH"] = str(package_root) if not existing_pythonpath else f"{package_root}{os.pathsep}{existing_pythonpath}"
+        env["SWITCHYARD_HOME"] = str((temp_path / "switchyard-home").resolve())
+        env["CODEX_HOME"] = str((temp_path / "codex-home").resolve())
+
+        config = json.loads(run_mcp_smoke_command(["mcp", "config", "--json", "--name", config_name], cwd, env))
+        if config["ok"] is not True:
+            raise RuntimeError("mcp config --json did not report ok")
+        if config["args"][-2:] != ["--project", config_name]:
+            raise RuntimeError("generated MCP args did not use the local alias")
+        for forbidden in ["cwd =", "--cwd", str(root)]:
+            if forbidden in config["config_text"]:
+                raise RuntimeError(f"generated MCP config unexpectedly contained {forbidden!r}")
+        if config["env"].get("SWITCHYARD_HOME") != env["SWITCHYARD_HOME"]:
+            raise RuntimeError("generated MCP config did not preserve SWITCHYARD_HOME")
+
+        projects = json.loads(run_mcp_smoke_command(["mcp", "projects", "--json"], temp_path, env))
+        if projects["home"] != env["SWITCHYARD_HOME"]:
+            raise RuntimeError("mcp projects did not report the smoke Switchyard home")
+        if projects["state_path"] != str((Path(env["SWITCHYARD_HOME"]) / "state.json").resolve()):
+            raise RuntimeError("mcp projects did not report the smoke state path")
+        aliases = projects["projects"]
+        config_alias = find_mcp_alias(aliases, config_name)
+        if not config_alias:
+            raise RuntimeError("mcp projects did not list the config alias")
+        if config_alias["root"] != str(root) or config_alias["config"] != str(root / CONFIG_NAME):
+            raise RuntimeError("mcp projects did not register the expected project alias")
+        if config_alias["status"] != "ok":
+            raise RuntimeError("mcp projects did not report a healthy alias")
+
+        dry_run = json.loads(run_mcp_smoke_command(["mcp", "install", "--dry-run", "--json", "--name", name], cwd, env))
+        if dry_run["ok"] is not True or dry_run["dry_run"] is not True or dry_run["registered"] is not False:
+            raise RuntimeError("mcp install dry-run JSON did not report the expected state")
+        for forbidden in ["cwd =", "--cwd", str(root)]:
+            if forbidden in dry_run["config_text"]:
+                raise RuntimeError(f"dry-run MCP config unexpectedly contained {forbidden!r}")
+        dry_projects = json.loads(run_mcp_smoke_command(["mcp", "projects", "--json"], temp_path, env))
+        if find_mcp_alias(dry_projects["projects"], name):
+            raise RuntimeError("mcp install dry-run registered an alias")
+
+        install = json.loads(run_mcp_smoke_command(["mcp", "install", "--json", "--name", name], cwd, env))
+        if install["ok"] is not True or install["registered"] is not True:
+            raise RuntimeError("mcp install JSON did not report registration")
+        config_text = (Path(env["CODEX_HOME"]) / "config.toml").read_text()
+        if f'"--project", "{name}"' not in config_text:
+            raise RuntimeError("installed Codex config did not use alias args")
+        for forbidden in ["cwd =", "--cwd", str(root)]:
+            if forbidden in config_text:
+                raise RuntimeError(f"installed Codex config unexpectedly contained {forbidden!r}")
+        install_projects = json.loads(run_mcp_smoke_command(["mcp", "projects", "--json"], temp_path, env))
+        install_alias = find_mcp_alias(install_projects["projects"], name)
+        if not install_alias:
+            raise RuntimeError("mcp install did not register the alias")
+        if install_alias["root"] != str(root) or install_alias["config"] != str(root / CONFIG_NAME):
+            raise RuntimeError("mcp install registered an unexpected project alias")
+        if install_alias["status"] != "ok":
+            raise RuntimeError("mcp install did not report a healthy alias")
+
+        server = tomllib.loads(config_text)["mcp_servers"][name]
+        server_env = dict(env)
+        server_env.update({str(key): str(value) for key, value in server.get("env", {}).items()})
+        mcp_output = run_mcp_smoke_process(
+            str(server["command"]),
+            [str(item) for item in server["args"]],
+            temp_path,
+            server_env,
+            mcp_smoke_rpc_payload(),
+        )
+        if "switchyard://project/brief" not in mcp_output or "configured_services" not in mcp_output:
+            raise RuntimeError("MCP server did not return the project brief resource")
+
+        return {
+            "ok": True,
+            "project": str(root),
+            "cwd": str(cwd),
+            "name": name,
+            "home": projects["home"],
+            "state_path": projects["state_path"],
+            "alias": install_alias,
+            "config_alias": config_alias,
+            "used_python": sys.executable,
+        }
+
+
+def cmd_mcp_smoke(args: argparse.Namespace) -> int:
+    json_output = bool(getattr(args, "json", False))
+    try:
+        if getattr(args, "mcp_project", None):
+            raise ValueError("run `switchyard mcp smoke` from a project checkout instead of using --project")
+        result = mcp_smoke(Path(args.project or "."), args.nested, args.name)
+    except Exception as exc:
+        if json_output:
+            print(json.dumps({"ok": False, "error": str(exc)}, indent=2, sort_keys=True))
+            return 1
+        return fail(str(exc))
+    if json_output:
+        print(json.dumps(result, indent=2, sort_keys=True))
+        return 0
+    print("OK   MCP project smoke")
+    print(f"project: {result['project']}")
+    print(f"cwd: {result['cwd']}")
+    print(f"alias: {result['name']}")
+    print(f"home: {result['home']}")
     return 0
 
 
@@ -1055,7 +1285,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     mcp = sub.add_parser(
         "mcp",
-        usage="switchyard mcp [-h] [--project MCP_PROJECT] [config|install|projects] ...",
+        usage="switchyard mcp [-h] [--project MCP_PROJECT] [config|install|projects|smoke] ...",
         help="Run or configure a stdio MCP server for AI agents",
         description=(
             "Run without a subcommand to start the stdio MCP server. "
@@ -1099,10 +1329,20 @@ def build_parser() -> argparse.ArgumentParser:
         help="List registered MCP project aliases",
     )
     mcp_projects.add_argument("--json", action="store_true")
+    mcp_smoke_cmd = mcp_sub.add_parser(
+        "smoke",
+        prog="switchyard mcp smoke",
+        help="Verify path-free MCP setup for a project",
+    )
+    mcp_smoke_cmd.add_argument("project", nargs="?", default=".", help="Project checkout or child directory to smoke")
+    mcp_smoke_cmd.add_argument("--nested", help="Optional child directory, relative to project, to run setup from")
+    mcp_smoke_cmd.add_argument("--name", default="switchyard-smoke", help="Temporary MCP alias name")
+    mcp_smoke_cmd.add_argument("--json", action="store_true", help="Print machine-readable smoke details")
     mcp.set_defaults(func=cmd_mcp)
     mcp_config.set_defaults(func=cmd_mcp_config)
     mcp_install.set_defaults(func=cmd_mcp_install)
     mcp_projects.set_defaults(func=cmd_mcp_projects)
+    mcp_smoke_cmd.set_defaults(func=cmd_mcp_smoke)
 
     skill = sub.add_parser("skill", help="Show or install the bundled Codex skill")
     skill_sub = skill.add_subparsers(dest="skill_command", required=True)

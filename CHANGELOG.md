@@ -6,6 +6,7 @@
 - Dynamic port allocation and stable `.localhost` service URLs.
 - Env file link/copy support for worktrees.
 - Service registry, logs, status, `where`, and compact `brief` output.
+- `status --json` returns a `services` object envelope for agent parsers.
 - Compact `brief` output lists configured service names even before services are running.
 - Checkout mappings in compact `brief` output.
 - Compact `brief` output reports missing configured env sources.
@@ -38,6 +39,7 @@
 - MCP setup commands expose machine-readable JSON for agents and scripts.
 - MCP setup JSON returns `ok: false` error envelopes for setup failures.
 - MCP alias inspection JSON reports the local registry `home` and `state_path`.
+- `switchyard mcp smoke` verifies path-free MCP setup with temporary local state.
 - Pathless MCP server startup auto-pins to the nearest `switchyard.toml`.
 - MCP startup from registered worktrees now uses the parent project and branch-scoped defaults.
 - MCP install writes the full Codex config block directly instead of shelling out to `codex mcp add`.

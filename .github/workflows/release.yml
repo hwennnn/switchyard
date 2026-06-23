@@ -106,6 +106,8 @@ jobs:
           PY
           (cd "$smoke_project" && switchyard mcp projects --json | grep '"name": "switchyard"')
           (cd "$smoke_project" && switchyard mcp projects --json | grep '"status": "ok"')
+          (cd "$smoke_project" && switchyard mcp smoke --json > "$tmp/mcp-smoke.json")
+          grep '"ok": true' "$tmp/mcp-smoke.json"
           ! (cd "$smoke_project" && switchyard mcp config | grep -F "cwd =")
           (cd "$smoke_project" && switchyard mcp install --dry-run | grep -F "# Would update:")
           (cd "$smoke_project" && switchyard mcp install --dry-run --json > "$smoke_project/mcp-install-dry-run.json")
@@ -207,15 +209,15 @@ jobs:
           done
           switchyard --version
           switchyard mcp --help | grep -F "Run without a subcommand to start the stdio MCP server"
-          switchyard mcp --help | grep -F "[config|install|projects]"
+          switchyard mcp --help | grep -F "[config|install|projects|smoke]"
           switchyard mcp --help | grep -F "commands:"
           ! switchyard mcp --help | grep -F "positional arguments:"
           ! switchyard mcp --help | grep -F -- "--cwd"
           switchyard mcp config --help | grep -F "usage: switchyard mcp config"
-          ! switchyard mcp config --help | grep -F "[config|install|projects]"
+          ! switchyard mcp config --help | grep -F "[config|install|projects|smoke]"
           ! switchyard mcp config --help | grep -F -- "--cwd"
           switchyard mcp install --help | grep -F "usage: switchyard mcp install"
-          ! switchyard mcp install --help | grep -F "[config|install|projects]"
+          ! switchyard mcp install --help | grep -F "[config|install|projects|smoke]"
           ! switchyard mcp install --help | grep -F -- "--cwd"
 
   publish-pypi:

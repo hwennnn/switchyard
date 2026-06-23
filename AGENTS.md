@@ -14,7 +14,9 @@ without writing files:
 switchyard init --dry-run --json
 ```
 
-Use compact state before broad shell exploration:
+The Switchyard source checkout does not ship a root `switchyard.toml`; use the
+release gate below for this repo. In target projects that do have
+`switchyard.toml`, use compact state before broad shell exploration:
 
 ```sh
 switchyard brief --json

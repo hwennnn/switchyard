@@ -61,11 +61,10 @@ python3 scripts/benchmark.py --runs 3
 python3 scripts/release_check.py
 ```
 
-To smoke path-free MCP setup for any Switchyard project, run this from that
-checkout:
+To smoke path-free MCP setup from a project that has `switchyard.toml`:
 
 ```sh
-python3 scripts/mcp_project_smoke.py .
+switchyard mcp smoke --json
 ```
 
 ## Why
@@ -415,6 +414,7 @@ switchyard mcp [--project name]
 switchyard mcp config [--name name] [--force] [--json]
 switchyard mcp install [--name name] [--dry-run] [--force] [--json]
 switchyard mcp projects [--json]
+switchyard mcp smoke [project] [--nested path] [--name name] [--json]
 switchyard skill show
 switchyard skill install [--target dir] [--force]
 switchyard proxy stop

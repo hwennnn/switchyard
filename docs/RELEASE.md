@@ -97,6 +97,8 @@ assert str(project) not in data["config_text"]
 PY
 (cd "$project" && switchyard mcp projects --json | grep '"name": "switchyard"')
 (cd "$project" && switchyard mcp projects --json | grep '"status": "ok"')
+(cd "$project" && switchyard mcp smoke --json > "$tmp/mcp-smoke.json")
+grep '"ok": true' "$tmp/mcp-smoke.json"
 ! (cd "$project" && switchyard mcp config | grep -F "cwd =")
 (cd "$project" && switchyard mcp install --dry-run | grep -F "# Would update:")
 (cd "$project" && switchyard mcp install --dry-run --json > "$tmp/mcp-install-dry-run.json")

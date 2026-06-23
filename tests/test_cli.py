@@ -266,6 +266,29 @@ command = "python -m http.server {port}"
         self.assertEqual(args, ["-m", "switchyard", "mcp", "--project", "switchyard"])
         self.assertTrue(comments)
 
+    def test_mcp_launch_config_avoids_project_local_executables(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp).resolve()
+            bin_dir = root / ".venv" / "bin"
+            bin_dir.mkdir(parents=True)
+            local_switchyard = bin_dir / "switchyard"
+            local_python = bin_dir / "python"
+            local_switchyard.write_text("#!/bin/sh\n")
+            local_python.write_text("#!/bin/sh\n")
+
+            with (
+                patch.object(sys, "argv", [str(local_switchyard)]),
+                patch.object(sys, "executable", str(local_python)),
+                patch("switchyard.cli.shutil.which", return_value=str(local_switchyard)),
+            ):
+                command, args, comments = mcp_launch_config("switchyard", root=root)
+                text = mcp_config_text("switchyard", root)
+
+        self.assertEqual(command, "switchyard")
+        self.assertEqual(args, ["mcp", "--project", "switchyard"])
+        self.assertTrue(comments)
+        self.assertNotIn(str(root), text)
+
     def test_mcp_config_root_discovers_project_from_subdir(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp).resolve()
@@ -644,7 +667,7 @@ command = "python -m http.server {port}"
             main(["mcp", "--help"])
 
         self.assertEqual(raised.exception.code, 0)
-        self.assertIn("[config|install|projects]", stdout.getvalue())
+        self.assertIn("[config|install|projects|smoke]", stdout.getvalue())
         self.assertIn("commands:", stdout.getvalue())
         self.assertNotIn("positional arguments:", stdout.getvalue())
         self.assertIn("Run inside a project", stdout.getvalue())
@@ -662,7 +685,7 @@ command = "python -m http.server {port}"
 
             self.assertEqual(raised.exception.code, 0)
             self.assertIn(f"usage: switchyard mcp {command}", stdout.getvalue())
-            self.assertNotIn("[config|install|projects]", stdout.getvalue())
+            self.assertNotIn("[config|install|projects|smoke]", stdout.getvalue())
             self.assertNotIn("--cwd", stdout.getvalue())
             self.assertNotIn("/path/to/project", stdout.getvalue())
 
@@ -713,6 +736,56 @@ command = "python -m http.server {port}"
         self.assertEqual(state["project_aliases"]["switchyard-demo"], str(root))
         self.assertIn("Codex MCP server", stdout.getvalue())
         self.assertIn("server project: switchyard-demo", stdout.getvalue())
+
+    def test_mcp_install_uses_existing_codex_switchyard_home_for_alias(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            workspace = Path(temp).resolve()
+            root = workspace / "project"
+            root.mkdir()
+            codex_home = workspace / "codex-home"
+            codex_home.mkdir()
+            custom_home = workspace / "custom-switchyard-home"
+            default_home = workspace / "user-home" / ".switchyard"
+            self.write_config(root)
+            (codex_home / "config.toml").write_text(
+                f"""
+[mcp_servers.switchyard-demo.env]
+SWITCHYARD_HOME = {json.dumps(str(custom_home))}
+"""
+            )
+
+            stdout = StringIO()
+            with patch.dict(os.environ, {"CODEX_HOME": str(codex_home), "HOME": str(workspace / "user-home")}):
+                os.environ.pop("SWITCHYARD_HOME", None)
+                with chdir(root), redirect_stdout(stdout), redirect_stderr(StringIO()):
+                    code = main(["mcp", "install", "--json", "--name", "switchyard-demo"])
+            data = json.loads(stdout.getvalue())
+            custom_state = Registry(custom_home, create=False).read()
+
+        self.assertEqual(code, 0)
+        self.assertEqual(data["env"], {"SWITCHYARD_HOME": str(custom_home)})
+        self.assertEqual(custom_state["project_aliases"]["switchyard-demo"], str(root))
+        self.assertFalse(default_home.exists())
+
+    def test_mcp_install_invalid_codex_config_does_not_register_alias(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp).resolve()
+            codex_home = root / "codex-home"
+            codex_home.mkdir()
+            home = root / "home"
+            self.write_config(root)
+            (codex_home / "config.toml").write_text("[mcp_servers.switchyard-demo]\ncommand = [")
+
+            stdout = StringIO()
+            with patch.dict(os.environ, {"CODEX_HOME": str(codex_home), "SWITCHYARD_HOME": str(home)}):
+                with chdir(root), redirect_stdout(stdout), redirect_stderr(StringIO()):
+                    code = main(["mcp", "install", "--json", "--name", "switchyard-demo"])
+            data = json.loads(stdout.getvalue())
+            state = Registry(home, create=False).read()
+
+        self.assertEqual(code, 1)
+        self.assertFalse(data["ok"])
+        self.assertEqual(state["project_aliases"], {})
 
     def test_mcp_install_json_writes_codex_config(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
@@ -807,6 +880,37 @@ command = "other"
         self.assertNotIn("--cwd", text)
         self.assertIn("[mcp_servers.switchyard.tools.switchyard_up]", text)
         self.assertIn('approval_mode = "approve"', text)
+
+    def test_mcp_smoke_json_reports_success_from_nested_project(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp).resolve()
+            nested = root / "app"
+            nested.mkdir()
+            self.write_config(root)
+
+            stdout = StringIO()
+            with redirect_stdout(stdout), redirect_stderr(StringIO()):
+                code = main(["mcp", "smoke", str(root), "--nested", "app", "--name", "switchyard-smoke", "--json"])
+            data = json.loads(stdout.getvalue())
+
+        self.assertEqual(code, 0)
+        self.assertTrue(data["ok"])
+        self.assertEqual(data["cwd"], str(nested))
+        self.assertEqual(data["alias"]["name"], "switchyard-smoke")
+        self.assertEqual(data["config_alias"]["name"], "switchyard-smoke-config")
+
+    def test_mcp_smoke_json_failure_is_machine_readable(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp).resolve()
+
+            stdout = StringIO()
+            with redirect_stdout(stdout), redirect_stderr(StringIO()):
+                code = main(["mcp", "smoke", str(root), "--json"])
+            data = json.loads(stdout.getvalue())
+
+        self.assertEqual(code, 1)
+        self.assertFalse(data["ok"])
+        self.assertIn("could not find", data["error"])
 
     def test_list_json_returns_registered_worktrees(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
@@ -944,7 +1048,7 @@ port = 8000
             data = json.loads(stdout.getvalue())
 
         self.assertEqual(code, 0)
-        self.assertEqual([record["branch"] for record in data], ["feature/demo"])
+        self.assertEqual([record["branch"] for record in data["services"]], ["feature/demo"])
 
     def test_runtime_action_commands_can_return_json(self) -> None:
         with tempfile.TemporaryDirectory() as temp:

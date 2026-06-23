@@ -72,6 +72,16 @@ switchyard mcp projects --json
 The JSON includes `home` and `state_path`, which lets agents confirm the exact
 local Switchyard registry used for alias lookup.
 
+To verify the full path-free setup loop from a configured project:
+
+```sh
+switchyard mcp smoke --json
+```
+
+The smoke uses temporary Switchyard/Codex homes, checks generated config for
+project paths, confirms dry runs do not register aliases, installs a real Codex
+block, and launches the configured MCP command from a neutral directory.
+
 ## Resources
 
 Clients that support MCP resources can read stable, read-only context before

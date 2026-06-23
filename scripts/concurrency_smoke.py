@@ -140,7 +140,7 @@ port = {free_port()}
                     return proc.returncode
 
             status = json.loads(run([sys.executable, "-m", "switchyard", "status", "--json"], repo, env).stdout)
-            records = [record for record in status if record["service"] == "web" and record["status"] == "running"]
+            records = [record for record in status["services"] if record["service"] == "web" and record["status"] == "running"]
             ports = {record["port"] for record in records}
             if len(records) != 2 or len(ports) != 2:
                 print("unexpected records:", json.dumps(status, indent=2))

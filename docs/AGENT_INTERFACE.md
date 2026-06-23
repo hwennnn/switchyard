@@ -42,6 +42,8 @@ Use
 when an agent needs machine-readable setup details or a setup error envelope. Use
 `switchyard mcp projects --json` to inspect registered aliases and confirm the
 local `home`/`state_path` used for alias lookup.
+Use `switchyard mcp smoke --json` from a configured project to verify the full
+path-free setup loop with temporary local state.
 
 Clients that support MCP resources can read stable, read-only context before
 choosing a tool:
