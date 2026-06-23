@@ -93,6 +93,7 @@ def check_public_docs() -> None:
     require("switchyard-dev" in readme, "README should document publish package name")
     require("brief --json" in readme, "README should show agent-readable state")
     require("registered worktree" in readme, "README should document registered worktree context")
+    require('worktree_root = ".worktrees/switchyard"' in readme, "README should document optional worktree_root")
     require('"checkouts"' in readme, "README should show checkout state in brief output")
     require("No public tunnels" in readme, "README should state local-first safety")
     require(
@@ -154,6 +155,7 @@ def check_security_docs() -> None:
     require("read-only/destructive/idempotent hints" in security, "SECURITY.md should document MCP safety hints")
     require("switchyard_create" in security, "SECURITY.md should mention MCP worktree creation")
     require("switchyard_checkout" in security, "SECURITY.md should mention MCP checkout forwarding")
+    require("worktree_root` must be a non-empty string path" in security, "SECURITY.md should document worktree_root validation")
     ok("security docs")
 
 

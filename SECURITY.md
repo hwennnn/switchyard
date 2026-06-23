@@ -51,6 +51,7 @@ load the alias's project, subdirectories under it, or worktrees already
 registered for that project.
 Managed worktrees may still be created in Switchyard's configured local
 worktree directory, such as `SWITCHYARD_HOME` or `[project].worktree_root`.
+`[project].worktree_root` must be a non-empty string path.
 Keep approval enabled for
 `switchyard_create`, `switchyard_up`, `switchyard_checkout`,
 `switchyard_uncheckout`, and `switchyard_down`, because those tools create

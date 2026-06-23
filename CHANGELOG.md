@@ -31,6 +31,7 @@
 - CLI state commands resolve registered worktree parent project and branch context.
 - CLI stop actions default to the registered worktree branch when run inside one.
 - Service commands can reference peer `{service_url}` and `{service_port}` placeholders.
+- Config validation rejects non-string or empty `[project].worktree_root` values.
 - Config validation rejects non-loopback proxy and service bind hosts.
 - Bundled Codex skill with `switchyard skill show/install`.
 - Hardened release readiness, benchmark, and PyPI publish harnesses.

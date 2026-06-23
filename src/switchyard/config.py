@@ -79,6 +79,16 @@ def validate_env_path(value: str) -> str:
     return value
 
 
+def validate_worktree_root(value: object) -> str | None:
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise ValueError("[project].worktree_root must be a string")
+    if not value or value.strip() != value:
+        raise ValueError("[project].worktree_root must be a non-empty path")
+    return value
+
+
 def env_list(raw: object, key: str) -> list[str]:
     if raw is None:
         return []
@@ -103,9 +113,7 @@ def load_config(path: Path) -> ProjectConfig:
     if not isinstance(project_raw, dict):
         raise ValueError("[project] must be a table")
     name = str(project_raw.get("name") or path.parent.name)
-    worktree_root = project_raw.get("worktree_root")
-    if worktree_root is not None:
-        worktree_root = str(worktree_root)
+    worktree_root = validate_worktree_root(project_raw.get("worktree_root"))
 
     env_raw = raw.get("env", {})
     proxy_raw = raw.get("proxy", {})

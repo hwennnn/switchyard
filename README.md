@@ -206,6 +206,8 @@ Use $switchyard to inspect this project's local agent runtime.
 ```toml
 [project]
 name = "entropic"
+# Optional: keep Switchyard-created worktrees inside the repo.
+# worktree_root = ".worktrees/switchyard"
 
 [env]
 link = [".env", ".env.local"]
