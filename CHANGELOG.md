@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.1 - 2026-06-23
 
 - Runtime commands execute as parsed argv without a shell, with quoted placeholders preserved.
 - Service and checkout logs are truncated on each managed start so `recent_errors` does not report stale failures.

@@ -75,7 +75,7 @@ For PyPI, use the same repository and workflow with environment `pypi`.
 After publishing to TestPyPI, run an install smoke against the TestPyPI index:
 
 ```sh
-version=0.1.0
+version=0.1.1
 python3 -m venv /tmp/switchyard-testpypi-smoke
 . /tmp/switchyard-testpypi-smoke/bin/activate
 python -m pip install --upgrade pip
