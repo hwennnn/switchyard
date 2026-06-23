@@ -187,6 +187,12 @@ alias and prints ready-to-paste TOML:
 switchyard mcp config
 ```
 
+To see registered aliases:
+
+```sh
+switchyard mcp projects --json
+```
+
 Use `--name` if you want a different MCP server name. Use `--cwd` only when
 generating or installing config for another checkout:
 
@@ -345,6 +351,7 @@ switchyard brief [branch] [--json]
 switchyard mcp [--project name]
 switchyard mcp config [--name name] [--cwd other-checkout]
 switchyard mcp install [--name name] [--cwd other-checkout] [--dry-run]
+switchyard mcp projects [--json]
 switchyard skill show
 switchyard skill install [--target dir] [--force]
 switchyard proxy stop

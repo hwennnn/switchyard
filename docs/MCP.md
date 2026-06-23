@@ -46,6 +46,12 @@ switchyard mcp install --name switchyard-entropic
 switchyard mcp config --name switchyard-entropic
 ```
 
+List registered aliases from anywhere:
+
+```sh
+switchyard mcp projects --json
+```
+
 ## Tools
 
 - `switchyard_doctor`: project config, proxy, services, Switchyard version, and
@@ -109,3 +115,5 @@ so agents can read tool results without scraping text.
 - Use `--cwd` only when installing/generating config for a different checkout.
 - Use `--project <name>` when an MCP client starts the server outside the
   project tree.
+- Use `switchyard mcp projects --json` to inspect local alias registrations and
+  spot stale project paths.

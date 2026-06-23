@@ -619,6 +619,24 @@ def install_mcp_config(name: str, root: Path, path: Path | None = None) -> tuple
     return config_path, action
 
 
+def mcp_project_records() -> list[dict[str, object]]:
+    records: list[dict[str, object]] = []
+    for record in Registry(create=False).project_aliases():
+        root = Path(record["root"]).expanduser().resolve()
+        config_path = root / CONFIG_NAME
+        if not config_path.exists():
+            config_path = None
+        records.append(
+            {
+                "name": record["name"],
+                "root": str(root),
+                "config": str(config_path) if config_path else None,
+                "status": "ok" if config_path else "missing",
+            }
+        )
+    return records
+
+
 def cmd_mcp_config(args: argparse.Namespace) -> int:
     try:
         root, found_config = resolve_mcp_config_root(mcp_setup_cwd(args), getattr(args, "mcp_project", None))
@@ -659,6 +677,19 @@ def cmd_mcp_install(args: argparse.Namespace) -> int:
         return fail(str(exc))
     print(f"{action} Codex MCP server {args.name!r} in {config_path}")
     print(f"server project: {args.name}")
+    return 0
+
+
+def cmd_mcp_projects(args: argparse.Namespace) -> int:
+    records = mcp_project_records()
+    if args.json:
+        print(json.dumps({"projects": records}, indent=2, sort_keys=True))
+        return 0
+    if not records:
+        print("no registered MCP projects")
+        return 0
+    rows = [[item["name"], item["status"], item["root"]] for item in records]
+    print_table(["name", "status", "root"], rows)
     return 0
 
 
@@ -813,9 +844,12 @@ def build_parser() -> argparse.ArgumentParser:
     mcp_install.add_argument("--cwd", help="Project directory to install config for")
     mcp_install.add_argument("--name", default="switchyard", help="MCP server name in Codex config")
     mcp_install.add_argument("--dry-run", action="store_true", help="Print the Codex config update without writing it")
+    mcp_projects = mcp_sub.add_parser("projects", help="List registered MCP project aliases")
+    mcp_projects.add_argument("--json", action="store_true")
     mcp.set_defaults(func=cmd_mcp)
     mcp_config.set_defaults(func=cmd_mcp_config)
     mcp_install.set_defaults(func=cmd_mcp_install)
+    mcp_projects.set_defaults(func=cmd_mcp_projects)
 
     skill = sub.add_parser("skill", help="Show or install the bundled Codex skill")
     skill_sub = skill.add_subparsers(dest="skill_command", required=True)

@@ -29,6 +29,7 @@
 - MCP checkout/uncheckout tools for canonical local port mappings.
 - MCP tool calls can target registered worktree paths for current-branch context.
 - MCP stop actions default to the registered worktree branch when called from one.
+- `switchyard mcp projects --json` lists registered local MCP project aliases.
 - CLI state commands resolve registered worktree parent project and branch context.
 - CLI stop actions default to the registered worktree branch when run inside one.
 - Service commands can reference peer `{service_url}` and `{service_port}` placeholders.

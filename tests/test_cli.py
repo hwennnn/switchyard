@@ -254,6 +254,73 @@ command = "python -m http.server {port}"
         self.assertEqual(code, 0)
         self.assertEqual(resolved, root)
 
+    def test_mcp_projects_json_lists_registered_aliases(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp).resolve()
+            outside = root / "outside"
+            outside.mkdir()
+            self.write_config(root)
+
+            with patch.dict(os.environ, {"SWITCHYARD_HOME": str(root / "home")}), chdir(root):
+                with redirect_stdout(StringIO()), redirect_stderr(StringIO()):
+                    config_code = main(["mcp", "config", "--name", "switchyard-demo"])
+
+            stdout = StringIO()
+            with patch.dict(os.environ, {"SWITCHYARD_HOME": str(root / "home")}), chdir(outside):
+                with redirect_stdout(stdout), redirect_stderr(StringIO()):
+                    projects_code = main(["mcp", "projects", "--json"])
+
+            data = json.loads(stdout.getvalue())
+
+        self.assertEqual(config_code, 0)
+        self.assertEqual(projects_code, 0)
+        self.assertEqual(
+            data["projects"],
+            [
+                {
+                    "name": "switchyard-demo",
+                    "root": str(root),
+                    "config": str(root / "switchyard.toml"),
+                    "status": "ok",
+                }
+            ],
+        )
+
+    def test_mcp_projects_json_reports_stale_aliases(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp).resolve()
+            home = root / "home"
+            self.write_config(root)
+            Registry(home).register_project_alias("stale", root / "missing")
+
+            stdout = StringIO()
+            with patch.dict(os.environ, {"SWITCHYARD_HOME": str(home)}), chdir(root):
+                with redirect_stdout(stdout), redirect_stderr(StringIO()):
+                    code = main(["mcp", "projects", "--json"])
+
+            data = json.loads(stdout.getvalue())
+
+        self.assertEqual(code, 0)
+        self.assertEqual(data["projects"][0]["name"], "stale")
+        self.assertEqual(data["projects"][0]["status"], "missing")
+        self.assertIsNone(data["projects"][0]["config"])
+
+    def test_mcp_projects_empty_does_not_create_state(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp).resolve()
+            home = root / "home"
+
+            stdout = StringIO()
+            with patch.dict(os.environ, {"SWITCHYARD_HOME": str(home)}), chdir(root):
+                with redirect_stdout(stdout), redirect_stderr(StringIO()):
+                    code = main(["mcp", "projects", "--json"])
+
+            data = json.loads(stdout.getvalue())
+
+        self.assertEqual(code, 0)
+        self.assertEqual(data, {"projects": []})
+        self.assertFalse(home.exists())
+
     def test_mcp_command_launches_from_detected_project_root(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp).resolve()

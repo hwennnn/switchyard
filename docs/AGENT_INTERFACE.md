@@ -30,6 +30,7 @@ args = ["mcp", "--project", "name"]
 ```
 
 The alias keeps MCP client setup free of hand-written project paths.
+Use `switchyard mcp projects --json` to inspect registered aliases.
 
 ## Codex Skill
 

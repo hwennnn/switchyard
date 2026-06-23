@@ -70,6 +70,8 @@ jobs:
           EOF
           (cd "$smoke_project" && switchyard doctor --json | grep release-smoke)
           (cd "$smoke_project" && switchyard mcp config | grep -F 'args = ["mcp", "--project", "switchyard"]')
+          (cd "$smoke_project" && switchyard mcp projects --json | grep '"name": "switchyard"')
+          (cd "$smoke_project" && switchyard mcp projects --json | grep '"status": "ok"')
           ! (cd "$smoke_project" && switchyard mcp config | grep -F "cwd =")
           (cd "$smoke_project" && switchyard mcp install --dry-run | grep -F "# Would update:")
           switchyard skill show | grep switchyard_brief

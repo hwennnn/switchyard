@@ -130,6 +130,13 @@ class Registry:
             return None
         return Path(str(root)).expanduser().resolve()
 
+    def project_aliases(self) -> list[dict[str, str]]:
+        aliases = self.read().get("project_aliases", {})
+        return [
+            {"name": str(name), "root": str(Path(str(root)).expanduser().resolve())}
+            for name, root in sorted(aliases.items())
+        ]
+
     def default_worktree_path(self, config: ProjectConfig, branch: str) -> Path:
         branch_slug = slugify(branch)
         if config.worktree_root:
