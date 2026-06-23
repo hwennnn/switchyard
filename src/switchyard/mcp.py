@@ -679,13 +679,25 @@ def error_response(message_id: Any, code: int, message: str) -> dict[str, Any]:
     return {"jsonrpc": "2.0", "id": message_id, "error": {"code": code, "message": message}}
 
 
+def optional_object(value: Any, label: str) -> dict[str, Any]:
+    if value is None:
+        return {}
+    if not isinstance(value, dict):
+        raise McpError(-32602, f"{label} must be an object")
+    return value
+
+
 def handle_request(message: dict[str, Any]) -> dict[str, Any] | None:
     method = message.get("method")
     message_id = message.get("id")
     if method == "notifications/initialized":
         return None
     if method == "initialize":
-        requested = str(message.get("params", {}).get("protocolVersion") or PROTOCOL_VERSION)
+        try:
+            params = optional_object(message.get("params"), "params")
+        except McpError as exc:
+            return error_response(message_id, exc.code, exc.message)
+        requested = str(params.get("protocolVersion") or PROTOCOL_VERSION)
         negotiated = requested if requested in SUPPORTED_PROTOCOL_VERSIONS else PROTOCOL_VERSION
         return response(
             message_id,
@@ -701,16 +713,22 @@ def handle_request(message: dict[str, Any]) -> dict[str, Any] | None:
     if method == "tools/list":
         return response(message_id, {"tools": [{"name": name, **definition} for name, definition in TOOLS.items()]})
     if method == "tools/call":
-        params = message.get("params", {})
+        try:
+            params = optional_object(message.get("params"), "params")
+        except McpError as exc:
+            return error_response(message_id, exc.code, exc.message)
         name = params.get("name")
-        arguments = params.get("arguments") or {}
-        if not isinstance(arguments, dict):
-            return error_response(message_id, -32602, "arguments must be an object")
-        handler = TOOL_HANDLERS.get(str(name))
+        if not isinstance(name, str) or not name:
+            return error_response(message_id, -32602, "name must be a string")
+        try:
+            arguments = optional_object(params.get("arguments"), "arguments")
+        except McpError as exc:
+            return error_response(message_id, exc.code, exc.message)
+        handler = TOOL_HANDLERS.get(name)
         if not handler:
             return error_response(message_id, -32602, f"unknown tool: {name}")
         try:
-            validate_tool_arguments(str(name), arguments)
+            validate_tool_arguments(name, arguments)
             return response(message_id, handler(arguments))
         except McpError as exc:
             return response(message_id, tool_result({"error": exc.message}, exc.message, is_error=True))

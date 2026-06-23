@@ -45,6 +45,27 @@ class McpTests(unittest.TestCase):
 
         self.assertEqual(response["result"]["protocolVersion"], "2025-06-18")
 
+    def test_initialize_rejects_non_object_params(self) -> None:
+        response = handle_request({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": []})
+
+        self.assertEqual(response["error"]["code"], -32602)
+        self.assertIn("params must be an object", response["error"]["message"])
+
+    def test_tools_call_rejects_malformed_envelope(self) -> None:
+        cases = [
+            ({"params": []}, "params must be an object"),
+            ({"params": {"name": 123, "arguments": {}}}, "name must be a string"),
+            ({"params": {"name": "switchyard_doctor", "arguments": []}}, "arguments must be an object"),
+            ({"params": {"name": "switchyard_doctor", "arguments": False}}, "arguments must be an object"),
+        ]
+
+        for payload, expected in cases:
+            with self.subTest(expected=expected):
+                response = handle_request({"jsonrpc": "2.0", "id": 2, "method": "tools/call", **payload})
+
+                self.assertEqual(response["error"]["code"], -32602)
+                self.assertIn(expected, response["error"]["message"])
+
     def test_tools_list_includes_brief_and_up(self) -> None:
         response = handle_request({"jsonrpc": "2.0", "id": 2, "method": "tools/list"})
 
