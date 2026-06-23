@@ -35,11 +35,19 @@ from .utils import fail, lines_since, pid_running, print_table, slugify, switchy
 
 
 def load_project_config(cwd: Path) -> tuple[object, Registry]:
+    registry = Registry()
+    registered = registry.find_worktree_containing(cwd)
+    if registered:
+        project, _ = registered
+        config_path = Path(str(project.get("config") or Path(str(project["root"])) / CONFIG_NAME))
+        if config_path.exists():
+            config = load_config(config_path)
+            registry.ensure_project(config)
+            return config, registry
     config_path = discover_config(cwd)
     if not config_path:
         raise FileNotFoundError(f"could not find {CONFIG_NAME}; run `switchyard init`")
     config = load_config(config_path)
-    registry = Registry()
     registry.ensure_project(config)
     return config, registry
 
@@ -52,6 +60,11 @@ def resolve_branch_and_worktree(config, registry: Registry, branch: str | None, 
         if cwd.resolve() != config.root.resolve():
             return branch, cwd.resolve()
         return branch, registry.default_worktree_path(config, branch)
+    registered = registry.find_worktree_containing(cwd)
+    if registered:
+        project, record = registered
+        if Path(str(project.get("root", ""))).resolve() == config.root.resolve():
+            return str(record["branch"]), Path(str(record["path"]))
     try:
         branch = current_branch(cwd)
     except GitError:
@@ -310,7 +323,10 @@ def cmd_uncheckout(args: argparse.Namespace) -> int:
 def cmd_status(args: argparse.Namespace) -> int:
     try:
         config, registry = load_project_config(Path.cwd())
-        records = hydrate_status(registry.services(config.root, args.branch))
+        branch_filter = args.branch
+        if not branch_filter and Path.cwd().resolve() != config.root.resolve():
+            branch_filter, _ = resolve_branch_and_worktree(config, registry, None, Path.cwd())
+        records = hydrate_status(registry.services(config.root, branch_filter))
     except Exception as exc:
         return fail_output(args, str(exc))
     if args.json:
@@ -415,7 +431,8 @@ def cmd_brief(args: argparse.Namespace) -> int:
         config, registry = load_project_config(Path.cwd())
         branch, worktree = resolve_branch_and_worktree(config, registry, args.branch, Path.cwd())
         changed = status_short(worktree) if worktree.exists() else []
-        brief = brief_for(config, registry, branch if args.branch else None, changed)
+        branch_filter = branch if args.branch or worktree.resolve() != config.root.resolve() else None
+        brief = brief_for(config, registry, branch_filter, changed)
     except Exception as exc:
         return fail_output(args, str(exc))
     if args.json:

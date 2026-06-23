@@ -309,6 +309,80 @@ command = "other"
         self.assertEqual(data["worktrees"][0]["branch"], "feature/demo")
         self.assertEqual(data["worktrees"][0]["path"], str(worktree))
 
+    def test_brief_uses_registered_worktree_context(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp).resolve()
+            worktree = root / ".worktrees" / "feature-demo"
+            self.write_config(root)
+            worktree.mkdir(parents=True)
+            (worktree / "switchyard.toml").write_text((root / "switchyard.toml").read_text())
+
+            stdout = StringIO()
+            with patch.dict(os.environ, {"SWITCHYARD_HOME": str(root / "home")}):
+                config = load_config(root / "switchyard.toml")
+                registry = Registry()
+                registry.ensure_project(config)
+                registry.upsert_worktree(config, "feature/demo", worktree)
+                with chdir(worktree), redirect_stdout(stdout), redirect_stderr(StringIO()):
+                    code = main(["brief", "--json"])
+
+            data = json.loads(stdout.getvalue())
+
+        self.assertEqual(code, 0)
+        self.assertEqual(data["branch"], "feature/demo")
+        self.assertEqual(Path(data["project_root"]).resolve(), root)
+        self.assertEqual(data["changed_files"], [])
+
+    def test_status_uses_registered_worktree_context(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp).resolve()
+            worktree = root / ".worktrees" / "feature-demo"
+            log_file = root / "web.log"
+            log_file.write_text("ok\n")
+            self.write_config(root)
+            worktree.mkdir(parents=True)
+            (worktree / "switchyard.toml").write_text((root / "switchyard.toml").read_text())
+
+            stdout = StringIO()
+            with patch.dict(os.environ, {"SWITCHYARD_HOME": str(root / "home")}):
+                config = load_config(root / "switchyard.toml")
+                registry = Registry()
+                registry.ensure_project(config)
+                registry.upsert_worktree(config, "feature/demo", worktree)
+                registry.upsert_service(
+                    config,
+                    {
+                        "project": config.name,
+                        "branch": "feature/demo",
+                        "service": "web",
+                        "pid": 123,
+                        "command": "python -m http.server",
+                        "port": 41000,
+                        "url": "http://web.feature-demo.demo.localhost:7331",
+                        "log_file": str(log_file),
+                    },
+                )
+                registry.upsert_service(
+                    config,
+                    {
+                        "project": config.name,
+                        "branch": "other/branch",
+                        "service": "web",
+                        "pid": 456,
+                        "command": "python -m http.server",
+                        "port": 41001,
+                        "url": "http://web.other-branch.demo.localhost:7331",
+                        "log_file": str(log_file),
+                    },
+                )
+                with chdir(worktree), redirect_stdout(stdout), redirect_stderr(StringIO()):
+                    code = main(["status", "--json"])
+
+            data = json.loads(stdout.getvalue())
+
+        self.assertEqual(code, 0)
+        self.assertEqual([record["branch"] for record in data], ["feature/demo"])
+
     def test_runtime_action_commands_can_return_json(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp).resolve()

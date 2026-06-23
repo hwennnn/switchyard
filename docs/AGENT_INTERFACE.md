@@ -71,7 +71,8 @@ Use:
 switchyard brief --json
 ```
 
-For a compact overview:
+For a compact overview. When run inside a Switchyard-registered worktree, the
+CLI uses that worktree's branch and parent project automatically:
 
 ```json
 {

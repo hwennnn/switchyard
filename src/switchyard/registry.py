@@ -171,6 +171,15 @@ class Registry:
             return []
         return list(project.get("worktrees", {}).values())
 
+    def find_worktree_containing(self, cwd: Path) -> tuple[dict[str, Any], dict[str, Any]] | None:
+        resolved = cwd.resolve()
+        for project in self.read()["projects"].values():
+            for record in project.get("worktrees", {}).values():
+                worktree = Path(str(record.get("path", ""))).resolve()
+                if resolved == worktree or resolved.is_relative_to(worktree):
+                    return project, record
+        return None
+
     def service_key(self, branch: str, service: str) -> str:
         return f"{slugify(branch)}::{slugify(service)}"
 

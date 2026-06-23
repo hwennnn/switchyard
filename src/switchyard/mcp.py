@@ -383,11 +383,11 @@ def registered_worktree_cwd(root: Path, cwd: Path) -> bool:
         return False
     config = load_config(config_path)
     registry = Registry(create=False)
-    for record in registry.list_worktrees(config.root):
-        worktree = Path(str(record["path"])).resolve()
-        if cwd == worktree or cwd.is_relative_to(worktree):
-            return True
-    return False
+    registered = registry.find_worktree_containing(cwd)
+    if not registered:
+        return False
+    project, _ = registered
+    return Path(str(project.get("root", ""))).resolve() == config.root.resolve()
 
 
 def load_project(cwd: Path, ensure: bool = True):
@@ -419,6 +419,11 @@ def resolve_branch_and_worktree(config, registry: Registry, branch: str | None, 
         if cwd.resolve() != config.root.resolve():
             return branch, cwd.resolve()
         return branch, registry.default_worktree_path(config, branch)
+    registered = registry.find_worktree_containing(cwd)
+    if registered:
+        project, record = registered
+        if Path(str(project.get("root", ""))).resolve() == config.root.resolve():
+            return str(record["branch"]), Path(str(record["path"]))
     try:
         current = current_branch(cwd)
     except GitError:

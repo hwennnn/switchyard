@@ -86,6 +86,7 @@ def check_public_docs() -> None:
     require("tool annotations" in readme, "README should document MCP tool annotations")
     require("switchyard-dev" in readme, "README should document publish package name")
     require("brief --json" in readme, "README should show agent-readable state")
+    require("registered worktree" in readme, "README should document registered worktree context")
     require('"checkouts"' in readme, "README should show checkout state in brief output")
     require("No public tunnels" in readme, "README should state local-first safety")
     require(
