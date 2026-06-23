@@ -1,2 +1,8 @@
 {"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"switchyard_create","arguments":{"branch":"feature/mcp"}}}
 {"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"name":"switchyard_list","arguments":{}}}
+{"jsonrpc":"2.0","id":6,"method":"tools/call","params":{"name":"switchyard_up","arguments":{"branch":"feature/mcp","services":["web"]}}}
+{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"switchyard_where","arguments":{"branch":"feature/mcp","service":"web"}}}
+{"jsonrpc":"2.0","id":8,"method":"tools/call","params":{"name":"switchyard_logs","arguments":{"branch":"feature/mcp","service":"web","lines":20}}}
+{"jsonrpc":"2.0","id":9,"method":"tools/call","params":{"name":"switchyard_checkout","arguments":{"branch":"feature/mcp","services":["web"]}}}
+{"jsonrpc":"2.0","id":10,"method":"tools/call","params":{"name":"switchyard_uncheckout","arguments":{"branch":"feature/mcp","services":["web"]}}}
+{"jsonrpc":"2.0","id":11,"method":"tools/call","params":{"name":"switchyard_down","arguments":{"branch":"feature/mcp","services":["web"]}}}

@@ -606,13 +606,36 @@ def register_mcp_project(name: str, root: Path, force: bool = False) -> None:
     Registry().register_project_alias(name, root, force=force)
 
 
+def mcp_launch_config(name: str) -> tuple[str, list[str], list[str]]:
+    invoked = Path(sys.argv[0]).expanduser()
+    if invoked.name in {"switchyard", "sy"}:
+        resolved = invoked.resolve()
+        if resolved.exists():
+            return str(resolved), ["mcp", "--project", name], []
+
+    resolved_switchyard = shutil.which("switchyard")
+    if resolved_switchyard:
+        return resolved_switchyard, ["mcp", "--project", name], []
+
+    return (
+        sys.executable,
+        ["-m", "switchyard", "mcp", "--project", name],
+        [
+            "# `switchyard` was not found on PATH; this uses the current Python interpreter.",
+            "# If Codex cannot launch it, install Switchyard with pipx or rerun from the target virtualenv.",
+        ],
+    )
+
+
 def mcp_config_text(name: str, _root: Path) -> str:
     validate_mcp_name(name)
-    args = ["mcp", "--project", name]
+    command, args, comments = mcp_launch_config(name)
     args_text = ", ".join(json.dumps(item) for item in args)
+    comment_text = "".join(f"{comment}\n" for comment in comments)
     return (
         f"[mcp_servers.{name}]\n"
-        'command = "switchyard"\n'
+        f"{comment_text}"
+        f"command = {json.dumps(command)}\n"
         f"args = [{args_text}]\n"
         "startup_timeout_sec = 10\n"
         "tool_timeout_sec = 60\n"
@@ -874,7 +897,12 @@ def build_parser() -> argparse.ArgumentParser:
     brief.add_argument("--json", action="store_true")
     brief.set_defaults(func=cmd_brief)
 
-    mcp = sub.add_parser("mcp", help="Run or configure a stdio MCP server for AI agents")
+    mcp = sub.add_parser(
+        "mcp",
+        help="Run or configure a stdio MCP server for AI agents",
+        description="Run without a subcommand to start the stdio MCP server.",
+        epilog="Run `switchyard mcp` without config/install/projects to serve MCP over stdio.",
+    )
     mcp.add_argument(
         "--cwd",
         dest="mcp_cwd",

@@ -11,6 +11,11 @@ on:
         options:
           - testpypi
           - pypi
+      testpypi_smoke_confirmed:
+        description: "Required for pypi: this version installed and smoked from TestPyPI"
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -44,6 +49,14 @@ jobs:
           if f"## {version} - Unreleased" in changelog or f"## {version} - " not in changelog:
               raise SystemExit(f"CHANGELOG.md must finalize {version} before publishing")
           PY
+
+      - name: Validate PyPI promotion gate
+        if: inputs.publish_target == 'pypi'
+        run: |
+          if [ "${{ inputs.testpypi_smoke_confirmed }}" != "true" ]; then
+            echo "Run the TestPyPI target first, verify its install smoke, then rerun with testpypi_smoke_confirmed checked." >&2
+            exit 1
+          fi
 
       - name: Release readiness
         run: python scripts/release_check.py
@@ -112,6 +125,27 @@ jobs:
       - uses: pypa/gh-action-pypi-publish@cef221092ed1bacb1cc03d23a2d87d1d172e277b # pypa publish release v1
         with:
           repository-url: https://test.pypi.org/legacy/
+
+      - name: TestPyPI install smoke
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          python -m venv .testpypi-smoke
+          . .testpypi-smoke/bin/activate
+          python -m pip install --upgrade pip
+          for attempt in 1 2 3 4 5; do
+            if python -m pip install --no-cache-dir \
+              --index-url https://test.pypi.org/simple/ \
+              --extra-index-url https://pypi.org/simple/ \
+              "switchyard-dev==$version"; then
+              break
+            fi
+            if [ "$attempt" = "5" ]; then
+              exit 1
+            fi
+            sleep 15
+          done
+          switchyard --version
+          switchyard mcp --help | grep -F "Run without a subcommand to start the stdio MCP server"
 
   publish-pypi:
     if: inputs.publish_target == 'pypi'

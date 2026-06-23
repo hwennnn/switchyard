@@ -12,3 +12,11 @@ build/
 .switchyard/
 *.log
 
+# Local-only agent scratchpads and unpublished research/harness artifacts.
+scratch/
+research/
+harness/
+outputs/
+work/
+docs/competitive_research*/
+docs/competitive_research*.md

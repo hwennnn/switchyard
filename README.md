@@ -52,7 +52,7 @@ benchmark gates. Current benchmark guardrails include:
 | source tree | under 250 KB |
 | wheel artifact | under 350 KB |
 
-Reproduce locally:
+From a repository checkout:
 
 ```sh
 python3 scripts/benchmark.py --runs 3

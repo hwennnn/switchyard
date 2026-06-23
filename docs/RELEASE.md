@@ -50,7 +50,8 @@ API tokens in repository secrets.
 6. Run the `Release` workflow manually from that tag with `publish_target` set
    to `testpypi`.
 7. Install from TestPyPI and smoke test the CLI.
-8. Run the same workflow from the tag with `publish_target` set to `pypi`.
+8. Run the same workflow from the tag with `publish_target` set to `pypi`
+   and `testpypi_smoke_confirmed` checked.
 
 The workflow rejects branch runs, mismatched tags, and changelog entries that
 still say `Unreleased`.

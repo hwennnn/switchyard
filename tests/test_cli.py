@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import subprocess
+import sys
 import tempfile
 import unittest
 from contextlib import contextmanager, redirect_stderr, redirect_stdout
@@ -13,6 +14,7 @@ from unittest.mock import patch
 from switchyard.cli import (
     install_mcp_config,
     main,
+    mcp_launch_config,
     mcp_config_text,
     resolve_mcp_project_root,
     resolve_mcp_config_root,
@@ -209,10 +211,30 @@ command = "python -m http.server {port}"
 
             text = mcp_config_text("switchyard", root)
 
-        self.assertIn('args = ["mcp", "--project", "switchyard"]', text)
+        self.assertIn('"--project", "switchyard"', text)
         self.assertNotIn("cwd =", text)
         self.assertNotIn(str(root), text)
         self.assertNotIn("/path/to/project", text)
+
+    def test_mcp_launch_config_prefers_invoked_console_script(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            script = Path(temp) / "switchyard"
+            script.write_text("#!/bin/sh\n")
+
+            with patch.object(sys, "argv", [str(script)]), patch("switchyard.cli.shutil.which", return_value=None):
+                command, args, comments = mcp_launch_config("switchyard")
+
+        self.assertEqual(command, str(script.resolve()))
+        self.assertEqual(args, ["mcp", "--project", "switchyard"])
+        self.assertEqual(comments, [])
+
+    def test_mcp_launch_config_falls_back_to_current_python(self) -> None:
+        with patch.object(sys, "argv", ["python"]), patch("switchyard.cli.shutil.which", return_value=None):
+            command, args, comments = mcp_launch_config("switchyard")
+
+        self.assertEqual(command, sys.executable)
+        self.assertEqual(args, ["-m", "switchyard", "mcp", "--project", "switchyard"])
+        self.assertTrue(comments)
 
     def test_mcp_config_root_discovers_project_from_subdir(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
@@ -464,7 +486,7 @@ command = "python -m http.server {port}"
         self.assertIn("# Would update:", stdout.getvalue())
         self.assertIn("# Would register local MCP project: switchyard-demo", stdout.getvalue())
         self.assertIn("Dry run only: the alias is not registered", stdout.getvalue())
-        self.assertIn('args = ["mcp", "--project", "switchyard-demo"]', stdout.getvalue())
+        self.assertIn('"--project", "switchyard-demo"', stdout.getvalue())
         self.assertNotIn("cwd =", stdout.getvalue())
         self.assertNotIn(str(root), stdout.getvalue())
         self.assertNotIn("/path/to/project", stdout.getvalue())
@@ -509,7 +531,7 @@ command = "python -m http.server {port}"
 
         self.assertEqual(install_code, 0)
         self.assertEqual(config_code, 0)
-        self.assertIn('args = ["mcp", "--project", "switchyard"]', install_stdout.getvalue())
+        self.assertIn('"--project", "switchyard"', install_stdout.getvalue())
         self.assertIn("# Registered local MCP project: switchyard", config_stdout.getvalue())
         self.assertNotIn(str(other), install_stdout.getvalue())
         self.assertNotIn(str(other), config_stdout.getvalue())
@@ -529,7 +551,7 @@ command = "python -m http.server {port}"
 
         self.assertEqual(code, 0)
         self.assertIn("[mcp_servers.switchyard-demo]", config_text)
-        self.assertIn('args = ["mcp", "--project", "switchyard-demo"]', config_text)
+        self.assertIn('"--project", "switchyard-demo"', config_text)
         self.assertNotIn("cwd =", config_text)
         self.assertEqual(state["project_aliases"]["switchyard-demo"], str(root))
         self.assertIn("Codex MCP server", stdout.getvalue())
@@ -561,7 +583,7 @@ command = "other"
         self.assertEqual(action, "updated")
         self.assertIn('model = "gpt-5.5"', text)
         self.assertIn("[mcp_servers.other]", text)
-        self.assertIn('args = ["mcp", "--project", "switchyard"]', text)
+        self.assertIn('"--project", "switchyard"', text)
         self.assertNotIn("cwd =", text)
         self.assertNotIn("--cwd", text)
         self.assertIn("[mcp_servers.switchyard.tools.switchyard_up]", text)

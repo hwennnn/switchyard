@@ -157,6 +157,7 @@ def check_public_docs() -> None:
     require("## Status" in readme, "README should include current project status")
     require("Stdio MCP tools, resources, and prompts" in readme, "README status should mention shipped MCP resources and prompts")
     require("MCP initialize + doctor" in readme, "README should document benchmark guardrails")
+    require("From a repository checkout:" in readme, "README should qualify repo-only release scripts")
     require("python3 scripts/benchmark.py --runs 3" in readme, "README should document benchmark reproduction")
     require("python3 scripts/release_check.py" in readme, "README should document release readiness reproduction")
     require("switchyard-dev" in readme, "README should document publish package name")
@@ -239,6 +240,8 @@ def check_public_docs() -> None:
     require("prompts/get" in release_workflow, "release workflow should smoke MCP prompts from wheel")
     require("switchyard://project/brief" in release_workflow, "release workflow should smoke project brief resource")
     require("switchyard_branch_runtime" in release_workflow, "release workflow should smoke branch runtime prompt")
+    require("testpypi_smoke_confirmed" in release_workflow, "release workflow should gate PyPI promotion on TestPyPI confirmation")
+    require("TestPyPI install smoke" in release_workflow, "release workflow should install-smoke TestPyPI publish")
     require('export SWITCHYARD_HOME="$smoke_project/switchyard-home"' in release_workflow, "release workflow should isolate Switchyard state")
     require('export CODEX_HOME="$smoke_project/codex-home"' in release_workflow, "release workflow should isolate Codex config")
     require('args = ["mcp", "--project", "switchyard"]' in release_workflow, "release workflow should smoke alias MCP config")
@@ -253,6 +256,7 @@ def check_public_docs() -> None:
     require("prompts/get" in release_doc, "release docs should smoke MCP prompts")
     require("switchyard://project/brief" in release_doc, "release docs should smoke project brief resource")
     require("switchyard_branch_runtime" in release_doc, "release docs should smoke branch runtime prompt")
+    require("testpypi_smoke_confirmed" in release_doc, "release docs should document PyPI promotion confirmation")
     require("cwd =" in release_doc, "release docs should explicitly reject cwd MCP config")
     require("Validate release tag" in release_workflow, "release workflow should validate release tag")
     require("GITHUB_REF_TYPE" in release_workflow, "release workflow should require a tag ref")
@@ -372,8 +376,19 @@ for path in sorted(Path("examples").glob("*.toml")):
 
 def check_no_internal_research() -> None:
     needles = ("just" + "rach", "Competitive" + " Research", "POLISH" + "_HARNESS", "runtime isolation" + " harness")
+    forbidden_parts = {"scratch", "research", "harness", "outputs", "work"}
+    forbidden_docs = {"competitive_research", "competitive-research"}
     for path in ROOT.rglob("*"):
-        if path.is_dir() or ".git" in path.parts:
+        if ".git" in path.parts:
+            continue
+        relative_parts = path.relative_to(ROOT).parts
+        normalized = path.name.lower()
+        require(
+            not any(part in forbidden_parts for part in relative_parts)
+            and not any(marker in normalized for marker in forbidden_docs),
+            f"local-only artifact path should not be committed: {path.relative_to(ROOT)}",
+        )
+        if path.is_dir():
             continue
         if path.suffix in {".pyc", ".log"}:
             continue
@@ -516,6 +531,12 @@ def check_mcp_smoke() -> None:
         action_lines = [json.loads(line) for line in result.stdout.splitlines()]
         require(action_lines[0]["result"]["structuredContent"]["created"] is True, "MCP create failed")
         require(action_lines[1]["result"]["structuredContent"]["worktrees"][0]["branch"] == "feature/mcp", "MCP list failed")
+        require(action_lines[2]["result"]["structuredContent"]["branch"] == "feature/mcp", "MCP up failed")
+        require(action_lines[3]["result"]["structuredContent"]["service"] == "web", "MCP where failed")
+        require(action_lines[4]["result"]["structuredContent"]["logs"][0]["service"] == "web", "MCP logs failed")
+        require(action_lines[5]["result"]["structuredContent"]["branch"] == "feature/mcp", "MCP checkout failed")
+        require(action_lines[6]["result"]["structuredContent"]["branch"] == "feature/mcp", "MCP uncheckout failed")
+        require(action_lines[7]["result"]["structuredContent"]["branch"] == "feature/mcp", "MCP down failed")
         worktree = Path(action_lines[0]["result"]["structuredContent"]["worktree"])
         result = run(
             [sys.executable, "-m", "switchyard", "mcp"],
@@ -580,16 +601,17 @@ def check_cli_json_smoke() -> None:
         require("Escape hatch" in result.stdout, "mcp help should frame --cwd as an escape hatch")
         require("normal setup uses mcp install" in result.stdout, "mcp help should point users at path-free setup")
         require("or --project" in result.stdout, "mcp help should point users at alias setup")
+        require("Run without a subcommand to start the stdio MCP server" in result.stdout, "mcp help should explain no-subcommand server start")
         require("/path/to/project" not in result.stdout, "mcp help should not use path placeholders")
         result = run([sys.executable, "-m", "switchyard", "mcp", "install", "--dry-run"], cwd=root, env=env)
         require("# Would update:" in result.stdout, "mcp install dry run should print target config path")
-        require('args = ["mcp", "--project", "switchyard"]' in result.stdout, "mcp install dry run should use project alias args")
+        require('"--project", "switchyard"' in result.stdout, "mcp install dry run should use project alias args")
         require("Dry run only: the alias is not registered" in result.stdout, "mcp install dry run should explain alias is not registered")
         require("cwd =" not in result.stdout, "mcp install dry run should not require Codex cwd field")
         require(str(root.resolve()) not in result.stdout, "mcp install dry run should not print project paths into setup")
         require("/path/to/project" not in result.stdout, "mcp install dry run should not use path placeholders")
         result = run([sys.executable, "-m", "switchyard", "mcp", "config"], cwd=root, env=env)
-        require('args = ["mcp", "--project", "switchyard"]' in result.stdout, "mcp config should use project alias args")
+        require('"--project", "switchyard"' in result.stdout, "mcp config should use project alias args")
         require("cwd =" not in result.stdout, "mcp config should not require Codex cwd field")
         require(str(root.resolve()) not in result.stdout, "mcp config should not print project paths into setup")
         require("/path/to/project" not in result.stdout, "mcp config should not use path placeholders")
@@ -600,7 +622,7 @@ def check_cli_json_smoke() -> None:
         env["CODEX_HOME"] = str(root / "codex-home")
         run([sys.executable, "-m", "switchyard", "mcp", "install"], cwd=root, env=env)
         config_text = (Path(env["CODEX_HOME"]) / "config.toml").read_text()
-        require('args = ["mcp", "--project", "switchyard"]' in config_text, "mcp install should write project alias args")
+        require('"--project", "switchyard"' in config_text, "mcp install should write project alias args")
         require("cwd =" not in config_text, "mcp install should not write Codex cwd field")
         require(str(root.resolve()) not in config_text, "mcp install should not write project paths")
         require("--cwd" not in config_text, "mcp install should not write cwd into server args")
@@ -692,7 +714,7 @@ def build_and_check_package() -> None:
         result = run([str(python), "-m", "switchyard", "doctor", "--json"], cwd=smoke_project, env=env)
         require(json.loads(result.stdout)["project"]["name"] == "installed-demo", "installed doctor --json failed")
         result = run([str(python), "-m", "switchyard", "mcp", "config"], cwd=smoke_project, env=env)
-        require('args = ["mcp", "--project", "switchyard"]' in result.stdout, "installed mcp config should use project alias args")
+        require('"--project", "switchyard"' in result.stdout, "installed mcp config should use project alias args")
         require("cwd =" not in result.stdout, "installed mcp config should not require Codex cwd field")
         require(str(smoke_project.resolve()) not in result.stdout, "installed mcp config should not print project paths")
         result = run([str(python), "-m", "switchyard", "mcp", "projects", "--json"], cwd=smoke_project, env=env)
@@ -701,7 +723,7 @@ def build_and_check_package() -> None:
         require(projects[0]["status"] == "ok", "installed mcp projects should report healthy alias")
         result = run([str(python), "-m", "switchyard", "mcp", "install", "--dry-run"], cwd=smoke_project, env=env)
         require("# Would update:" in result.stdout, "installed mcp install dry run should print target config path")
-        require('args = ["mcp", "--project", "switchyard"]' in result.stdout, "installed mcp install dry run should use project alias args")
+        require('"--project", "switchyard"' in result.stdout, "installed mcp install dry run should use project alias args")
         require("Dry run only: the alias is not registered" in result.stdout, "installed mcp install dry run should explain alias is not registered")
         nested = smoke_project / "apps" / "web"
         nested.mkdir(parents=True)
