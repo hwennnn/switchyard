@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- Runtime commands execute as parsed argv without a shell, with quoted placeholders preserved.
+- Service and checkout logs are truncated on each managed start so `recent_errors` does not report stale failures.
+- Proxy reuse now verifies the active proxy belongs to the same local Switchyard registry.
+- CLI and MCP log readers refuse registry records that point outside Switchyard's private log directory.
+- Runtime profiles can select service groups and shared environment values for CLI and MCP startup.
+
 ## 0.1.0 - 2026-06-23
 
 - Initial CLI for worktree-scoped local runtimes.

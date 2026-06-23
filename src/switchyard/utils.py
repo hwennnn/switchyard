@@ -4,6 +4,7 @@ import os
 import re
 import shutil
 import signal
+import shlex
 import socket
 import subprocess
 import sys
@@ -65,7 +66,6 @@ def port_is_free(port: int, host: str = "127.0.0.1") -> bool:
         checks.append((socket.AF_INET6, (host, port, 0, 0)))
     else:
         checks.append((socket.AF_INET, (host, port)))
-        checks.append((socket.AF_INET, ("0.0.0.0", port)))
         if socket.has_ipv6:
             checks.append((socket.AF_INET6, ("::", port, 0, 0)))
     return all(_can_bind(family, address) for family, address in checks)
@@ -183,13 +183,32 @@ def recent_error_lines(path: Path, limit: int = 8, scan_lines: int = 200) -> lis
 def render_command(command: str, values: dict[str, object]) -> str:
     rendered = command
     for key, value in values.items():
-        rendered = rendered.replace("{" + key + "}", str(value))
+        rendered = rendered.replace("{" + key + "}", shlex.quote(str(value)))
     return rendered
 
 
-def ensure_dir(path: Path) -> Path:
+def command_argv(command: str) -> list[str]:
+    argv = shlex.split(command)
+    if argv and argv[0] == "python" and not shutil.which("python"):
+        argv[0] = sys.executable
+    return argv
+
+
+def ensure_dir(path: Path, mode: int | None = None) -> Path:
     path.mkdir(parents=True, exist_ok=True)
+    if mode is not None:
+        path.chmod(mode)
     return path
+
+
+def private_append_binary(path: Path):
+    fd = os.open(path, os.O_APPEND | os.O_CREAT | os.O_WRONLY, 0o600)
+    return os.fdopen(fd, "ab", buffering=0)
+
+
+def private_write_binary(path: Path):
+    fd = os.open(path, os.O_CREAT | os.O_TRUNC | os.O_WRONLY, 0o600)
+    return os.fdopen(fd, "wb", buffering=0)
 
 
 def src_dir_for_child() -> str:

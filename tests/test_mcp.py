@@ -317,6 +317,9 @@ port = 8000
             )
 
             with patch.dict(os.environ, {"SWITCHYARD_HOME": str(root / ".switchyard-home")}):
+                config = load_config(root / "switchyard.toml")
+                worktree = Registry().default_worktree_path(config, "feature/demo")
+                worktree.mkdir(parents=True)
                 set_server_root(root)
                 try:
                     response = handle_request(
@@ -361,6 +364,9 @@ command = "python -m http.server {port}"
             )
 
             with patch.dict(os.environ, {"SWITCHYARD_HOME": str(root / ".switchyard-home")}):
+                config = load_config(root / "switchyard.toml")
+                worktree = Registry().default_worktree_path(config, "feature/demo")
+                worktree.mkdir(parents=True)
                 set_server_root(root)
                 try:
                     response = handle_request(
@@ -622,11 +628,60 @@ port = 8000
         self.assertEqual(uncheckout_response["result"]["structuredContent"]["messages"], ["unchecked web"])
         self.assertEqual(stop.call_args.args[2:], ("feature/demo", ["web"]))
 
+    def test_up_tool_accepts_profile_for_service_and_env_selection(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            root.mkdir(exist_ok=True)
+            (root / "switchyard.toml").write_text(
+                """
+[project]
+name = "demo"
+
+[services.api]
+command = "api --db {postgres_port}"
+
+[services.web]
+command = "python -m http.server {port}"
+port = 8000
+
+[profiles.shared]
+services = ["api", "web"]
+[profiles.shared.env]
+POSTGRES_PORT = "5432"
+"""
+            )
+
+            with patch.dict(os.environ, {"SWITCHYARD_HOME": str(root / ".switchyard-home")}):
+                config = load_config(root / "switchyard.toml")
+                worktree = Registry().default_worktree_path(config, "feature/demo")
+                worktree.mkdir(parents=True)
+                set_server_root(root)
+                try:
+                    with patch("switchyard.mcp.start_services", return_value=["started api", "started web"]) as start:
+                        response = handle_request(
+                            {
+                                "jsonrpc": "2.0",
+                                "id": 18,
+                                "method": "tools/call",
+                                "params": {
+                                    "name": "switchyard_up",
+                                    "arguments": {"branch": "feature/demo", "profile": "shared"},
+                                },
+                            }
+                        )
+                finally:
+                    set_server_root(None)
+
+        result = response["result"]
+        self.assertFalse(result["isError"])
+        self.assertEqual(result["structuredContent"]["profile"], "shared")
+        self.assertEqual(result["structuredContent"]["services"], ["api", "web"])
+        self.assertEqual(start.call_args.args[4], ["api", "web"])
+        self.assertEqual(start.call_args.args[5], {"POSTGRES_PORT": "5432"})
+
     def test_logs_tool_returns_line_arrays_and_text_tail(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
-            log_file = root / "web.log"
-            log_file.write_text("alpha\nbeta\ngamma\n")
             (root / "switchyard.toml").write_text(
                 """
 [project]
@@ -642,6 +697,8 @@ port = 8000
                 config = load_config(root / "switchyard.toml")
                 registry = Registry()
                 registry.ensure_project(config)
+                log_file = registry.log_path(config, "feature/demo", "web")
+                log_file.write_text("alpha\nbeta\ngamma\n")
                 registry.upsert_service(
                     config,
                     {
@@ -676,6 +733,59 @@ port = 8000
         self.assertEqual(result["structuredContent"]["logs"][0]["lines"], ["beta", "gamma"])
         self.assertIn("beta\ngamma", result["content"][0]["text"])
         self.assertNotIn("b\ne\nt\na", result["content"][0]["text"])
+
+    def test_logs_tool_rejects_tampered_log_path_outside_registry(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            outside_log = root / "outside.log"
+            outside_log.write_text("secret\n")
+            (root / "switchyard.toml").write_text(
+                """
+[project]
+name = "demo"
+
+[services.web]
+command = "python -m http.server {port}"
+port = 8000
+"""
+            )
+
+            with patch.dict(os.environ, {"SWITCHYARD_HOME": str(root / ".switchyard-home")}):
+                config = load_config(root / "switchyard.toml")
+                registry = Registry()
+                registry.ensure_project(config)
+                registry.upsert_service(
+                    config,
+                    {
+                        "project": config.name,
+                        "branch": "feature/demo",
+                        "service": "web",
+                        "pid": 123,
+                        "command": "python -m http.server",
+                        "port": 41000,
+                        "url": "http://web.feature-demo.demo.localhost:7331",
+                        "log_file": str(outside_log),
+                    },
+                )
+                set_server_root(root)
+                try:
+                    response = handle_request(
+                        {
+                            "jsonrpc": "2.0",
+                            "id": 10,
+                            "method": "tools/call",
+                            "params": {
+                                "name": "switchyard_logs",
+                                "arguments": {"branch": "feature/demo", "service": "web", "lines": 2},
+                            },
+                        }
+                    )
+                finally:
+                    set_server_root(None)
+
+        result = response["result"]
+        self.assertTrue(result["isError"])
+        self.assertIn("refusing to read log outside Switchyard log directory", result["content"][0]["text"])
 
     def test_logs_tool_rejects_non_integer_lines(self) -> None:
         with tempfile.TemporaryDirectory() as temp:

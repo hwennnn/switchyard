@@ -4,6 +4,7 @@ import argparse
 import json
 import os
 import shutil
+import socket
 import subprocess
 import sys
 import tarfile
@@ -58,6 +59,12 @@ def ok(name: str) -> None:
 def require(condition: bool, message: str) -> None:
     if not condition:
         raise CheckError(message)
+
+
+def free_tcp_port() -> int:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.bind(("127.0.0.1", 0))
+        return int(sock.getsockname()[1])
 
 
 def read(path: str) -> str:
@@ -659,6 +666,7 @@ def check_no_internal_research() -> None:
 def check_mcp_smoke() -> None:
     with tempfile.TemporaryDirectory(prefix="switchyard-release-mcp-") as temp:
         root = Path(temp)
+        proxy_port = free_tcp_port()
         run(["git", "init"], cwd=root)
         run(["git", "config", "user.email", "test@example.com"], cwd=root)
         run(["git", "config", "user.name", "Test User"], cwd=root)
@@ -667,12 +675,15 @@ def check_mcp_smoke() -> None:
         run(["git", "commit", "-m", "init"], cwd=root)
         (root / "switchyard.toml").write_text(
             textwrap.dedent(
-                """
+                f"""
                 [project]
                 name = "demo"
 
+                [proxy]
+                port = {proxy_port}
+
                 [services.web]
-                command = "python -m http.server {port}"
+                command = "python -m http.server {{port}}"
                 port = 8000
                 """
             )

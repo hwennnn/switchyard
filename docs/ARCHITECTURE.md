@@ -24,7 +24,9 @@ It is implemented with Python stdlib `argparse` so the runtime has no mandatory 
 - Port allocation range.
 - Services and commands.
 
-Service commands are shell commands because local dev commands are usually already shell commands.
+Service commands are parsed with shell-like quoting and executed without a
+shell. Put pipes, redirects, `&&`, or other shell behavior in a script and call
+that script from `command`.
 
 ## Registry
 

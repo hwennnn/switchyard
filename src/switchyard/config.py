@@ -42,6 +42,13 @@ class ServiceConfig:
 
 
 @dataclass(frozen=True)
+class ProfileConfig:
+    name: str
+    services: list[str]
+    env: dict[str, str] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
 class ProjectConfig:
     name: str
     root: Path
@@ -51,6 +58,7 @@ class ProjectConfig:
     proxy: ProxyConfig
     ports: PortsConfig
     services: dict[str, ServiceConfig]
+    profiles: dict[str, ProfileConfig] = field(default_factory=dict)
 
     @property
     def slug(self) -> str:
@@ -104,6 +112,22 @@ def validate_loopback_host(value: object, key: str) -> str:
     return host
 
 
+def env_table(raw: object, key: str) -> dict[str, str]:
+    if raw is None:
+        return {}
+    if not isinstance(raw, dict):
+        raise ValueError(f"{key} must be a table")
+    return {str(k): str(v) for k, v in raw.items()}
+
+
+def service_name_list(raw: object, key: str) -> list[str]:
+    if raw is None:
+        return []
+    if not isinstance(raw, list) or not all(isinstance(item, str) for item in raw):
+        raise ValueError(f"{key}.services must be a list of strings")
+    return [slugify(item) for item in raw]
+
+
 def load_config(path: Path) -> ProjectConfig:
     path = path.resolve()
     with path.open("rb") as handle:
@@ -119,6 +143,7 @@ def load_config(path: Path) -> ProjectConfig:
     proxy_raw = raw.get("proxy", {})
     ports_raw = raw.get("ports", {})
     services_raw = raw.get("services", {})
+    profiles_raw = raw.get("profiles", {})
 
     if not isinstance(services_raw, dict) or not services_raw:
         raise ValueError("at least one [services.<name>] table is required")
@@ -133,16 +158,32 @@ def load_config(path: Path) -> ProjectConfig:
         service_name = slugify(str(name_key))
         if service_name in services:
             raise ValueError(f"service names collide after slugging: {name_key}")
-        env = service_raw.get("env", {})
-        if not isinstance(env, dict):
-            raise ValueError(f"[services.{name_key}.env] must be a table")
         services[service_name] = ServiceConfig(
             name=service_name,
             command=str(command),
             port=int(service_raw["port"]) if "port" in service_raw else None,
             host=validate_loopback_host(service_raw.get("host", "127.0.0.1"), f"[services.{name_key}].host"),
             health=str(service_raw["health"]) if "health" in service_raw else None,
-            env={str(k): str(v) for k, v in env.items()},
+            env=env_table(service_raw.get("env", {}), f"[services.{name_key}.env]"),
+        )
+
+    if not isinstance(profiles_raw, dict):
+        raise ValueError("[profiles] must be a table")
+    profiles = {}
+    for profile_key, profile_raw in profiles_raw.items():
+        if not isinstance(profile_raw, dict):
+            raise ValueError(f"[profiles.{profile_key}] must be a table")
+        profile_name = slugify(str(profile_key))
+        if profile_name in profiles:
+            raise ValueError(f"profile names collide after slugging: {profile_key}")
+        profile_services = service_name_list(profile_raw.get("services", []), f"[profiles.{profile_key}]")
+        unknown = sorted(set(profile_services) - set(services))
+        if unknown:
+            raise ValueError(f"[profiles.{profile_key}] references unknown service(s): {', '.join(unknown)}")
+        profiles[profile_name] = ProfileConfig(
+            name=profile_name,
+            services=profile_services,
+            env=env_table(profile_raw.get("env", {}), f"[profiles.{profile_key}.env]"),
         )
 
     return ProjectConfig(
@@ -164,6 +205,7 @@ def load_config(path: Path) -> ProjectConfig:
             end=int(ports_raw.get("end", 49999)),
         ),
         services=services,
+        profiles=profiles,
     )
 
 

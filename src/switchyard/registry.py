@@ -19,10 +19,10 @@ class Registry:
         self.home = home or switchyard_home()
         self.create = create
         if create:
-            ensure_dir(self.home)
-            ensure_dir(self.home / "logs")
-            ensure_dir(self.home / "worktrees")
-            ensure_dir(self.home / "locks")
+            ensure_dir(self.home, 0o700)
+            ensure_dir(self.home / "logs", 0o700)
+            ensure_dir(self.home / "worktrees", 0o700)
+            ensure_dir(self.home / "locks", 0o700)
         self.path = self.home / "state.json"
 
     def read(self) -> dict[str, Any]:
@@ -43,12 +43,13 @@ class Registry:
         return data
 
     def write(self, data: dict[str, Any]) -> None:
-        ensure_dir(self.path.parent)
+        ensure_dir(self.path.parent, 0o700)
         fd, temp_name = tempfile.mkstemp(prefix="state.", suffix=".json", dir=self.path.parent)
         with open(fd, "w") as handle:
             json.dump(data, handle, indent=2, sort_keys=True)
             handle.write("\n")
         Path(temp_name).replace(self.path)
+        self.path.chmod(0o600)
 
     def project_key(self, root: Path) -> str:
         return str(root.resolve())
@@ -60,8 +61,9 @@ class Registry:
     @contextmanager
     def exclusive_lock(self, name: str):
         lock_path = self.home / "locks" / f"{name}.lock"
-        ensure_dir(lock_path.parent)
+        ensure_dir(lock_path.parent, 0o700)
         with lock_path.open("w") as lock:
+            lock_path.chmod(0o600)
             try:
                 import fcntl
 
@@ -156,13 +158,21 @@ class Registry:
 
     def log_path(self, config: ProjectConfig, branch: str, service: str) -> Path:
         path = self.home / "logs" / self.project_dir_name(config) / slugify(branch) / f"{slugify(service)}.log"
-        ensure_dir(path.parent)
+        ensure_dir(path.parent, 0o700)
         return path
 
     def proxy_log_path(self, port: int) -> Path:
         path = self.home / "logs" / "proxy" / f"{port}.log"
-        ensure_dir(path.parent)
+        ensure_dir(path.parent, 0o700)
         return path
+
+    def is_log_path(self, path: Path) -> bool:
+        try:
+            resolved = path.expanduser().resolve()
+            logs = (self.home / "logs").expanduser().resolve()
+        except OSError:
+            return False
+        return resolved == logs or resolved.is_relative_to(logs)
 
     def upsert_worktree(self, config: ProjectConfig, branch: str, path: Path) -> None:
         with self.exclusive_state_lock():

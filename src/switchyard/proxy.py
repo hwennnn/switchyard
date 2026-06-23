@@ -6,6 +6,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import ClassVar
 
+from .config import validate_loopback_host
 from .registry import Registry
 
 
@@ -51,7 +52,8 @@ class SwitchyardProxyHandler(BaseHTTPRequestHandler):
 
     def _handle(self, head_only: bool = False) -> None:
         if self.path == "/__switchyard/health":
-            self._send_json(200, {"ok": True, "name": "switchyard-proxy"})
+            registry_home = str(self.registry_home.expanduser().resolve()) if self.registry_home else ""
+            self._send_json(200, {"ok": True, "name": "switchyard-proxy", "registry_home": registry_home})
             return
 
         host = self.headers.get("Host", "")
@@ -61,7 +63,11 @@ class SwitchyardProxyHandler(BaseHTTPRequestHandler):
             self._send_text(502, f"Switchyard has no route for Host: {host}\n")
             return
 
-        backend_host = route.get("backend_host", "127.0.0.1")
+        try:
+            backend_host = validate_loopback_host(route.get("backend_host", "127.0.0.1"), "registry backend_host")
+        except ValueError:
+            self._send_text(502, "Switchyard refused non-loopback backend route\n")
+            return
         backend_port = int(route["port"])
         length = int(self.headers.get("Content-Length", "0") or "0")
         body = self.rfile.read(length) if length else None

@@ -16,17 +16,26 @@ start = 41000
 end = 49999
 
 [services.postgres]
-command = "POSTGRES_PORT={port} docker compose up postgres"
+command = "scripts/dev-postgres {port}"
 port = 5432
 
 [services.redis]
-command = "REDIS_PORT={port} docker compose up redis"
+command = "scripts/dev-redis {port}"
 port = 6379
 
 [services.api]
-command = "cd services/api && DATABASE_PORT={postgres_port} REDIS_PORT={redis_port} python -m uvicorn app.main:app --reload --port {port}"
+command = "scripts/dev-api {port} {postgres_port} {redis_port}"
 port = 8000
 
 [services.web]
-command = "cd apps/web && NEXT_PUBLIC_API_BASE_URL={api_url} npm run dev -- --port {port}"
+command = "scripts/dev-web {port} {api_url}"
 port = 3000
+
+[profiles.isolated]
+services = ["postgres", "redis", "api", "web"]
+
+[profiles.shared]
+services = ["api", "web"]
+[profiles.shared.env]
+POSTGRES_PORT = "5432"
+REDIS_PORT = "6379"

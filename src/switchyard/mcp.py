@@ -28,7 +28,7 @@ SERVER_CWD: Path | None = None
 INSTRUCTIONS = (
     "Switchyard exposes local runtime state for parallel agent worktrees. "
     "Prefer the switchyard://project/brief resource first when available; otherwise call switchyard_brief. "
-    "Use configured_services from the brief before choosing service names, and check env_warnings before creating worktrees. "
+    "Use configured_services and configured_profiles from the brief before choosing runtime shape, and check env_warnings before creating worktrees. "
     "Use switchyard_runtime_handoff for a read-only starter prompt. "
     "Then use switchyard_where or switchyard_logs for focused context. "
     "Use switchyard_create when a requested branch runtime does not exist yet. "
@@ -43,7 +43,7 @@ processes, or log paths.
 Recommended flow:
 
 1. Read `switchyard://project/brief` or call `switchyard_brief`.
-2. Use `configured_services` to choose a service name before starting or querying runtime state.
+2. Use `configured_services` and `configured_profiles` to choose a runtime shape before starting or querying runtime state.
 3. Check `env_warnings`; call `switchyard_doctor` only when setup details need deeper inspection.
 4. Call `switchyard_where` for one service when you need a URL, port, PID, or log path.
 5. Call `switchyard_logs` only for focused debugging.
@@ -246,9 +246,10 @@ DOCTOR_OUTPUT_SCHEMA = object_schema(
         "config": {"type": "string"},
         "proxy": PROXY_OUTPUT_SCHEMA,
         "services": STRING_ARRAY,
+        "profiles": STRING_ARRAY,
         "env_warnings": STRING_ARRAY,
     },
-    ["switchyard", "home", "project", "project_root", "config", "proxy", "services", "env_warnings"],
+    ["switchyard", "home", "project", "project_root", "config", "proxy", "services", "profiles", "env_warnings"],
 )
 CREATE_OUTPUT_SCHEMA = object_schema(
     {
@@ -268,6 +269,7 @@ BRIEF_OUTPUT_SCHEMA = object_schema(
         "project_root": {"type": "string"},
         "branch": NULLABLE_STRING,
         "configured_services": STRING_ARRAY,
+        "configured_profiles": STRING_ARRAY,
         "services": array_schema(SERVICE_RECORD_SCHEMA),
         "checkouts": array_schema(CHECKOUT_RECORD_SCHEMA),
         "changed_files": STRING_ARRAY,
@@ -279,6 +281,7 @@ BRIEF_OUTPUT_SCHEMA = object_schema(
         "project_root",
         "branch",
         "configured_services",
+        "configured_profiles",
         "services",
         "checkouts",
         "changed_files",
@@ -291,6 +294,8 @@ RUNTIME_ACTION_OUTPUT_SCHEMA = object_schema(
     {
         "branch": NULLABLE_STRING,
         "worktree": {"type": "string"},
+        "profile": NULLABLE_STRING,
+        "services": {"type": ["array", "null"], "items": {"type": "string"}},
         "messages": STRING_ARRAY,
     },
     ["messages"],
@@ -401,6 +406,7 @@ TOOLS: dict[str, dict[str, Any]] = {
                     "description": "Optional service names. Empty starts every configured service.",
                     "items": {"type": "string"},
                 },
+                "profile": {"type": "string", "description": "Optional configured profile name for service/env selection."},
             }
         ),
         "outputSchema": RUNTIME_ACTION_OUTPUT_SCHEMA,
@@ -593,7 +599,7 @@ def prompt_text(name: str, arguments: dict[str, str]) -> str:
         return (
             "Use Switchyard as the local runtime source of truth for this project.\n\n"
             "1. Read `switchyard://project/brief` if MCP resources are available; otherwise call `switchyard_brief`.\n"
-            "2. Use `configured_services` to pick valid service names before starting or querying runtime state.\n"
+            "2. Use `configured_services` and `configured_profiles` to pick a valid service/profile before starting runtime state.\n"
             "3. Check `env_warnings`; read `switchyard://project/doctor` or call `switchyard_doctor` only when setup details need deeper inspection.\n"
             "4. Use `switchyard_where` for a specific service URL/port/log path.\n"
             "5. Use `switchyard_logs` only for focused debugging.\n"
@@ -609,7 +615,7 @@ def prompt_text(name: str, arguments: dict[str, str]) -> str:
             f"Prepare the Switchyard runtime for branch `{branch}` and services: {service_text}.\n\n"
             "1. Read `switchyard://project/brief` or call `switchyard_brief` to see current runtime state.\n"
             "2. If the branch worktree is missing and the user wants it, call `switchyard_create` with that branch.\n"
-            "3. Before starting services, check `configured_services` and `env_warnings`; use `switchyard_doctor` only when setup details need deeper inspection.\n"
+            "3. Before starting services, check `configured_services`, `configured_profiles`, and `env_warnings`; use `switchyard_doctor` only when setup details need deeper inspection.\n"
             "4. If the user approved runtime changes, call `switchyard_up` with the branch and selected services.\n"
             "5. Report URLs from `switchyard_where` or the resulting brief, and read logs only for services that need debugging."
         )
@@ -680,6 +686,7 @@ def tool_doctor(arguments: dict[str, Any]) -> dict[str, Any]:
         "config": str(config.path),
         "proxy": {"host": config.proxy.host, "port": config.proxy.port, "tld": config.proxy.tld},
         "services": sorted(config.services),
+        "profiles": sorted(config.profiles),
         "env_warnings": env_source_warnings(config.root, config.env),
     }
     return tool_result(data)
@@ -725,7 +732,7 @@ def tool_status(arguments: dict[str, Any]) -> dict[str, Any]:
     branch_filter = branch_arg
     if not branch_filter and cwd.resolve() != config.root.resolve():
         branch_filter, _ = resolve_branch_and_worktree(config, registry, None, cwd)
-    data = hydrate_status(registry.services(config.root, branch_filter))
+    data = hydrate_status(registry.services(config.root, branch_filter), registry)
     return tool_result({"services": data})
 
 
@@ -776,6 +783,8 @@ def tool_logs(arguments: dict[str, Any]) -> dict[str, Any]:
     text_blocks = []
     for record in records:
         path = Path(str(record["log_file"]))
+        if not registry.is_log_path(path):
+            raise McpError(-32004, f"refusing to read log outside Switchyard log directory: {path}")
         tail = tail_lines(path, lines)
         item = {"service": record["service"], "branch": record["branch"], "log_file": str(path), "lines": tail}
         logs.append(item)
@@ -791,8 +800,16 @@ def tool_up(arguments: dict[str, Any]) -> dict[str, Any]:
     if not worktree.exists():
         raise McpError(-32004, f"worktree does not exist: {worktree}")
     services = normalize_services(arguments.get("services"))
-    messages = start_services(config, registry, branch, worktree, services)
-    return tool_result({"branch": branch, "worktree": str(worktree), "messages": messages})
+    profile_name = string_argument(arguments, "profile")
+    extra_env: dict[str, str] = {}
+    if profile_name:
+        profile = config.profiles.get(slugify(profile_name))
+        if not profile:
+            raise McpError(-32602, f"unknown profile: {profile_name}")
+        services = services or list(profile.services)
+        extra_env = dict(profile.env)
+    messages = start_services(config, registry, branch, worktree, services, extra_env)
+    return tool_result({"branch": branch, "worktree": str(worktree), "profile": profile_name, "services": services, "messages": messages})
 
 
 def tool_checkout(arguments: dict[str, Any]) -> dict[str, Any]:

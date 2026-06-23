@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 import os
+import http.client
 import subprocess
 import sys
 import time
-import urllib.request
 from pathlib import Path
 
 from .config import ProjectConfig, ServiceConfig
@@ -12,11 +12,14 @@ from .envsync import env_source_warnings
 from .registry import Registry
 from .utils import (
     child_pythonpath,
+    command_argv,
     find_free_port,
     now_iso,
     port_is_free,
     process_command_contains,
     pid_running,
+    private_append_binary,
+    private_write_binary,
     recent_error_lines,
     render_command,
     slugify,
@@ -33,20 +36,46 @@ def service_url(config: ProjectConfig, branch: str, service: str) -> str:
     return f"http://{service_hostname(config, branch, service)}:{config.proxy.port}"
 
 
-def proxy_health(port: int, host: str = "127.0.0.1") -> bool:
+def proxy_health_info(port: int, host: str = "127.0.0.1") -> dict[str, object] | None:
+    conn = http.client.HTTPConnection(host, port, timeout=0.5)
     try:
-        with urllib.request.urlopen(f"http://{host}:{port}/__switchyard/health", timeout=0.5) as response:
-            return response.status == 200
+        conn.request("GET", "/__switchyard/health")
+        response = conn.getresponse()
+        body = response.read()
+        if response.status != 200:
+            return None
+        try:
+            import json
+
+            data = json.loads(body.decode())
+        except Exception:
+            data = {}
+        return data if isinstance(data, dict) else {}
     except Exception:
-        return False
+        return None
+    finally:
+        conn.close()
+
+
+def proxy_health(port: int, host: str = "127.0.0.1") -> bool:
+    return proxy_health_info(port, host) is not None
 
 
 def ensure_proxy(config: ProjectConfig, registry: Registry) -> str:
-    if proxy_health(config.proxy.port, config.proxy.host):
+    health = proxy_health_info(config.proxy.port, config.proxy.host)
+    if health is not None:
+        expected_home = str(registry.home.expanduser().resolve())
+        record = registry.get_proxy(config.proxy.port)
+        actual_home = str(health.get("registry_home") or "")
+        if not record or actual_home != expected_home:
+            raise RuntimeError(
+                f"proxy port {config.proxy.port} is occupied by a Switchyard proxy for a different or unknown "
+                "registry; stop that process or choose another [proxy].port"
+            )
         return "proxy already running"
 
     log_path = registry.proxy_log_path(config.proxy.port)
-    log = log_path.open("ab", buffering=0)
+    log = private_append_binary(log_path)
     env = child_pythonpath(os.environ)
     process = subprocess.Popen(
         [
@@ -59,6 +88,8 @@ def ensure_proxy(config: ProjectConfig, registry: Registry) -> str:
             config.proxy.host,
             "--port",
             str(config.proxy.port),
+            "--home",
+            str(registry.home.expanduser().resolve()),
         ],
         stdout=log,
         stderr=log,
@@ -66,6 +97,7 @@ def ensure_proxy(config: ProjectConfig, registry: Registry) -> str:
         start_new_session=True,
         env=env,
     )
+    log.close()
     registry.set_proxy(
         config.proxy.port,
         {
@@ -115,7 +147,7 @@ def _start_checkouts_locked(
 ) -> list[str]:
     messages: list[str] = []
     selected_slugs = {slugify(item) for item in selected} if selected else None
-    records = hydrate_status(registry.services(config.root, branch))
+    records = hydrate_status(registry.services(config.root, branch), registry)
     for record in records:
         service_name = str(record.get("service"))
         if selected_slugs and service_name not in selected_slugs:
@@ -142,7 +174,7 @@ def _start_checkouts_locked(
             continue
 
         log_path = registry.log_path(config, branch, f"checkout-{service_name}")
-        log = log_path.open("ab", buffering=0)
+        log = private_write_binary(log_path)
         env = child_pythonpath(os.environ)
         checkout_command = [
             sys.executable,
@@ -167,6 +199,7 @@ def _start_checkouts_locked(
             start_new_session=True,
             env=env,
         )
+        log.close()
         registry.upsert_checkout(
             config,
             {
@@ -265,9 +298,10 @@ def start_services(
     branch: str,
     worktree: Path,
     selected: list[str] | None = None,
+    extra_env: dict[str, str] | None = None,
 ) -> list[str]:
     with registry.exclusive_project_lock(config.root):
-        return _start_services_locked(config, registry, branch, worktree, selected)
+        return _start_services_locked(config, registry, branch, worktree, selected, extra_env)
 
 
 def _start_services_locked(
@@ -276,6 +310,7 @@ def _start_services_locked(
     branch: str,
     worktree: Path,
     selected: list[str] | None = None,
+    extra_env: dict[str, str] | None = None,
 ) -> list[str]:
     selected_slugs = {slugify(item) for item in selected} if selected else set(config.services)
     unknown = sorted(selected_slugs - set(config.services))
@@ -322,6 +357,8 @@ def _start_services_locked(
             "project": config.name,
             "project_slug": config.slug,
         }
+        for key, value in (extra_env or {}).items():
+            values[key.lower()] = value
         for other_name, other_url in urls.items():
             placeholder_names = {other_name, other_name.replace("-", "_")}
             for placeholder_name in placeholder_names:
@@ -330,8 +367,9 @@ def _start_services_locked(
                     values[f"{placeholder_name}_port"] = peer_ports[other_name]
         command = render_command(service.command, values)
         log_path = registry.log_path(config, branch, service_name)
-        log = log_path.open("ab", buffering=0)
+        log = private_write_binary(log_path)
         env = os.environ.copy()
+        env.update(extra_env or {})
         env.update(service.env)
         env.update(
             {
@@ -355,15 +393,15 @@ def _start_services_locked(
                 env[f"SWITCHYARD_{env_name}_PORT"] = str(peer_ports[other_name])
 
         process = subprocess.Popen(
-            command,
+            command_argv(command),
             cwd=str(worktree),
-            shell=True,
             stdout=log,
             stderr=log,
             stdin=subprocess.DEVNULL,
             start_new_session=True,
             env=env,
         )
+        log.close()
         record = build_service_record(config, service, branch, worktree, port, command, log_path, process.pid)
         registry.upsert_service(config, record)
         messages.append(f"started {service_name} on :{port} -> {url}")
@@ -416,19 +454,19 @@ def _stop_services_locked(
     return messages
 
 
-def hydrate_status(records: list[dict[str, object]]) -> list[dict[str, object]]:
+def hydrate_status(records: list[dict[str, object]], registry: Registry | None = None) -> list[dict[str, object]]:
     hydrated = []
     for record in records:
         next_record = dict(record)
         running = pid_running(int(next_record.get("pid", 0)))
         next_record["status"] = "running" if running else "stale"
         log_file = Path(str(next_record.get("log_file", "")))
-        next_record["recent_errors"] = recent_error_lines(log_file)
+        next_record["recent_errors"] = recent_error_lines(log_file) if not registry or registry.is_log_path(log_file) else []
         hydrated.append(next_record)
     return hydrated
 
 
-def hydrate_checkouts(records: list[dict[str, object]]) -> list[dict[str, object]]:
+def hydrate_checkouts(records: list[dict[str, object]], registry: Registry | None = None) -> list[dict[str, object]]:
     hydrated = []
     for record in records:
         next_record = dict(record)
@@ -437,14 +475,14 @@ def hydrate_checkouts(records: list[dict[str, object]]) -> list[dict[str, object
         running = pid_running(pid) and process_command_contains(pid, command)
         next_record["status"] = "running" if running else "stale"
         log_file = Path(str(next_record.get("log_file", "")))
-        next_record["recent_errors"] = recent_error_lines(log_file)
+        next_record["recent_errors"] = recent_error_lines(log_file) if not registry or registry.is_log_path(log_file) else []
         hydrated.append(next_record)
     return hydrated
 
 
 def brief_for(config: ProjectConfig, registry: Registry, branch: str | None, changed_files: list[str]) -> dict[str, object]:
-    records = hydrate_status(registry.services(config.root, branch))
-    checkouts = hydrate_checkouts(registry.checkouts(config.root, branch))
+    records = hydrate_status(registry.services(config.root, branch), registry)
+    checkouts = hydrate_checkouts(registry.checkouts(config.root, branch), registry)
     errors = []
     for record in records:
         for line in record.get("recent_errors", []):
@@ -457,6 +495,7 @@ def brief_for(config: ProjectConfig, registry: Registry, branch: str | None, cha
         "project_root": str(config.root),
         "branch": branch,
         "configured_services": sorted(config.services),
+        "configured_profiles": sorted(config.profiles),
         "services": [
             {
                 "service": record.get("service"),

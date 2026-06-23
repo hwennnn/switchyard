@@ -129,7 +129,8 @@ or write Switchyard state.
 Recommended agent flow:
 
 1. Read `switchyard://project/brief`, or call `switchyard_brief` when resources are unavailable.
-2. Use `configured_services` before choosing service names, and check `env_warnings` before creating worktrees.
+2. Use `configured_services` and `configured_profiles` before choosing service
+   names, and check `env_warnings` before creating worktrees.
 3. Use `switchyard_runtime_handoff` when the client exposes prompts and wants a ready-made starter workflow.
 4. Call `switchyard_where` for one service.
 5. Call `switchyard_logs` for focused debugging.

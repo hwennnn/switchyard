@@ -26,6 +26,7 @@ It is intentionally local-first:
 - Binds to loopback by default and rejects non-loopback service/proxy hosts.
 - Does not expose public tunnels, LAN sharing, ngrok, or Tailscale endpoints.
 - Treats `switchyard.toml` service commands as executable local project code.
+- Executes service commands without a shell; put pipes, redirects, or `&&` in a script.
 - Links or copies only configured env paths, and rejects env paths outside the project/worktree.
 
 ## Status
@@ -156,6 +157,7 @@ switchyard init --dry-run
 switchyard init
 switchyard create feature/login
 switchyard up feature/login
+switchyard up feature/login --profile shared
 switchyard open web feature/login
 ```
 
@@ -180,6 +182,23 @@ switchyard logs web --branch feature/login --json
 starting or querying runtime state. They also include `env_warnings` for
 missing configured env link/copy sources, so agents can catch setup gaps before
 creating a worktree.
+
+Use profiles when a project has more than one local runtime shape, such as
+isolated backing services vs shared local infra:
+
+```toml
+[profiles.shared]
+services = ["api", "web"]
+[profiles.shared.env]
+POSTGRES_PORT = "5432"
+REDIS_PORT = "6379"
+```
+
+Then start that mode explicitly:
+
+```sh
+switchyard up feature/login --profile shared
+```
 
 Stop it:
 

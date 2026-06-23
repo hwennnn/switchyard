@@ -4,6 +4,7 @@ import http.server
 import tempfile
 import threading
 import unittest
+import urllib.error
 import urllib.request
 from pathlib import Path
 
@@ -78,6 +79,55 @@ class ProxyTests(unittest.TestCase):
             proxy.server_close()
             backend.shutdown()
             backend.server_close()
+
+    def test_proxy_rejects_tampered_non_loopback_backend(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            home = Path(temp) / "home"
+            proxy_port = find_free_port()
+
+            registry = Registry(home)
+            root = Path(temp) / "repo"
+            root.mkdir()
+            config = ProjectConfig(
+                name="Demo",
+                root=root,
+                path=root / "switchyard.toml",
+                worktree_root=None,
+                env=EnvConfig(),
+                proxy=ProxyConfig(port=proxy_port),
+                ports=PortsConfig(),
+                services={"web": ServiceConfig(name="web", command="dev")},
+            )
+            registry.ensure_project(config)
+            registry.upsert_service(
+                config,
+                {
+                    "branch": "feature/login",
+                    "service": "web",
+                    "hostname": "web.feature-login.demo.localhost",
+                    "backend_host": "192.168.1.10",
+                    "port": 80,
+                    "pid": 123,
+                },
+            )
+
+            SwitchyardProxyHandler.registry_home = home
+            proxy = http.server.ThreadingHTTPServer(("127.0.0.1", proxy_port), SwitchyardProxyHandler)
+            proxy_thread = threading.Thread(target=proxy.serve_forever, daemon=True)
+            proxy_thread.start()
+
+            request = urllib.request.Request(
+                f"http://127.0.0.1:{proxy_port}/",
+                headers={"Host": "web.feature-login.demo.localhost"},
+            )
+            try:
+                with self.assertRaises(urllib.error.HTTPError) as error:
+                    urllib.request.urlopen(request, timeout=2)
+                self.assertEqual(error.exception.code, 502)
+                self.assertIn("refused non-loopback", error.exception.read().decode())
+            finally:
+                proxy.shutdown()
+                proxy.server_close()
 
 
 if __name__ == "__main__":

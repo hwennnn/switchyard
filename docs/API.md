@@ -20,7 +20,7 @@ switchyard init [--force] [--dry-run] [--json]
 switchyard doctor [--json]
 switchyard create <branch> [--base ref] [--path path] [--force-env] [--json]
 switchyard list [--json]
-switchyard up [branch] [services...] [--json]
+switchyard up [branch] [services...] [--profile name] [--json]
 switchyard down [--branch branch] [services...] [--json]
 switchyard checkout <branch> [services...] [--json]
 switchyard uncheckout [--branch branch] [services...] [--json]
@@ -259,6 +259,27 @@ Service command placeholders:
 - `{port}` and `{host}` expand to the assigned loopback bind values.
 - `{service_url}` and `{service_port}` expand peer services, such as
   `{api_url}` or `{db_main_port}`.
+- Commands are parsed with shell-like quoting and executed without a shell.
+  Put shell operators such as `&&`, pipes, or redirects in a script.
+- Profile env keys are also available as lowercase placeholders, so
+  `POSTGRES_PORT = "5432"` can be referenced as `{postgres_port}`.
+
+Profiles:
+
+```toml
+[profiles.isolated]
+services = ["postgres", "redis", "api", "web"]
+
+[profiles.shared]
+services = ["api", "web"]
+[profiles.shared.env]
+POSTGRES_PORT = "5432"
+REDIS_PORT = "6379"
+```
+
+`switchyard up <branch> --profile shared` starts that profile's services when
+no explicit service names are passed. Explicit service names override the
+profile service list while still applying profile env.
 
 Service environment variables:
 

@@ -180,6 +180,7 @@ def cmd_doctor(args: argparse.Namespace) -> int:
             "url": f"http://{config.proxy.host}:{config.proxy.port}",
         },
         "services": sorted(config.services),
+        "profiles": sorted(config.profiles),
         "env_warnings": env_warnings,
     }
     if args.json:
@@ -192,6 +193,8 @@ def cmd_doctor(args: argparse.Namespace) -> int:
     print(f"config: {config.path}")
     print(f"proxy: http://{config.proxy.host}:{config.proxy.port}")
     print(f"services: {', '.join(config.services)}")
+    if config.profiles:
+        print(f"profiles: {', '.join(config.profiles)}")
     for warning in env_warnings:
         print(f"env: {warning}")
     return 0
@@ -225,6 +228,16 @@ def branch_for_action(config, registry: Registry, requested: str | None, cwd: Pa
         return None
     branch, _ = resolve_branch_and_worktree(config, registry, None, cwd)
     return branch
+
+
+def profile_selection(config, profile_name: str | None, services: list[str]) -> tuple[list[str] | None, dict[str, str]]:
+    if not profile_name:
+        return services, {}
+    profile = config.profiles.get(slugify(profile_name))
+    if not profile:
+        raise ValueError(f"unknown profile: {profile_name}")
+    selected = services or list(profile.services)
+    return selected, dict(profile.env)
 
 
 def cmd_create(args: argparse.Namespace) -> int:
@@ -269,13 +282,14 @@ def cmd_up(args: argparse.Namespace) -> int:
         branch, worktree = resolve_branch_and_worktree(config, registry, args.branch, Path.cwd())
         if not worktree.exists():
             return fail_output(args, f"worktree does not exist: {worktree}; run `switchyard create {branch}` first")
-        messages = start_services(config, registry, branch, worktree, args.services)
+        services, extra_env = profile_selection(config, args.profile, args.services)
+        messages = start_services(config, registry, branch, worktree, services, extra_env)
     except Exception as exc:
         return fail_output(args, str(exc))
     if args.json:
         print_action_json(
             "up",
-            {"branch": branch, "worktree": str(worktree), "services": args.services, "messages": messages},
+            {"branch": branch, "worktree": str(worktree), "profile": args.profile, "services": services, "messages": messages},
         )
         return 0
     for message in messages:
@@ -342,7 +356,7 @@ def cmd_status(args: argparse.Namespace) -> int:
         branch_filter = args.branch
         if not branch_filter and Path.cwd().resolve() != config.root.resolve():
             branch_filter, _ = resolve_branch_and_worktree(config, registry, None, Path.cwd())
-        records = hydrate_status(registry.services(config.root, branch_filter))
+        records = hydrate_status(registry.services(config.root, branch_filter), registry)
     except Exception as exc:
         return fail_output(args, str(exc))
     if args.json:
@@ -380,6 +394,8 @@ def cmd_logs(args: argparse.Namespace) -> int:
         logs = []
         for record in records:
             path = Path(str(record["log_file"]))
+            if not registry.is_log_path(path):
+                return fail_output(args, f"refusing to read log outside Switchyard log directory: {path}")
             logs.append(
                 {
                     "service": record.get("service"),
@@ -394,6 +410,8 @@ def cmd_logs(args: argparse.Namespace) -> int:
     while True:
         for record in records:
             path = Path(str(record["log_file"]))
+            if not registry.is_log_path(path):
+                return fail_output(args, f"refusing to read log outside Switchyard log directory: {path}")
             path_key = str(path)
             if args.follow and path_key in offsets:
                 offsets[path_key], new_lines = lines_since(path, offsets[path_key])
@@ -461,6 +479,10 @@ def cmd_brief(args: argparse.Namespace) -> int:
         print("configured services:")
         for service_name in brief["configured_services"]:
             print(f"- {service_name}")
+    if brief.get("configured_profiles"):
+        print("configured profiles:")
+        for profile_name in brief["configured_profiles"]:
+            print(f"- {profile_name}")
     if brief["services"]:
         print("services:")
         for service in brief["services"]:
@@ -1232,6 +1254,7 @@ def build_parser() -> argparse.ArgumentParser:
     up = sub.add_parser("up", help="Start services for a branch/worktree")
     up.add_argument("branch", nargs="?")
     up.add_argument("services", nargs="*")
+    up.add_argument("--profile", help="Configured [profiles.<name>] service/env selection")
     up.add_argument("--json", action="store_true")
     up.set_defaults(func=cmd_up)
 

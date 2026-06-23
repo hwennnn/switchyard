@@ -13,6 +13,8 @@ Switchyard runs local developer commands. Treat `switchyard.toml` as executable 
 - Serializes runtime operations per project to reduce port/state races.
 - Checks recorded service commands before stopping running PIDs.
 - Pins MCP tool calls to the server startup directory or registered worktrees.
+- Parses service commands with shell-like quoting and executes them without a shell.
+- Refuses to proxy or read registry-tampered paths outside loopback/log boundaries.
 
 ## Reporting
 
@@ -35,6 +37,9 @@ mutation.
 
 Service commands inherit the environment of the shell that starts Switchyard.
 Start Switchyard from the environment you intend those local processes to see.
+Commands are split like shell argv, but are not run through a shell. Put pipes,
+redirects, `&&`, or other shell features in a checked-in script and call that
+script from `switchyard.toml`.
 
 ## MCP
 

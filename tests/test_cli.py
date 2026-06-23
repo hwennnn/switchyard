@@ -45,6 +45,11 @@ name = "demo"
 [services.web]
 command = "python -m http.server {port}"
 port = 8000
+
+[profiles.shared]
+services = ["web"]
+[profiles.shared.env]
+POSTGRES_PORT = "5432"
 """
         )
 
@@ -1004,8 +1009,6 @@ port = 8000
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp).resolve()
             worktree = root / ".worktrees" / "feature-demo"
-            log_file = root / "web.log"
-            log_file.write_text("ok\n")
             self.write_config(root)
             worktree.mkdir(parents=True)
             (worktree / "switchyard.toml").write_text((root / "switchyard.toml").read_text())
@@ -1015,6 +1018,8 @@ port = 8000
                 config = load_config(root / "switchyard.toml")
                 registry = Registry()
                 registry.ensure_project(config)
+                log_file = registry.log_path(config, "feature/demo", "web")
+                log_file.write_text("ok\n")
                 registry.upsert_worktree(config, "feature/demo", worktree)
                 registry.upsert_service(
                     config,
@@ -1059,7 +1064,7 @@ port = 8000
                 with patch("switchyard.cli.start_services", return_value=["started web"]) as start:
                     stdout = StringIO()
                     with redirect_stdout(stdout), redirect_stderr(StringIO()):
-                        code = main(["up", "--json"])
+                        code = main(["up", "--profile", "shared", "--json"])
                     up_data = json.loads(stdout.getvalue())
 
                 with patch("switchyard.cli.stop_services", return_value=["stopped web"]) as stop:
@@ -1085,9 +1090,12 @@ port = 8000
         self.assertEqual(up_data["action"], "up")
         self.assertEqual(up_data["branch"], "current")
         self.assertEqual(up_data["worktree"], str(root))
-        self.assertEqual(up_data["services"], [])
+        self.assertEqual(up_data["profile"], "shared")
+        self.assertEqual(up_data["services"], ["web"])
         self.assertEqual(up_data["messages"], ["started web"])
         start.assert_called_once()
+        self.assertEqual(start.call_args.args[4], ["web"])
+        self.assertEqual(start.call_args.args[5], {"POSTGRES_PORT": "5432"})
 
         self.assertEqual(code_down, 0)
         self.assertEqual(
@@ -1187,14 +1195,14 @@ port = 8000
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp).resolve()
             self.write_config(root)
-            log_file = root / "web.log"
-            log_file.write_text("one\ntwo\nthree\n")
 
             stdout = StringIO()
             with patch.dict(os.environ, {"SWITCHYARD_HOME": str(root / "home")}), chdir(root):
                 config = load_config(root / "switchyard.toml")
                 registry = Registry()
                 registry.ensure_project(config)
+                log_file = registry.log_path(config, "feature/demo", "web")
+                log_file.write_text("one\ntwo\nthree\n")
                 registry.upsert_service(
                     config,
                     {
@@ -1218,6 +1226,40 @@ port = 8000
         self.assertEqual(data["logs"][0]["service"], "web")
         self.assertEqual(data["logs"][0]["branch"], "feature/demo")
         self.assertEqual(data["logs"][0]["lines"], ["two", "three"])
+
+    def test_logs_json_rejects_tampered_log_path_outside_registry(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp).resolve()
+            self.write_config(root)
+            outside_log = root / "web.log"
+            outside_log.write_text("secret\n")
+
+            stdout = StringIO()
+            stderr = StringIO()
+            with patch.dict(os.environ, {"SWITCHYARD_HOME": str(root / "home")}), chdir(root):
+                config = load_config(root / "switchyard.toml")
+                registry = Registry()
+                registry.ensure_project(config)
+                registry.upsert_service(
+                    config,
+                    {
+                        "project": config.name,
+                        "branch": "feature/demo",
+                        "service": "web",
+                        "pid": 123,
+                        "command": "python -m http.server",
+                        "port": 41000,
+                        "url": "http://web.feature-demo.demo.localhost:7331",
+                        "log_file": str(outside_log),
+                    },
+                )
+                with redirect_stdout(stdout), redirect_stderr(stderr):
+                    code = main(["logs", "web", "--branch", "feature/demo", "-n", "2", "--json"])
+
+            data = json.loads(stdout.getvalue())
+
+        self.assertEqual(code, 1)
+        self.assertIn("refusing to read log outside Switchyard log directory", data["error"])
 
     def test_logs_json_rejects_follow(self) -> None:
         with tempfile.TemporaryDirectory() as temp:

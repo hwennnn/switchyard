@@ -196,6 +196,47 @@ command = "python -m http.server {port}"
         self.assertEqual(config.proxy.host, "::1")
         self.assertEqual(config.services["web"].host, "localhost")
 
+    def test_loads_profiles_with_services_and_env(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            config_path = root / "switchyard.toml"
+            config_path.write_text(
+                """
+[services.api]
+command = "api --db {postgres_port}"
+
+[services.web]
+command = "web --api {api_url}"
+
+[profiles.shared]
+services = ["api", "web"]
+[profiles.shared.env]
+POSTGRES_PORT = "5432"
+"""
+            )
+
+            config = load_config(config_path)
+
+        self.assertEqual(config.profiles["shared"].services, ["api", "web"])
+        self.assertEqual(config.profiles["shared"].env, {"POSTGRES_PORT": "5432"})
+
+    def test_rejects_profiles_with_unknown_services(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            config_path = root / "switchyard.toml"
+            config_path.write_text(
+                """
+[services.web]
+command = "web"
+
+[profiles.shared]
+services = ["api"]
+"""
+            )
+
+            with self.assertRaisesRegex(ValueError, "unknown service"):
+                load_config(config_path)
+
 
 if __name__ == "__main__":
     unittest.main()
