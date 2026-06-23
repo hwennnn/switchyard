@@ -235,6 +235,7 @@ class RuntimeTests(unittest.TestCase):
                 self.assertEqual(brief["checkouts"][0]["status"], "stale")
                 self.assertEqual(brief["checkouts"][0]["listen_port"], 3000)
                 self.assertEqual(brief["checkouts"][0]["target_port"], 41000)
+                self.assertEqual(brief["configured_services"], ["web"])
                 self.assertEqual(brief["env_warnings"], ["missing link source .env.local"])
             finally:
                 process.terminate()

@@ -31,6 +31,9 @@ Read `env_warnings` from `switchyard brief --json`,
 `switchyard://project/brief`, `switchyard doctor --json`, or
 `switchyard_doctor` before creating worktrees; missing env sources should be
 fixed or reported.
+Use `configured_services` from `switchyard brief --json` or
+`switchyard://project/brief` to choose valid service names before calling
+`switchyard_where`, `switchyard_logs`, or `switchyard_up`.
 
 If MCP tools are available, use this order:
 
@@ -88,6 +91,8 @@ switchyard mcp config
 If the server is launched directly, run `switchyard mcp` from the project or any
 child directory; it resolves the nearest `switchyard.toml` automatically. Avoid
 hard-coded project path args in normal setup.
+From a Switchyard-registered worktree, MCP defaults to that worktree's branch
+while still using the parent project as the server boundary.
 
 `switchyard mcp install` detects the project root, registers a local project alias,
 and writes the full server block to `~/.codex/config.toml`.

@@ -85,6 +85,7 @@ Example output:
 
 ```json
 {
+  "configured_services": ["api", "web"],
   "services": [
     {
       "service": "web",
@@ -148,9 +149,11 @@ switchyard brief
 switchyard logs web --branch feature/login --json
 ```
 
-`brief --json`, `switchyard://project/brief`, and `doctor --json` include
-`env_warnings` for missing configured env link/copy sources, so agents can
-catch setup gaps before creating a worktree.
+`brief --json` and `switchyard://project/brief` include
+`configured_services`, so agents can discover valid service names before
+starting or querying runtime state. They also include `env_warnings` for
+missing configured env link/copy sources, so agents can catch setup gaps before
+creating a worktree.
 
 Stop it:
 
@@ -170,6 +173,9 @@ switchyard mcp
 When launched from a project or any child directory, `switchyard mcp` pins
 itself to the nearest `switchyard.toml`. You should not need to hand-write a
 project path argument for normal setup.
+When launched from a Switchyard-registered worktree, it keeps the parent
+project as the server boundary while defaulting requests to that worktree's
+branch.
 
 For Codex, run the installer from inside the project. It detects the real
 project root once, stores it as a local Switchyard alias, and writes MCP config

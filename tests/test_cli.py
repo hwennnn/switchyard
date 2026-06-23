@@ -563,10 +563,11 @@ port = 8000
         self.assertEqual(code, 0)
         self.assertEqual(data["branch"], "feature/demo")
         self.assertEqual(Path(data["project_root"]).resolve(), root)
+        self.assertEqual(data["configured_services"], ["web"])
         self.assertEqual(data["changed_files"], [])
         self.assertEqual(data["env_warnings"], ["missing link source .env.local"])
 
-    def test_brief_text_prints_env_warnings(self) -> None:
+    def test_brief_text_prints_configured_services_and_env_warnings(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp).resolve()
             (root / "switchyard.toml").write_text(
@@ -589,6 +590,8 @@ port = 8000
                     code = main(["brief"])
 
         self.assertEqual(code, 0)
+        self.assertIn("configured services:", stdout.getvalue())
+        self.assertIn("- web", stdout.getvalue())
         self.assertIn("env warnings:", stdout.getvalue())
         self.assertIn("missing link source .env.local", stdout.getvalue())
 

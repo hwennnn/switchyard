@@ -179,6 +179,7 @@ def run_once() -> dict[str, object]:
             brief = timed("brief_json", lambda: run([sys.executable, "-m", "switchyard", "brief", "feature/bench", "--json"], repo, env).stdout)
             brief["bytes"] = len(str(brief["result"]).encode())
             brief_payload = json.loads(str(brief["result"]))
+            brief["has_configured_services"] = "configured_services" in brief_payload
             brief["has_checkouts"] = "checkouts" in brief_payload
             brief["has_env_warnings"] = "env_warnings" in brief_payload
             metrics.append(brief)

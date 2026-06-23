@@ -13,6 +13,8 @@ switchyard mcp
 When launched from a project or any child directory, `switchyard mcp` resolves
 the nearest `switchyard.toml` automatically. Avoid hard-coded
 project path args in normal MCP setup.
+When launched from a Switchyard-registered worktree, MCP resources and tools use
+the parent project config and default to that worktree's branch.
 
 For Codex, generate project-specific setup text from inside the repository:
 
@@ -116,6 +118,7 @@ CLI uses that worktree's branch and parent project automatically:
 {
   "project": "entropic",
   "branch": "feature/login",
+  "configured_services": ["api", "web"],
   "services": [
     {
       "service": "web",
@@ -142,8 +145,8 @@ CLI uses that worktree's branch and parent project automatically:
 ```
 
 `switchyard brief --json` and `switchyard://project/brief` also include
-`env_warnings`, so agents can see missing env sources in the first compact
-state read.
+`configured_services` and `env_warnings`, so agents can discover valid service
+names and see missing env sources in the first compact state read.
 
 Use:
 

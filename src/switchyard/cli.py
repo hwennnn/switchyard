@@ -456,6 +456,10 @@ def cmd_brief(args: argparse.Namespace) -> int:
     print(f"project: {brief['project']}")
     if brief.get("branch"):
         print(f"branch: {brief['branch']}")
+    if brief["configured_services"]:
+        print("configured services:")
+        for service_name in brief["configured_services"]:
+            print(f"- {service_name}")
     if brief["services"]:
         print("services:")
         for service in brief["services"]:

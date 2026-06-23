@@ -29,7 +29,8 @@ For MCP clients, prefer:
 switchyard://project/brief -> switchyard_where -> switchyard_logs
 ```
 
-If MCP resources are unavailable, call `switchyard_brief` first. If MCP prompts
+Use `configured_services` from the brief to choose valid service names. If MCP
+resources are unavailable, call `switchyard_brief` first. If MCP prompts
 are available, `switchyard_runtime_handoff` starts the same read-only workflow
 and `switchyard_branch_runtime` guides branch runtime setup.
 

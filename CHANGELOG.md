@@ -6,6 +6,7 @@
 - Dynamic port allocation and stable `.localhost` service URLs.
 - Env file link/copy support for worktrees.
 - Service registry, logs, status, `where`, and compact `brief` output.
+- Compact `brief` output lists configured service names even before services are running.
 - Checkout mappings in compact `brief` output.
 - Compact `brief` output reports missing configured env sources.
 - Machine-readable `init --dry-run --json` for first-run setup previews.
@@ -30,6 +31,7 @@
 - MCP setup preserves existing per-tool Codex approval settings on reinstall.
 - MCP dry-run output explains that aliases are not registered during dry runs.
 - Pathless MCP server startup auto-pins to the nearest `switchyard.toml`.
+- MCP startup from registered worktrees now uses the parent project and branch-scoped defaults.
 - MCP install writes the full Codex config block directly instead of shelling out to `codex mcp add`.
 - MCP setup help describes the generated Codex config path instead of obsolete shell commands.
 - MCP worktree create/list tools for agent-managed branch runtimes.

@@ -128,6 +128,10 @@ def check_public_docs() -> None:
     require('args = ["mcp", "--project", "name"]' in readme, "README should document alias-based MCP config args")
     require("nearest `switchyard.toml`" in readme, "README should document pathless MCP launch")
     require(
+        "Switchyard-registered worktree" in readme and "parent\nproject as the server boundary" in readme,
+        "README should document MCP startup from registered worktrees",
+    )
+    require(
         "does not emit `cwd`, `--cwd`, or an absolute project path" in readme,
         "README should explicitly reject path-based MCP client setup",
     )
@@ -157,9 +161,15 @@ def check_public_docs() -> None:
     require("python3 scripts/release_check.py" in readme, "README should document release readiness reproduction")
     require("switchyard-dev" in readme, "README should document publish package name")
     require("brief --json" in readme, "README should show agent-readable state")
-    require("brief --json`, `switchyard://project/brief`, and `doctor --json` include" in readme, "README should document brief env warnings")
+    require("`configured_services`" in readme, "README should document configured services in brief output")
+    require(
+        "`brief --json` and `switchyard://project/brief` include" in readme,
+        "README should document configured services in brief/resource output",
+    )
+    require("They also include `env_warnings`" in readme, "README should document brief env warnings")
     require("registered worktree" in readme, "README should document registered worktree context")
     require('worktree_root = ".worktrees/switchyard"' in readme, "README should document optional worktree_root")
+    require('"configured_services"' in readme, "README should show configured service names in brief output")
     require('"checkouts"' in readme, "README should show checkout state in brief output")
     require('"env_warnings"' in readme, "README should show env warnings in brief output")
     require("No public tunnels" in readme, "README should state local-first safety")
@@ -180,8 +190,13 @@ def check_public_docs() -> None:
     agents = read("AGENTS.md")
     require("MCP resources expose project brief" in changelog, "CHANGELOG should mention MCP resources")
     require("MCP prompts expose read-only" in changelog, "CHANGELOG should mention MCP prompts")
+    require("Compact `brief` output lists configured service names" in changelog, "CHANGELOG should mention configured services in brief")
     require("Compact `brief` output reports missing configured env sources" in changelog, "CHANGELOG should mention brief env warnings")
     require("MCP help frames `--cwd` as an escape hatch" in changelog, "CHANGELOG should mention path-free MCP setup help")
+    require(
+        "MCP startup from registered worktrees now uses the parent project" in changelog,
+        "CHANGELOG should mention MCP registered-worktree startup",
+    )
     require("switchyard://project/brief" in agents, "AGENTS.md should teach MCP resource-first workflow")
     require("switchyard_runtime_handoff" in agents, "AGENTS.md should teach MCP runtime handoff prompt")
     require("switchyard_branch_runtime" in agents, "AGENTS.md should teach MCP branch runtime prompt")
@@ -189,7 +204,9 @@ def check_public_docs() -> None:
         require("switchyard://project/brief" in doc_text, f"{doc_name} should document MCP project brief resource")
         require("switchyard://project/doctor" in doc_text, f"{doc_name} should document MCP project doctor resource")
         require("switchyard://agent/guide" in doc_text, f"{doc_name} should document MCP agent guide resource")
+        require("configured_services" in doc_text, f"{doc_name} should document configured services in brief")
         require("env_warnings" in doc_text, f"{doc_name} should document brief env warnings")
+        require("registered worktree" in doc_text and "parent project" in doc_text, f"{doc_name} should document MCP worktree startup")
         require("absolute project path" in doc_text and "`--cwd`" in doc_text, f"{doc_name} should reject path-based MCP setup")
         require("does not initialize Switchyard state" in doc_text, f"{doc_name} should document read-only MCP resources")
         require("switchyard_runtime_handoff" in doc_text, f"{doc_name} should document MCP runtime handoff prompt")
@@ -267,6 +284,7 @@ def check_security_docs() -> None:
     require("switchyard mcp config" in security, "SECURITY.md should document generated MCP setup")
     require("local project alias" in security, "SECURITY.md should document MCP alias pinning")
     require("nearest `switchyard.toml`" in security, "SECURITY.md should document pathless MCP launch")
+    require("registered worktree" in security and "parent\nproject as its boundary" in security, "SECURITY.md should document MCP worktree startup boundary")
     require(
         "hard-coded path arguments, `cwd`, or `--cwd`" in security,
         "SECURITY.md should reject path-based MCP client setup",
@@ -309,6 +327,7 @@ def check_skill() -> None:
     require("use `--force` only when intentionally" in text, "skill should teach cautious MCP alias replacement")
     require("local project alias" in text, "skill should teach alias-based MCP config args")
     require("nearest `switchyard.toml`" in text, "skill should teach pathless MCP launch")
+    require("registered worktree" in text and "parent project as the server boundary" in text, "skill should teach MCP worktree startup")
     require(
         "Generated MCP client config should not contain" in text and "`--cwd`" in text and "absolute project path" in text,
         "skill should reject path-based MCP client setup",
@@ -316,6 +335,7 @@ def check_skill() -> None:
     require("switchyard init --dry-run --json" in text, "skill should teach first-run setup preview")
     require("switchyard doctor --json" in text, "skill should teach machine-readable doctor")
     require("env_warnings" in text, "skill should teach doctor env warnings")
+    require("configured_services" in text, "skill should teach configured services in brief")
     require("switchyard brief --json" in text, "skill should teach brief env warnings")
     require("switchyard list --json" in text, "skill should teach machine-readable worktree list")
     require("switchyard logs web --branch feature/name -n 120 --json" in text, "skill should teach machine-readable logs")
@@ -428,6 +448,9 @@ def check_mcp_smoke() -> None:
                 f"{name} should describe worktree-scoped branch defaults",
             )
         require(all("outputSchema" in tool for tool in tools.values()), "MCP tools should include output schemas")
+        cwd_description = tools["switchyard_brief"]["inputSchema"]["properties"]["cwd"]["description"]
+        require("Defaults to the server launch cwd" in cwd_description, "MCP cwd schema should document launch cwd default")
+        require("registered worktree" in cwd_description, "MCP cwd schema should document worktree default")
         require(
             "services" in tools["switchyard_status"]["outputSchema"]["properties"],
             "switchyard_status should describe services output",
@@ -440,6 +463,10 @@ def check_mcp_smoke() -> None:
             "env_warnings" in tools["switchyard_brief"]["outputSchema"]["properties"],
             "switchyard_brief should describe env warning output",
         )
+        require(
+            "configured_services" in tools["switchyard_brief"]["outputSchema"]["properties"],
+            "switchyard_brief should describe configured services output",
+        )
         resources = {resource["uri"]: resource for resource in lines[2]["result"]["resources"]}
         require("switchyard://project/brief" in resources, "MCP resources should include project brief")
         require("switchyard://agent/guide" in resources, "MCP resources should include agent guide")
@@ -450,6 +477,10 @@ def check_mcp_smoke() -> None:
         require(
             "env_warnings" in json.loads(lines[3]["result"]["contents"][0]["text"]),
             "MCP project brief resource should include env warnings",
+        )
+        require(
+            json.loads(lines[3]["result"]["contents"][0]["text"])["configured_services"] == ["web"],
+            "MCP project brief resource should include configured services",
         )
         require(
             "switchyard_brief" in lines[4]["result"]["contents"][0]["text"],
@@ -569,6 +600,7 @@ def check_benchmark() -> None:
     require(metrics["mcp_initialize_and_doctor"]["median_ms"] < 2500, "MCP smoke benchmark is too slow")
     require(metrics["up_web"]["median_ms"] < 5000, "service startup benchmark is too slow")
     require(metrics["brief_json"]["bytes"] < 12000, "brief output is too large for agent context")
+    require(metrics["brief_json"]["has_configured_services"] is True, "brief output should include configured services")
     require(metrics["brief_json"]["has_checkouts"] is True, "brief output should include checkout state")
     require(metrics["brief_json"]["has_env_warnings"] is True, "brief output should include env warnings")
     require(data["repo_bytes"] < 2_000_000, "repository payload is unexpectedly large")

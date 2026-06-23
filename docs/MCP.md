@@ -14,6 +14,9 @@ tools for runtime discovery, logs, and process control.
 When launched from a project or any child directory, it automatically pins the
 server root to the nearest `switchyard.toml`; no absolute project path argument is
 needed in the normal path.
+When launched from a Switchyard-registered worktree, the server keeps the
+parent project as the allowed root and uses the worktree as the default request
+cwd, so `switchyard://project/brief` is branch-scoped immediately.
 
 ## Codex
 
@@ -63,8 +66,9 @@ switchyard mcp projects --json
 Clients that support MCP resources can read stable, read-only context before
 choosing a tool:
 
-- `switchyard://project/brief`: compact runtime state, service URLs, checkout
-  state, changed files, `env_warnings`, and recent errors.
+- `switchyard://project/brief`: `configured_services`, compact runtime state,
+  service URLs, checkout state, changed files, `env_warnings`, and recent
+  errors.
 - `switchyard://project/doctor`: project setup, proxy config, services, and
   `env_warnings`.
 - `switchyard://agent/guide`: short agent workflow guide.
@@ -91,8 +95,9 @@ or write Switchyard state.
 - `switchyard_create`: create a managed git worktree and sync configured env files.
 - `switchyard_list`: registered Switchyard worktrees for the project.
 - `switchyard_status`: registered services with running/stale state.
-- `switchyard_brief`: compact project/runtime summary, including service,
-  checkout, changed-file, `env_warnings`, and recent-error state.
+- `switchyard_brief`: compact project/runtime summary, including configured
+  services, running service state, checkout, changed-file, `env_warnings`, and
+  recent-error state.
 - `switchyard_where`: URL, port, PID, worktree, and log path for one service.
 - `switchyard_logs`: recent log tail for one service or branch.
 - `switchyard_up`: start local services for a branch/worktree.

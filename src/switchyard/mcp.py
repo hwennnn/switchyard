@@ -24,6 +24,7 @@ from .utils import slugify, tail_lines
 PROTOCOL_VERSION = "2025-06-18"
 SUPPORTED_PROTOCOL_VERSIONS = {PROTOCOL_VERSION}
 SERVER_ROOT: Path | None = None
+SERVER_CWD: Path | None = None
 INSTRUCTIONS = (
     "Switchyard exposes local runtime state for parallel agent worktrees. "
     "Prefer the switchyard://project/brief resource first when available; otherwise call switchyard_brief. "
@@ -41,11 +42,12 @@ processes, or log paths.
 Recommended flow:
 
 1. Read `switchyard://project/brief` or call `switchyard_brief`.
-2. Check `env_warnings`; call `switchyard_doctor` only when setup details need deeper inspection.
-3. Call `switchyard_where` for one service when you need a URL, port, PID, or log path.
-4. Call `switchyard_logs` only for focused debugging.
-5. Call `switchyard_create` only when the user wants a missing branch runtime.
-6. Call `switchyard_up`, `switchyard_checkout`, `switchyard_uncheckout`, or `switchyard_down` only for requested local runtime changes.
+2. Use `configured_services` to choose a service name before starting or querying runtime state.
+3. Check `env_warnings`; call `switchyard_doctor` only when setup details need deeper inspection.
+4. Call `switchyard_where` for one service when you need a URL, port, PID, or log path.
+5. Call `switchyard_logs` only for focused debugging.
+6. Call `switchyard_create` only when the user wants a missing branch runtime.
+7. Call `switchyard_up`, `switchyard_checkout`, `switchyard_uncheckout`, or `switchyard_down` only for requested local runtime changes.
 
 Mutation tools create git worktrees, start project commands, start local port
 forwarders, or stop Switchyard-managed local state. Keep client approval enabled
@@ -56,7 +58,7 @@ RESOURCES: list[dict[str, str]] = [
         "uri": "switchyard://project/brief",
         "name": "project-brief",
         "title": "Switchyard Project Brief",
-        "description": "Read-only compact runtime state, env warnings, and recent errors for the current Switchyard project.",
+        "description": "Read-only configured services, compact runtime state, env warnings, and recent errors for the current Switchyard project.",
         "mimeType": "application/json",
     },
     {
@@ -137,7 +139,8 @@ COMMON_CWD = {
         "type": "string",
         "description": (
             "Optional path under the MCP server project root, or a registered worktree path. "
-            f"Defaults to the detected server project root containing {CONFIG_NAME}."
+            "Defaults to the server launch cwd; when launched from a registered worktree, "
+            f"this is that worktree, otherwise it is the detected project root containing {CONFIG_NAME}."
         ),
     }
 }
@@ -263,13 +266,24 @@ BRIEF_OUTPUT_SCHEMA = object_schema(
         "project": {"type": "string"},
         "project_root": {"type": "string"},
         "branch": NULLABLE_STRING,
+        "configured_services": STRING_ARRAY,
         "services": array_schema(SERVICE_RECORD_SCHEMA),
         "checkouts": array_schema(CHECKOUT_RECORD_SCHEMA),
         "changed_files": STRING_ARRAY,
         "env_warnings": STRING_ARRAY,
         "recent_errors": array_schema(RECENT_ERROR_SCHEMA),
     },
-    ["project", "project_root", "branch", "services", "checkouts", "changed_files", "env_warnings", "recent_errors"],
+    [
+        "project",
+        "project_root",
+        "branch",
+        "configured_services",
+        "services",
+        "checkouts",
+        "changed_files",
+        "env_warnings",
+        "recent_errors",
+    ],
 )
 LOGS_OUTPUT_SCHEMA = object_schema({"logs": array_schema(LOG_ENTRY_SCHEMA)}, ["logs"])
 RUNTIME_ACTION_OUTPUT_SCHEMA = object_schema(
@@ -448,15 +462,27 @@ TOOLS: dict[str, dict[str, Any]] = {
 def cwd_from(arguments: dict[str, Any]) -> Path:
     root = SERVER_ROOT or Path.cwd().resolve()
     cwd = string_argument(arguments, "cwd")
-    resolved = Path(cwd).expanduser().resolve() if cwd else root
+    resolved = Path(cwd).expanduser().resolve() if cwd else (SERVER_CWD or root)
     if resolved != root and not resolved.is_relative_to(root) and not registered_worktree_cwd(root, resolved):
         raise McpError(-32602, f"cwd must stay under MCP server root or a registered worktree: {root}")
     return resolved
 
 
 def set_server_root(root: Path | None) -> None:
-    global SERVER_ROOT
-    SERVER_ROOT = root.resolve() if root else None
+    global SERVER_ROOT, SERVER_CWD
+    if not root:
+        SERVER_ROOT = None
+        SERVER_CWD = None
+        return
+    resolved = root.resolve()
+    SERVER_ROOT = resolved
+    SERVER_CWD = resolved
+    registered = Registry(create=False).find_worktree_containing(resolved)
+    if registered:
+        project, _ = registered
+        parent_root = project.get("root")
+        if parent_root:
+            SERVER_ROOT = Path(str(parent_root)).expanduser().resolve()
 
 
 def registered_worktree_cwd(root: Path, cwd: Path) -> bool:
@@ -566,10 +592,11 @@ def prompt_text(name: str, arguments: dict[str, str]) -> str:
         return (
             "Use Switchyard as the local runtime source of truth for this project.\n\n"
             "1. Read `switchyard://project/brief` if MCP resources are available; otherwise call `switchyard_brief`.\n"
-            "2. Check `env_warnings`; read `switchyard://project/doctor` or call `switchyard_doctor` only when setup details need deeper inspection.\n"
-            "3. Use `switchyard_where` for a specific service URL/port/log path.\n"
-            "4. Use `switchyard_logs` only for focused debugging.\n"
-            "5. Ask for approval before `switchyard_create`, `switchyard_up`, `switchyard_checkout`, `switchyard_uncheckout`, or `switchyard_down`."
+            "2. Use `configured_services` to pick valid service names before starting or querying runtime state.\n"
+            "3. Check `env_warnings`; read `switchyard://project/doctor` or call `switchyard_doctor` only when setup details need deeper inspection.\n"
+            "4. Use `switchyard_where` for a specific service URL/port/log path.\n"
+            "5. Use `switchyard_logs` only for focused debugging.\n"
+            "6. Ask for approval before `switchyard_create`, `switchyard_up`, `switchyard_checkout`, `switchyard_uncheckout`, or `switchyard_down`."
         )
     if name == "switchyard_branch_runtime":
         branch = arguments.get("branch", "").strip()
@@ -581,7 +608,7 @@ def prompt_text(name: str, arguments: dict[str, str]) -> str:
             f"Prepare the Switchyard runtime for branch `{branch}` and services: {service_text}.\n\n"
             "1. Read `switchyard://project/brief` or call `switchyard_brief` to see current runtime state.\n"
             "2. If the branch worktree is missing and the user wants it, call `switchyard_create` with that branch.\n"
-            "3. Before starting services, check `env_warnings`; use `switchyard_doctor` only when setup details need deeper inspection.\n"
+            "3. Before starting services, check `configured_services` and `env_warnings`; use `switchyard_doctor` only when setup details need deeper inspection.\n"
             "4. If the user approved runtime changes, call `switchyard_up` with the branch and selected services.\n"
             "5. Report URLs from `switchyard_where` or the resulting brief, and read logs only for services that need debugging."
         )

@@ -160,6 +160,7 @@ port = 8000
         self.assertEqual(doctor["project"], "demo")
         self.assertEqual(doctor["env_warnings"], ["missing link source .env.local"])
         self.assertEqual(brief["project"], "demo")
+        self.assertEqual(brief["configured_services"], ["web"])
         self.assertEqual(brief["services"], [])
         self.assertEqual(brief["env_warnings"], ["missing link source .env.local"])
         self.assertIn("switchyard_brief", guide)
@@ -839,6 +840,53 @@ port = 8000
         self.assertFalse(result["isError"])
         self.assertEqual(result["structuredContent"]["branch"], "feature/demo")
         self.assertEqual(Path(result["structuredContent"]["project_root"]).resolve(), root.resolve())
+
+    def test_server_launched_from_registered_worktree_uses_parent_project_context(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            workspace = Path(temp)
+            root = workspace / "project"
+            worktree = workspace / "feature-demo"
+            root.mkdir()
+            worktree.mkdir()
+            (root / "switchyard.toml").write_text(
+                """
+[project]
+name = "demo"
+
+[services.web]
+command = "python -m http.server {port}"
+port = 8000
+"""
+            )
+            (worktree / "switchyard.toml").write_text((root / "switchyard.toml").read_text())
+
+            with patch.dict(os.environ, {"SWITCHYARD_HOME": str(workspace / "home")}):
+                config = load_config(root / "switchyard.toml")
+                registry = Registry()
+                registry.ensure_project(config)
+                registry.upsert_worktree(config, "feature/demo", worktree)
+                set_server_root(worktree)
+                try:
+                    tools_response = handle_request({"jsonrpc": "2.0", "id": 32, "method": "tools/list"})
+                    response = handle_request(
+                        {
+                            "jsonrpc": "2.0",
+                            "id": 33,
+                            "method": "resources/read",
+                            "params": {"uri": "switchyard://project/brief"},
+                        }
+                    )
+                finally:
+                    set_server_root(None)
+
+        tools = {tool["name"]: tool for tool in tools_response["result"]["tools"]}
+        cwd_description = tools["switchyard_brief"]["inputSchema"]["properties"]["cwd"]["description"]
+        self.assertIn("Defaults to the server launch cwd", cwd_description)
+        self.assertIn("registered worktree", cwd_description)
+        brief = json.loads(response["result"]["contents"][0]["text"])
+        self.assertEqual(brief["branch"], "feature/demo")
+        self.assertEqual(Path(brief["project_root"]).resolve(), root.resolve())
+        self.assertEqual(brief["configured_services"], ["web"])
 
     def test_stop_tools_scope_to_registered_worktree_cwd(self) -> None:
         with tempfile.TemporaryDirectory() as temp:

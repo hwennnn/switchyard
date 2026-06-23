@@ -456,6 +456,7 @@ def brief_for(config: ProjectConfig, registry: Registry, branch: str | None, cha
         "project": config.name,
         "project_root": str(config.root),
         "branch": branch,
+        "configured_services": sorted(config.services),
         "services": [
             {
                 "service": record.get("service"),
