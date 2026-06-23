@@ -130,6 +130,15 @@ def check_public_docs() -> None:
     require("switchyard mcp" in readme, "README should document MCP")
     require("switchyard mcp install" in readme, "README should document one-command MCP setup")
     require("switchyard mcp config" in readme, "README should document copy-paste MCP setup")
+    require(
+        "switchyard mcp config [--name name] [--force] [--json]" in readme,
+        "README command reference should keep MCP config path-free",
+    )
+    require(
+        "switchyard mcp install [--name name] [--dry-run] [--force] [--json]" in readme,
+        "README command reference should keep MCP install path-free",
+    )
+    require("[--cwd other-checkout]" not in readme, "README command reference should not advertise cwd setup")
     require("switchyard mcp config --json" in readme, "README should document machine-readable MCP config setup")
     require("switchyard mcp install --dry-run --json" in readme, "README should document machine-readable MCP install dry run")
     require("switchyard mcp projects --json" in readme, "README should document MCP alias inspection")
@@ -204,7 +213,10 @@ def check_public_docs() -> None:
     require("MCP prompts expose read-only" in changelog, "CHANGELOG should mention MCP prompts")
     require("Compact `brief` output lists configured service names" in changelog, "CHANGELOG should mention configured services in brief")
     require("Compact `brief` output reports missing configured env sources" in changelog, "CHANGELOG should mention brief env warnings")
-    require("MCP help frames `--cwd` as an escape hatch" in changelog, "CHANGELOG should mention path-free MCP setup help")
+    require(
+        "MCP help hides the `--cwd` compatibility escape hatch" in changelog,
+        "CHANGELOG should mention path-free MCP setup help",
+    )
     require("MCP setup chooses a launchable server command" in changelog, "CHANGELOG should mention generated MCP launch command behavior")
     require("MCP setup commands expose machine-readable JSON" in changelog, "CHANGELOG should mention MCP setup JSON")
     require("MCP setup JSON returns `ok: false`" in changelog, "CHANGELOG should mention MCP setup JSON errors")
@@ -650,11 +662,17 @@ def check_cli_json_smoke() -> None:
         )
         require("codex mcp add" not in result.stdout, "mcp install help should not mention obsolete codex mcp add")
         result = run([sys.executable, "-m", "switchyard", "mcp", "--help"], cwd=root, env=env)
-        require("Escape hatch" in result.stdout, "mcp help should frame --cwd as an escape hatch")
-        require("normal setup uses mcp install" in result.stdout, "mcp help should point users at path-free setup")
-        require("or --project" in result.stdout, "mcp help should point users at alias setup")
+        require("Run inside a project" in result.stdout, "mcp help should point users at path-free project setup")
+        require("switchyard mcp install" in result.stdout, "mcp help should point users at generated setup")
+        require("--project" in result.stdout, "mcp help should point users at alias setup")
         require("Run without a subcommand to start the stdio MCP server" in result.stdout, "mcp help should explain no-subcommand server start")
+        require("--cwd" not in result.stdout, "mcp help should not advertise cwd setup")
+        require("Escape hatch" not in result.stdout, "mcp help should not make cwd setup first-class")
         require("/path/to/project" not in result.stdout, "mcp help should not use path placeholders")
+        for subcommand in ["config", "install"]:
+            result = run([sys.executable, "-m", "switchyard", "mcp", subcommand, "--help"], cwd=root, env=env)
+            require("--cwd" not in result.stdout, f"mcp {subcommand} help should not advertise cwd setup")
+            require("/path/to/project" not in result.stdout, f"mcp {subcommand} help should not use path placeholders")
         result = run([sys.executable, "-m", "switchyard", "mcp", "install", "--dry-run"], cwd=root, env=env)
         require("# Would update:" in result.stdout, "mcp install dry run should print target config path")
         require('"--project", "switchyard"' in result.stdout, "mcp install dry run should use project alias args")

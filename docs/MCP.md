@@ -157,7 +157,8 @@ so agents can read tool results without scraping text.
   `switchyard_down` default to that worktree's branch. From the project root,
   an omitted branch still means all matching Switchyard-managed runtime state.
 - Keep client approval enabled for write/action tools.
-- Use `--cwd` only when installing/generating config for a different checkout.
+- Run setup from the checkout you are configuring; `--cwd` remains a hidden
+  compatibility escape hatch for older automation, not the normal setup path.
 - Use `--project <name>` when an MCP client starts the server outside the
   project tree.
 - Use `switchyard mcp projects --json` to inspect local alias registrations and

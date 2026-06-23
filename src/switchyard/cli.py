@@ -999,16 +999,16 @@ def build_parser() -> argparse.ArgumentParser:
     mcp = sub.add_parser(
         "mcp",
         help="Run or configure a stdio MCP server for AI agents",
-        description="Run without a subcommand to start the stdio MCP server.",
-        epilog="Run `switchyard mcp` without config/install/projects to serve MCP over stdio.",
+        description=(
+            "Run without a subcommand to start the stdio MCP server. "
+            "Run inside a project, or use --project with an alias created by `switchyard mcp install`."
+        ),
+        epilog="Run `switchyard mcp install` from a project to create path-free Codex setup.",
     )
     mcp.add_argument(
         "--cwd",
         dest="mcp_cwd",
-        help=(
-            "Escape hatch: project directory when not launching from inside the project; "
-            "normal setup uses mcp install or --project"
-        ),
+        help=argparse.SUPPRESS,
     )
     mcp.add_argument(
         "--project",
@@ -1017,12 +1017,12 @@ def build_parser() -> argparse.ArgumentParser:
     )
     mcp_sub = mcp.add_subparsers(dest="mcp_command")
     mcp_config = mcp_sub.add_parser("config", help="Print copy-paste Codex MCP config for this project")
-    mcp_config.add_argument("--cwd", help="Escape hatch: generate config for another checkout")
+    mcp_config.add_argument("--cwd", help=argparse.SUPPRESS)
     mcp_config.add_argument("--name", default="switchyard", help="MCP server name in Codex config")
     mcp_config.add_argument("--force", action="store_true", help="Replace an existing alias that points to another project")
     mcp_config.add_argument("--json", action="store_true", help="Print machine-readable setup details")
     mcp_install = mcp_sub.add_parser("install", help="Add this project to Codex MCP config")
-    mcp_install.add_argument("--cwd", help="Escape hatch: install config for another checkout")
+    mcp_install.add_argument("--cwd", help=argparse.SUPPRESS)
     mcp_install.add_argument("--name", default="switchyard", help="MCP server name in Codex config")
     mcp_install.add_argument("--dry-run", action="store_true", help="Print the Codex config update without writing it")
     mcp_install.add_argument("--force", action="store_true", help="Replace an existing alias that points to another project")

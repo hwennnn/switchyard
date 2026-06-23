@@ -217,8 +217,7 @@ switchyard mcp projects --json
 
 Use `--name` if you want a different MCP server name. If an alias already
 points at another project, Switchyard refuses to repoint it unless you pass
-`--force`. Use `--cwd` only when generating or installing config for another
-checkout:
+`--force`. Start from the checkout you are configuring so setup stays path-free:
 
 ```sh
 switchyard mcp install --name switchyard-entropic
@@ -394,8 +393,8 @@ switchyard open <service> [branch]
 switchyard where <service> [branch] [--json]
 switchyard brief [branch] [--json]
 switchyard mcp [--project name]
-switchyard mcp config [--name name] [--cwd other-checkout] [--force] [--json]
-switchyard mcp install [--name name] [--cwd other-checkout] [--dry-run] [--force] [--json]
+switchyard mcp config [--name name] [--force] [--json]
+switchyard mcp install [--name name] [--dry-run] [--force] [--json]
 switchyard mcp projects [--json]
 switchyard skill show
 switchyard skill install [--target dir] [--force]

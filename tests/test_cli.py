@@ -564,16 +564,28 @@ command = "python -m http.server {port}"
         self.assertIn("Print the Codex config update without writing it", stdout.getvalue())
         self.assertNotIn("codex mcp add", stdout.getvalue())
 
-    def test_mcp_help_treats_cwd_as_escape_hatch(self) -> None:
+    def test_mcp_help_keeps_cwd_out_of_normal_setup(self) -> None:
         stdout = StringIO()
         with redirect_stdout(stdout), self.assertRaises(SystemExit) as raised:
             main(["mcp", "--help"])
 
         self.assertEqual(raised.exception.code, 0)
-        self.assertIn("Escape hatch", stdout.getvalue())
-        self.assertIn("normal setup uses mcp install", stdout.getvalue())
-        self.assertIn("or --project", stdout.getvalue())
+        self.assertIn("Run inside a project", stdout.getvalue())
+        self.assertIn("--project", stdout.getvalue())
+        self.assertIn("switchyard mcp install", stdout.getvalue())
+        self.assertNotIn("Escape hatch", stdout.getvalue())
+        self.assertNotIn("--cwd", stdout.getvalue())
         self.assertNotIn("/path/to/project", stdout.getvalue())
+
+    def test_mcp_setup_subcommand_help_hides_cwd_escape_hatch(self) -> None:
+        for command in ["config", "install"]:
+            stdout = StringIO()
+            with redirect_stdout(stdout), self.assertRaises(SystemExit) as raised:
+                main(["mcp", command, "--help"])
+
+            self.assertEqual(raised.exception.code, 0)
+            self.assertNotIn("--cwd", stdout.getvalue())
+            self.assertNotIn("/path/to/project", stdout.getvalue())
 
     def test_mcp_parent_cwd_applies_to_setup_subcommands(self) -> None:
         with tempfile.TemporaryDirectory() as temp:

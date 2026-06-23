@@ -26,7 +26,7 @@
 - MCP JSON-RPC validation rejects malformed params, protocol versions, tool names, and argument objects.
 - One-command Codex MCP setup with `switchyard mcp install`.
 - Generated MCP config uses local project aliases so users do not hand-maintain project paths.
-- MCP help frames `--cwd` as an escape hatch, not the normal setup path.
+- MCP help hides the `--cwd` compatibility escape hatch from normal setup.
 - MCP setup refuses silent alias repoints across projects unless `--force` is used.
 - MCP setup preserves existing per-tool Codex approval settings on reinstall.
 - MCP dry-run output explains that aliases are not registered during dry runs.
