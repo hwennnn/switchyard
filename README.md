@@ -48,7 +48,7 @@ package gates. Current benchmark guardrails include:
 | --- | --- |
 | MCP initialize + doctor | median under 2500 ms |
 | service startup smoke | median under 5000 ms |
-| `brief --json` payload | under 12000 bytes |
+| `brief --json` payload | under 12000 bytes / 3000 estimated tokens |
 | source tree | under 250 KB |
 
 The full release gate also builds and install-smokes the wheel, and keeps the

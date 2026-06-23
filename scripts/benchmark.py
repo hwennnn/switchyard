@@ -210,6 +210,7 @@ def summarize(runs: list[dict[str, object]]) -> dict[str, object]:
         ]
         if bytes_values:
             entry["bytes"] = int(median(bytes_values))
+            entry["estimated_tokens"] = max(1, (entry["bytes"] + 3) // 4)
         bool_keys = sorted(
             {
                 key
@@ -250,6 +251,8 @@ def main() -> int:
     print(f"repo bytes: {summary['repo_bytes']}")
     for metric in summary["metrics"]:
         extra = f", {metric['bytes']} bytes" if "bytes" in metric else ""
+        if "estimated_tokens" in metric:
+            extra += f", ~{metric['estimated_tokens']} tokens"
         print(f"- {metric['name']}: {metric['median_ms']} ms{extra}")
     return 0
 
