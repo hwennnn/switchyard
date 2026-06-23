@@ -40,11 +40,27 @@ class McpError(Exception):
         self.message = message
 
 
-def object_schema(properties: dict[str, Any], required: list[str] | None = None) -> dict[str, Any]:
-    schema: dict[str, Any] = {"type": "object", "properties": properties, "additionalProperties": False}
+def object_schema(
+    properties: dict[str, Any],
+    required: list[str] | None = None,
+    additional_properties: bool = False,
+) -> dict[str, Any]:
+    schema: dict[str, Any] = {
+        "type": "object",
+        "properties": properties,
+        "additionalProperties": additional_properties,
+    }
     if required:
         schema["required"] = required
     return schema
+
+
+def array_schema(items: dict[str, Any]) -> dict[str, Any]:
+    return {"type": "array", "items": items}
+
+
+def string_array_schema() -> dict[str, Any]:
+    return array_schema({"type": "string"})
 
 
 COMMON_CWD = {
@@ -74,6 +90,116 @@ DESTRUCTIVE_LOCAL_TOOL = {
     "openWorldHint": False,
 }
 
+NULLABLE_STRING = {"type": ["string", "null"]}
+NULLABLE_INTEGER = {"type": ["integer", "null"]}
+STRING_ARRAY = string_array_schema()
+
+PROXY_OUTPUT_SCHEMA = object_schema(
+    {
+        "host": {"type": "string"},
+        "port": {"type": "integer"},
+        "tld": {"type": "string"},
+    },
+    ["host", "port", "tld"],
+)
+WORKTREE_RECORD_SCHEMA = object_schema(
+    {
+        "branch": {"type": "string"},
+        "slug": {"type": "string"},
+        "path": {"type": "string"},
+        "updated_at": {"type": "string"},
+    },
+    additional_properties=True,
+)
+SERVICE_RECORD_SCHEMA = object_schema(
+    {
+        "service": {"type": "string"},
+        "branch": {"type": "string"},
+        "status": {"type": "string"},
+        "url": {"type": "string"},
+        "port": NULLABLE_INTEGER,
+        "pid": {"type": "integer"},
+        "log_file": {"type": "string"},
+        "recent_errors": STRING_ARRAY,
+    },
+    additional_properties=True,
+)
+CHECKOUT_RECORD_SCHEMA = object_schema(
+    {
+        "service": {"type": "string"},
+        "branch": {"type": "string"},
+        "status": {"type": "string"},
+        "listen_host": {"type": "string"},
+        "listen_port": NULLABLE_INTEGER,
+        "target_host": {"type": "string"},
+        "target_port": NULLABLE_INTEGER,
+        "log_file": {"type": "string"},
+    },
+    additional_properties=True,
+)
+RECENT_ERROR_SCHEMA = object_schema(
+    {
+        "service": NULLABLE_STRING,
+        "line": {"type": "string"},
+    },
+    ["service", "line"],
+)
+LOG_ENTRY_SCHEMA = object_schema(
+    {
+        "service": {"type": "string"},
+        "branch": {"type": "string"},
+        "log_file": {"type": "string"},
+        "lines": STRING_ARRAY,
+    },
+    ["service", "branch", "log_file", "lines"],
+)
+DOCTOR_OUTPUT_SCHEMA = object_schema(
+    {
+        "switchyard": {"type": "string"},
+        "home": {"type": "string"},
+        "project": {"type": "string"},
+        "project_root": {"type": "string"},
+        "config": {"type": "string"},
+        "proxy": PROXY_OUTPUT_SCHEMA,
+        "services": STRING_ARRAY,
+    },
+    ["switchyard", "home", "project", "project_root", "config", "proxy", "services"],
+)
+CREATE_OUTPUT_SCHEMA = object_schema(
+    {
+        "created": {"type": "boolean"},
+        "branch": {"type": "string"},
+        "worktree": {"type": "string"},
+        "env": STRING_ARRAY,
+        "message": {"type": "string"},
+    },
+    ["created", "branch", "worktree", "env"],
+)
+LIST_OUTPUT_SCHEMA = object_schema({"worktrees": array_schema(WORKTREE_RECORD_SCHEMA)}, ["worktrees"])
+STATUS_OUTPUT_SCHEMA = object_schema({"services": array_schema(SERVICE_RECORD_SCHEMA)}, ["services"])
+BRIEF_OUTPUT_SCHEMA = object_schema(
+    {
+        "project": {"type": "string"},
+        "project_root": {"type": "string"},
+        "branch": NULLABLE_STRING,
+        "services": array_schema(SERVICE_RECORD_SCHEMA),
+        "checkouts": array_schema(CHECKOUT_RECORD_SCHEMA),
+        "changed_files": STRING_ARRAY,
+        "recent_errors": array_schema(RECENT_ERROR_SCHEMA),
+    },
+    ["project", "project_root", "branch", "services", "checkouts", "changed_files", "recent_errors"],
+)
+LOGS_OUTPUT_SCHEMA = object_schema({"logs": array_schema(LOG_ENTRY_SCHEMA)}, ["logs"])
+RUNTIME_ACTION_OUTPUT_SCHEMA = object_schema(
+    {
+        "branch": NULLABLE_STRING,
+        "worktree": {"type": "string"},
+        "messages": STRING_ARRAY,
+    },
+    ["messages"],
+)
+WHERE_OUTPUT_SCHEMA = SERVICE_RECORD_SCHEMA
+
 
 TOOLS: dict[str, dict[str, Any]] = {
     "switchyard_doctor": {
@@ -81,6 +207,7 @@ TOOLS: dict[str, dict[str, Any]] = {
         "description": "Return Switchyard version, project root, config path, proxy, and configured services.",
         "annotations": READ_ONLY_TOOL,
         "inputSchema": object_schema(COMMON_CWD),
+        "outputSchema": DOCTOR_OUTPUT_SCHEMA,
     },
     "switchyard_status": {
         "title": "List Switchyard services",
@@ -92,6 +219,7 @@ TOOLS: dict[str, dict[str, Any]] = {
                 "branch": {"type": "string", "description": "Optional branch name or slug to filter services."},
             }
         ),
+        "outputSchema": STATUS_OUTPUT_SCHEMA,
     },
     "switchyard_create": {
         "title": "Create a worktree runtime",
@@ -109,12 +237,14 @@ TOOLS: dict[str, dict[str, Any]] = {
             },
             ["branch"],
         ),
+        "outputSchema": CREATE_OUTPUT_SCHEMA,
     },
     "switchyard_list": {
         "title": "List Switchyard worktrees",
         "description": "Return Switchyard-registered worktrees for this project.",
         "annotations": READ_ONLY_TOOL,
         "inputSchema": object_schema(COMMON_CWD),
+        "outputSchema": LIST_OUTPUT_SCHEMA,
     },
     "switchyard_brief": {
         "title": "Get compact agent runtime brief",
@@ -126,6 +256,7 @@ TOOLS: dict[str, dict[str, Any]] = {
                 "branch": {"type": "string", "description": "Optional branch name. Defaults to the current worktree."},
             }
         ),
+        "outputSchema": BRIEF_OUTPUT_SCHEMA,
     },
     "switchyard_where": {
         "title": "Find one service",
@@ -139,6 +270,7 @@ TOOLS: dict[str, dict[str, Any]] = {
             },
             ["service"],
         ),
+        "outputSchema": WHERE_OUTPUT_SCHEMA,
     },
     "switchyard_logs": {
         "title": "Read service logs",
@@ -157,6 +289,7 @@ TOOLS: dict[str, dict[str, Any]] = {
                 },
             }
         ),
+        "outputSchema": LOGS_OUTPUT_SCHEMA,
     },
     "switchyard_up": {
         "title": "Start services",
@@ -173,6 +306,7 @@ TOOLS: dict[str, dict[str, Any]] = {
                 },
             }
         ),
+        "outputSchema": RUNTIME_ACTION_OUTPUT_SCHEMA,
     },
     "switchyard_checkout": {
         "title": "Map services to canonical ports",
@@ -190,6 +324,7 @@ TOOLS: dict[str, dict[str, Any]] = {
             },
             ["branch"],
         ),
+        "outputSchema": RUNTIME_ACTION_OUTPUT_SCHEMA,
     },
     "switchyard_uncheckout": {
         "title": "Stop canonical port mappings",
@@ -206,6 +341,7 @@ TOOLS: dict[str, dict[str, Any]] = {
                 },
             }
         ),
+        "outputSchema": RUNTIME_ACTION_OUTPUT_SCHEMA,
     },
     "switchyard_down": {
         "title": "Stop services",
@@ -222,6 +358,7 @@ TOOLS: dict[str, dict[str, Any]] = {
                 },
             }
         ),
+        "outputSchema": RUNTIME_ACTION_OUTPUT_SCHEMA,
     },
 }
 
@@ -360,7 +497,7 @@ def tool_status(arguments: dict[str, Any]) -> dict[str, Any]:
     config, registry = load_project(cwd, ensure=False)
     branch = arguments.get("branch")
     data = hydrate_status(registry.services(config.root, str(branch) if branch else None))
-    return tool_result(data)
+    return tool_result({"services": data})
 
 
 def tool_brief(arguments: dict[str, Any]) -> dict[str, Any]:

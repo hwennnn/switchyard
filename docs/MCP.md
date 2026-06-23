@@ -74,6 +74,13 @@ Switchyard includes MCP tool annotations for safer clients:
   marked local destructive mutations because they create filesystem/git state or
   stop local runtime state.
 
+## Structured Output
+
+Every tool advertises an MCP `outputSchema` and returns JSON
+`structuredContent` with an object envelope. For example, `switchyard_status`
+returns `{ "services": [...] }` and `switchyard_logs` returns `{ "logs": [...] }`,
+so agents can read tool results without scraping text.
+
 ## Safety
 
 - The MCP server is local stdio, not a network listener.

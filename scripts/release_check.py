@@ -189,6 +189,7 @@ def check_mcp_smoke() -> None:
                 '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18"}}',
                 '{"jsonrpc":"2.0","id":2,"method":"tools/list"}',
                 '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"switchyard_doctor","arguments":{}}}',
+                '{"jsonrpc":"2.0","id":6,"method":"tools/call","params":{"name":"switchyard_status","arguments":{}}}',
                 "",
             ]
         )
@@ -215,7 +216,17 @@ def check_mcp_smoke() -> None:
         require(tools["switchyard_up"]["annotations"]["destructiveHint"] is True, "switchyard_up should be conservative")
         require(tools["switchyard_up"]["annotations"]["openWorldHint"] is True, "switchyard_up should account for configured commands")
         require(tools["switchyard_down"]["annotations"]["destructiveHint"] is True, "switchyard_down should be destructive")
+        require(all("outputSchema" in tool for tool in tools.values()), "MCP tools should include output schemas")
+        require(
+            "services" in tools["switchyard_status"]["outputSchema"]["properties"],
+            "switchyard_status should describe services output",
+        )
+        require(
+            "logs" in tools["switchyard_logs"]["outputSchema"]["properties"],
+            "switchyard_logs should describe logs output",
+        )
         require(lines[2]["result"]["structuredContent"]["project"] == "demo", "MCP doctor failed")
+        require(lines[3]["result"]["structuredContent"] == {"services": []}, "MCP status should return services envelope")
         require(not (root / "home").exists(), "read-only MCP doctor should not initialize Switchyard state")
 
         action_payload = "\n".join(

@@ -86,6 +86,17 @@ class McpTests(unittest.TestCase):
         self.assertTrue(tools["switchyard_down"]["annotations"]["destructiveHint"])
         self.assertTrue(tools["switchyard_uncheckout"]["annotations"]["destructiveHint"])
 
+    def test_tools_list_includes_output_schemas(self) -> None:
+        response = handle_request({"jsonrpc": "2.0", "id": 2, "method": "tools/list"})
+
+        tools = {tool["name"]: tool for tool in response["result"]["tools"]}
+        for name, tool in tools.items():
+            with self.subTest(name=name):
+                self.assertIn("outputSchema", tool)
+                self.assertEqual(tool["outputSchema"]["type"], "object")
+        self.assertIn("services", tools["switchyard_status"]["outputSchema"]["properties"])
+        self.assertIn("logs", tools["switchyard_logs"]["outputSchema"]["properties"])
+
     def test_doctor_tool_returns_structured_content(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
@@ -151,6 +162,39 @@ port = 8000
 
         self.assertFalse(response["result"]["isError"])
         self.assertFalse(home.exists())
+
+    def test_status_tool_returns_object_envelope(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            home = root / ".switchyard-home"
+            (root / "switchyard.toml").write_text(
+                """
+[project]
+name = "demo"
+
+[services.web]
+command = "python -m http.server {port}"
+port = 8000
+"""
+            )
+
+            with patch.dict(os.environ, {"SWITCHYARD_HOME": str(home)}):
+                set_server_root(root)
+                try:
+                    response = handle_request(
+                        {
+                            "jsonrpc": "2.0",
+                            "id": 4,
+                            "method": "tools/call",
+                            "params": {"name": "switchyard_status", "arguments": {}},
+                        }
+                    )
+                finally:
+                    set_server_root(None)
+
+        result = response["result"]
+        self.assertFalse(result["isError"])
+        self.assertEqual(result["structuredContent"], {"services": []})
 
     def test_create_tool_creates_worktree_and_list_reports_it(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
