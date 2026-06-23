@@ -14,7 +14,7 @@ import webbrowser
 from pathlib import Path
 
 from . import __version__
-from .config import CONFIG_NAME, default_config_text, detect_default_service, discover_config, load_config
+from .config import CONFIG_NAME, default_config_text, detect_default_service, discover_config, load_config, validate_loopback_host
 from .envsync import env_source_warnings, sync_env_files
 from .gittools import GitError, append_info_exclude, create_worktree, current_branch, repo_root, status_short
 from .mcp import serve_mcp
@@ -491,8 +491,12 @@ def cmd_brief(args: argparse.Namespace) -> int:
 
 def cmd_proxy(args: argparse.Namespace) -> int:
     if args.proxy_command == "serve":
+        try:
+            host = validate_loopback_host(args.host, "--host")
+        except Exception as exc:
+            return fail(str(exc))
         home = Path(args.home).expanduser() if args.home else None
-        serve(args.host, args.port, home)
+        serve(host, args.port, home)
         return 0
     try:
         config, registry = load_project_config(Path.cwd())
@@ -509,7 +513,12 @@ def cmd_proxy(args: argparse.Namespace) -> int:
 
 def cmd_forward(args: argparse.Namespace) -> int:
     if args.forward_command == "serve":
-        serve_fixed(args.host, args.port, args.target_host, args.target_port)
+        try:
+            host = validate_loopback_host(args.host, "--host")
+            target_host = validate_loopback_host(args.target_host, "--target-host")
+        except Exception as exc:
+            return fail(str(exc))
+        serve_fixed(host, args.port, target_host, args.target_port)
         return 0
     return fail("unknown forward command")
 
@@ -541,10 +550,10 @@ def resolve_mcp_project_root(project: str) -> Path:
     root = Registry().resolve_project_alias(project)
     if not root:
         raise FileNotFoundError(f"unknown MCP project {project!r}; run `switchyard mcp install --name {project}` from the project")
-    config_path = discover_config(root)
-    if not config_path:
+    config_path = root / CONFIG_NAME
+    if not config_path.exists():
         raise FileNotFoundError(f"registered MCP project {project!r} no longer has {CONFIG_NAME}; rerun `switchyard mcp install --name {project}`")
-    return config_path.parent.resolve()
+    return root.resolve()
 
 
 def registered_mcp_worktree_project_root(cwd: Path) -> Path | None:
@@ -636,11 +645,23 @@ def mcp_launch_config(name: str) -> tuple[str, list[str], list[str]]:
     )
 
 
-def mcp_config_payload(name: str) -> dict[str, object]:
+def explicit_mcp_env(existing: dict[str, str] | None = None) -> dict[str, str]:
+    env = dict(existing or {})
+    if "SWITCHYARD_HOME" in os.environ:
+        env["SWITCHYARD_HOME"] = str(switchyard_home().expanduser().resolve())
+    return env
+
+
+def mcp_config_payload(name: str, existing_env: dict[str, str] | None = None) -> dict[str, object]:
     validate_mcp_name(name)
     command, args, comments = mcp_launch_config(name)
+    env = explicit_mcp_env(existing_env)
     args_text = ", ".join(json.dumps(item) for item in args)
     comment_text = "".join(f"{comment}\n" for comment in comments)
+    env_text = ""
+    if env:
+        env_lines = "\n".join(f"{json.dumps(key)} = {json.dumps(value)}" for key, value in sorted(env.items()))
+        env_text = f"\n[mcp_servers.{name}.env]\n{env_lines}\n"
     config_text = (
         f"[mcp_servers.{name}]\n"
         f"{comment_text}"
@@ -649,6 +670,7 @@ def mcp_config_payload(name: str) -> dict[str, object]:
         "startup_timeout_sec = 10\n"
         "tool_timeout_sec = 60\n"
         'default_tools_approval_mode = "prompt"\n'
+        f"{env_text}"
     )
     return {
         "name": name,
@@ -656,6 +678,7 @@ def mcp_config_payload(name: str) -> dict[str, object]:
         "command": command,
         "args": args,
         "comments": comments,
+        "env": env,
         "uses_python_fallback": args[:2] == ["-m", "switchyard"],
     }
 
@@ -670,8 +693,12 @@ def codex_config_path() -> Path:
 
 
 def upsert_mcp_config_text(existing: str, name: str, root: Path) -> tuple[str, str]:
-    table = mcp_config_text(name, root).rstrip() + "\n"
+    original = existing
+    existing_env = existing_mcp_env(existing, name)
+    table = str(mcp_config_payload(name, existing_env)["config_text"]).rstrip() + "\n"
     header = f"[mcp_servers.{name}]"
+    env_header = f"[mcp_servers.{name}.env]"
+    existing = re.compile(rf"(?ms)^{re.escape(env_header)}\n.*?(?=^\[|\Z)").sub("", existing)
     pattern = re.compile(rf"(?ms)^{re.escape(header)}\n.*?(?=^\[|\Z)")
     if pattern.search(existing):
         updated = pattern.sub(table, existing, count=1)
@@ -685,10 +712,27 @@ def upsert_mcp_config_text(existing: str, name: str, root: Path) -> tuple[str, s
     else:
         updated = table
         action = "added"
-    if updated == existing:
+    if updated == original:
         action = "unchanged"
     tomllib.loads(updated)
     return updated, action
+
+
+def existing_mcp_env(existing: str, name: str) -> dict[str, str]:
+    if not existing.strip():
+        return {}
+    try:
+        data = tomllib.loads(existing)
+    except tomllib.TOMLDecodeError:
+        return {}
+    servers = data.get("mcp_servers", {})
+    if not isinstance(servers, dict):
+        return {}
+    server = servers.get(name, {})
+    env = server.get("env", {}) if isinstance(server, dict) else {}
+    if not isinstance(env, dict):
+        return {}
+    return {str(key): value for key, value in env.items() if isinstance(value, str)}
 
 
 def install_mcp_config(name: str, root: Path, path: Path | None = None) -> tuple[Path, str]:
@@ -763,7 +807,7 @@ def cmd_mcp_config(args: argparse.Namespace) -> int:
         )
         return 0
     print(f"# Registered local MCP project: {args.name}")
-    print("# Paste into ~/.codex/config.toml, or run `switchyard mcp install`.")
+    print(f"# Paste into {codex_config_path()}, or run `switchyard mcp install`.")
     print()
     print(text, end="")
     return 0
@@ -998,6 +1042,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     mcp = sub.add_parser(
         "mcp",
+        usage="switchyard mcp [-h] [--project MCP_PROJECT] [config|install|projects] ...",
         help="Run or configure a stdio MCP server for AI agents",
         description=(
             "Run without a subcommand to start the stdio MCP server. "
@@ -1015,19 +1060,31 @@ def build_parser() -> argparse.ArgumentParser:
         dest="mcp_project",
         help="Registered project alias from `switchyard mcp install`",
     )
-    mcp_sub = mcp.add_subparsers(dest="mcp_command")
-    mcp_config = mcp_sub.add_parser("config", help="Print copy-paste Codex MCP config for this project")
+    mcp_sub = mcp.add_subparsers(dest="mcp_command", title="commands")
+    mcp_config = mcp_sub.add_parser(
+        "config",
+        prog="switchyard mcp config",
+        help="Print copy-paste Codex MCP config for this project",
+    )
     mcp_config.add_argument("--cwd", help=argparse.SUPPRESS)
     mcp_config.add_argument("--name", default="switchyard", help="MCP server name in Codex config")
     mcp_config.add_argument("--force", action="store_true", help="Replace an existing alias that points to another project")
     mcp_config.add_argument("--json", action="store_true", help="Print machine-readable setup details")
-    mcp_install = mcp_sub.add_parser("install", help="Add this project to Codex MCP config")
+    mcp_install = mcp_sub.add_parser(
+        "install",
+        prog="switchyard mcp install",
+        help="Add this project to Codex MCP config",
+    )
     mcp_install.add_argument("--cwd", help=argparse.SUPPRESS)
     mcp_install.add_argument("--name", default="switchyard", help="MCP server name in Codex config")
     mcp_install.add_argument("--dry-run", action="store_true", help="Print the Codex config update without writing it")
     mcp_install.add_argument("--force", action="store_true", help="Replace an existing alias that points to another project")
     mcp_install.add_argument("--json", action="store_true", help="Print machine-readable install details")
-    mcp_projects = mcp_sub.add_parser("projects", help="List registered MCP project aliases")
+    mcp_projects = mcp_sub.add_parser(
+        "projects",
+        prog="switchyard mcp projects",
+        help="List registered MCP project aliases",
+    )
     mcp_projects.add_argument("--json", action="store_true")
     mcp.set_defaults(func=cmd_mcp)
     mcp_config.set_defaults(func=cmd_mcp_config)

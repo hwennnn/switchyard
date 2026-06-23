@@ -336,6 +336,50 @@ port = 8000
         self.assertEqual(result["structuredContent"]["services"], ["web"])
         self.assertEqual(result["structuredContent"]["env_warnings"], ["missing link source .env.local"])
 
+    def test_tool_cwd_under_server_root_cannot_switch_to_nested_project(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            nested = root / "nested"
+            nested.mkdir()
+            (root / "switchyard.toml").write_text(
+                """
+[project]
+name = "parent"
+
+[services.web]
+command = "python -m http.server {port}"
+"""
+            )
+            (nested / "switchyard.toml").write_text(
+                """
+[project]
+name = "nested"
+
+[services.api]
+command = "python -m http.server {port}"
+"""
+            )
+
+            with patch.dict(os.environ, {"SWITCHYARD_HOME": str(root / ".switchyard-home")}):
+                set_server_root(root)
+                try:
+                    response = handle_request(
+                        {
+                            "jsonrpc": "2.0",
+                            "id": 3,
+                            "method": "tools/call",
+                            "params": {"name": "switchyard_doctor", "arguments": {"cwd": str(nested)}},
+                        }
+                    )
+                finally:
+                    set_server_root(None)
+
+        result = response["result"]
+        self.assertFalse(result["isError"])
+        self.assertEqual(result["structuredContent"]["project"], "parent")
+        self.assertEqual(Path(result["structuredContent"]["project_root"]).resolve(), root.resolve())
+        self.assertEqual(result["structuredContent"]["services"], ["web"])
+
     def test_read_only_tools_do_not_initialize_switchyard_state(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp) / "project"

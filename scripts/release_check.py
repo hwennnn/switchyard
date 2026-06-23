@@ -141,6 +141,7 @@ def check_public_docs() -> None:
     require("[--cwd other-checkout]" not in readme, "README command reference should not advertise cwd setup")
     require("switchyard mcp config --json" in readme, "README should document machine-readable MCP config setup")
     require("switchyard mcp install --dry-run --json" in readme, "README should document machine-readable MCP install dry run")
+    require("[mcp_servers.name.env]" in readme and "SWITCHYARD_HOME" in readme, "README should document MCP setup env preservation")
     require("switchyard mcp projects --json" in readme, "README should document MCP alias inspection")
     require("unless you pass\n`--force`" in readme, "README should document MCP alias collision safety")
     require('args = ["mcp", "--project", "name"]' in readme, "README should document alias-based MCP config args")
@@ -177,6 +178,8 @@ def check_public_docs() -> None:
     require("## Status" in readme, "README should include current project status")
     require("Stdio MCP tools, resources, and prompts" in readme, "README status should mention shipped MCP resources and prompts")
     require("MCP initialize + doctor" in readme, "README should document benchmark guardrails")
+    require("The full release gate also builds and install-smokes the wheel" in readme, "README should separate package gate from benchmark table")
+    require("wheel artifact under 350 KB" in readme, "README should document wheel size gate")
     require("From a repository checkout:" in readme, "README should qualify repo-only release scripts")
     require("python3 scripts/benchmark.py --runs 3" in readme, "README should document benchmark reproduction")
     require("python3 scripts/release_check.py" in readme, "README should document release readiness reproduction")
@@ -188,6 +191,9 @@ def check_public_docs() -> None:
         "README should document configured services in brief/resource output",
     )
     require("They also include `env_warnings`" in readme, "README should document brief env warnings")
+    require('command = "npm run dev -- --port {port}"' in readme, "README should show explicit dynamic port command")
+    require("Service commands should either honor `PORT`/`HOST`" in readme, "README should document service port contract")
+    require("Does not replace existing env targets by default" in readme, "README should document env replacement default")
     require("registered worktree" in readme, "README should document registered worktree context")
     require('worktree_root = ".worktrees/switchyard"' in readme, "README should document optional worktree_root")
     require('"configured_services"' in readme, "README should show configured service names in brief output")
@@ -209,6 +215,8 @@ def check_public_docs() -> None:
     changelog = read("CHANGELOG.md")
     contributing = read("CONTRIBUTING.md")
     agents = read("AGENTS.md")
+    require("will be published on PyPI as `switchyard-dev`" in release_doc, "release docs should not imply unpublished PyPI package is live")
+    require("Switchyard is packaged on PyPI" not in release_doc, "release docs should avoid live PyPI wording before publish")
     require("MCP resources expose project brief" in changelog, "CHANGELOG should mention MCP resources")
     require("MCP prompts expose read-only" in changelog, "CHANGELOG should mention MCP prompts")
     require("Compact `brief` output lists configured service names" in changelog, "CHANGELOG should mention configured services in brief")
@@ -217,9 +225,17 @@ def check_public_docs() -> None:
         "MCP help hides the `--cwd` compatibility escape hatch" in changelog,
         "CHANGELOG should mention path-free MCP setup help",
     )
+    require(
+        "MCP help shows setup subcommands as optional" in changelog,
+        "CHANGELOG should mention optional MCP setup subcommands in help",
+    )
     require("MCP setup chooses a launchable server command" in changelog, "CHANGELOG should mention generated MCP launch command behavior")
     require("MCP setup commands expose machine-readable JSON" in changelog, "CHANGELOG should mention MCP setup JSON")
     require("MCP setup JSON returns `ok: false`" in changelog, "CHANGELOG should mention MCP setup JSON errors")
+    require("MCP aliases require an exact registered" in changelog, "CHANGELOG should mention exact MCP alias pinning")
+    require("MCP tool calls stay pinned to the server project" in changelog, "CHANGELOG should mention nested MCP config boundary")
+    require("MCP setup preserves explicit `SWITCHYARD_HOME`" in changelog, "CHANGELOG should mention MCP env preservation")
+    require("Internal proxy/forward serve commands reject non-loopback hosts" in changelog, "CHANGELOG should mention internal serve host validation")
     require(
         "MCP startup from registered worktrees now uses the parent project" in changelog,
         "CHANGELOG should mention MCP registered-worktree startup",
@@ -227,6 +243,12 @@ def check_public_docs() -> None:
     require("switchyard://project/brief" in agents, "AGENTS.md should teach MCP resource-first workflow")
     require("switchyard_runtime_handoff" in agents, "AGENTS.md should teach MCP runtime handoff prompt")
     require("switchyard_branch_runtime" in agents, "AGENTS.md should teach MCP branch runtime prompt")
+    require("switchyard mcp install" in agents, "AGENTS.md should teach one-command MCP setup")
+    require("switchyard mcp config --json" in agents, "AGENTS.md should teach machine-readable MCP setup")
+    require("switchyard mcp install --dry-run --json" in agents, "AGENTS.md should teach dry-run MCP setup JSON")
+    require('args = ["mcp", "--project", "name"]' in agents, "AGENTS.md should teach alias-based MCP config")
+    require("[mcp_servers.name.env]" in agents and "SWITCHYARD_HOME" in agents, "AGENTS.md should teach MCP setup env preservation")
+    require("placeholder project paths" in agents and "Do not hand-write" in agents, "AGENTS.md should reject path placeholder setup")
     for doc_name, doc_text in [("docs/MCP.md", mcp_doc), ("docs/AGENT_INTERFACE.md", agent_interface)]:
         require("switchyard://project/brief" in doc_text, f"{doc_name} should document MCP project brief resource")
         require("switchyard://project/doctor" in doc_text, f"{doc_name} should document MCP project doctor resource")
@@ -236,6 +258,7 @@ def check_public_docs() -> None:
         require("registered worktree" in doc_text and "parent project" in doc_text, f"{doc_name} should document MCP worktree startup")
         require("switchyard mcp config --json" in doc_text, f"{doc_name} should document machine-readable MCP config setup")
         require("setup error" in doc_text or "setup errors" in doc_text, f"{doc_name} should document MCP setup JSON errors")
+        require("[mcp_servers.name.env]" in doc_text and "SWITCHYARD_HOME" in doc_text, f"{doc_name} should document MCP setup env preservation")
         require("current" in doc_text and "Python" in doc_text and "interpreter" in doc_text, f"{doc_name} should document Python MCP launch fallback")
         require("absolute project path" in doc_text and "`--cwd`" in doc_text, f"{doc_name} should reject path-based MCP setup")
         require("does not initialize Switchyard state" in doc_text, f"{doc_name} should document read-only MCP resources")
@@ -248,6 +271,8 @@ def check_public_docs() -> None:
     require((ROOT / "tests/fixtures/mcp_readonly_smoke.jsonl").exists(), "MCP read-only compatibility fixture missing")
     require((ROOT / "tests/fixtures/mcp_action_smoke.jsonl").exists(), "MCP action compatibility fixture missing")
     require("tests/fixtures/mcp_*.jsonl" in contributing, "CONTRIBUTING should point MCP work at compatibility fixtures")
+    require("python3 scripts/release_check.py --skip-package" in contributing, "CONTRIBUTING should document normal PR release gate")
+    require("python3 scripts/release_check.py" in contributing, "CONTRIBUTING should document full release gate")
     require("tests/fixtures/mcp_*.jsonl" in architecture, "architecture docs should point at MCP compatibility fixtures")
     require("MCP Compatibility" in architecture, "architecture should document MCP compatibility fixtures")
     require("MCP server wrapper" not in architecture + contributing, "public roadmap should not imply MCP server is missing")
@@ -279,9 +304,22 @@ def check_public_docs() -> None:
     require("switchyard_branch_runtime" in release_workflow, "release workflow should smoke branch runtime prompt")
     require("testpypi_smoke_confirmed" in release_workflow, "release workflow should gate PyPI promotion on TestPyPI confirmation")
     require("TestPyPI install smoke" in release_workflow, "release workflow should install-smoke TestPyPI publish")
-    require('export SWITCHYARD_HOME="$smoke_project/switchyard-home"' in release_workflow, "release workflow should isolate Switchyard state")
-    require('export CODEX_HOME="$smoke_project/codex-home"' in release_workflow, "release workflow should isolate Codex config")
+    require('switchyard mcp --help | grep -F "[config|install|projects]"' in release_workflow, "release workflow should smoke optional MCP help usage")
+    require('switchyard mcp --help | grep -F "commands:"' in release_workflow, "release workflow should smoke MCP help command section")
+    require('! switchyard mcp --help | grep -F "positional arguments:"' in release_workflow, "release workflow should reject required-looking MCP help")
+    require('! switchyard mcp --help | grep -F -- "--cwd"' in release_workflow, "release workflow should reject cwd in MCP help")
+    require('switchyard mcp config --help | grep -F "usage: switchyard mcp config"' in release_workflow, "release workflow should smoke clean MCP config help")
+    require('! switchyard mcp config --help | grep -F "[config|install|projects]"' in release_workflow, "release workflow should reject parent usage in MCP config help")
+    require('! switchyard mcp config --help | grep -F -- "--cwd"' in release_workflow, "release workflow should reject cwd in MCP config help")
+    require('switchyard mcp install --help | grep -F "usage: switchyard mcp install"' in release_workflow, "release workflow should smoke clean MCP install help")
+    require('! switchyard mcp install --help | grep -F "[config|install|projects]"' in release_workflow, "release workflow should reject parent usage in MCP install help")
+    require('! switchyard mcp install --help | grep -F -- "--cwd"' in release_workflow, "release workflow should reject cwd in MCP install help")
+    require('smoke_project="$smoke_root/project"' in release_workflow, "release workflow should keep smoke project separate from state")
+    require('export SWITCHYARD_HOME="$smoke_root/switchyard-home"' in release_workflow, "release workflow should isolate Switchyard state")
+    require('export CODEX_HOME="$smoke_root/codex-home"' in release_workflow, "release workflow should isolate Codex config")
     require('args = ["mcp", "--project", "switchyard"]' in release_workflow, "release workflow should smoke alias MCP config")
+    require('data["env"]["SWITCHYARD_HOME"]' in release_workflow, "release workflow should verify generated MCP SWITCHYARD_HOME env")
+    require("[mcp_servers.switchyard.env]" in release_workflow, "release workflow should verify generated MCP env table")
     require('cwd = "$smoke_project"' not in release_workflow, "release workflow should not expect Codex cwd MCP config")
     require('export SWITCHYARD_HOME="$tmp/switchyard-home"' in release_doc, "release docs should isolate Switchyard state")
     require('export CODEX_HOME="$tmp/codex-home"' in release_doc, "release docs should isolate Codex config")
@@ -290,6 +328,8 @@ def check_public_docs() -> None:
     require("switchyard mcp install --dry-run --json" in release_doc, "release docs should smoke MCP install dry-run JSON")
     require("switchyard mcp install --json >" in release_doc, "release docs should smoke real MCP install JSON")
     require("mcp-install.json" in release_doc, "release docs should validate real MCP install JSON output")
+    require('data["env"]["SWITCHYARD_HOME"]' in release_doc, "release docs should validate generated MCP SWITCHYARD_HOME env")
+    require("[mcp_servers.switchyard.env]" in release_doc, "release docs should validate generated MCP env table")
     require('PROJECT="$project" TMP="$tmp" python3' in release_doc, "release docs should pass temp paths to JSON validators")
     require("switchyard mcp projects --json" in release_doc, "release docs should smoke MCP project aliases")
     require('"status": "ok"' in release_doc, "release docs should require healthy MCP alias status")
@@ -336,6 +376,7 @@ def check_security_docs() -> None:
         "hard-coded path arguments, `cwd`, or `--cwd`" in security,
         "SECURITY.md should reject path-based MCP client setup",
     )
+    require("[mcp_servers.name.env]" in security and "SWITCHYARD_HOME" in security, "SECURITY.md should document MCP setup env preservation")
     require("read-only/destructive/idempotent hints" in security, "SECURITY.md should document MCP safety hints")
     require("switchyard://project/brief" in security, "SECURITY.md should document read-only MCP resources")
     require("do not initialize Switchyard state" in security, "SECURITY.md should document MCP resource state behavior")
@@ -344,6 +385,7 @@ def check_security_docs() -> None:
     require("switchyard_create" in security, "SECURITY.md should mention MCP worktree creation")
     require("switchyard_checkout" in security, "SECURITY.md should mention MCP checkout forwarding")
     require("worktree_root` must be a non-empty string path" in security, "SECURITY.md should document worktree_root validation")
+    require("Service commands inherit the environment" in security, "SECURITY.md should document inherited service environment")
     ok("security docs")
 
 
@@ -372,6 +414,7 @@ def check_skill() -> None:
     require("switchyard mcp config" in text, "skill should teach generated MCP setup")
     require("switchyard mcp config --json" in text, "skill should teach machine-readable MCP config setup")
     require("switchyard mcp install --dry-run --json" in text, "skill should teach machine-readable MCP install dry run")
+    require("[mcp_servers.name.env]" in text and "SWITCHYARD_HOME" in text, "skill should teach MCP setup env preservation")
     require("setup errors" in text, "skill should teach machine-readable MCP setup errors")
     require("switchyard mcp projects --json" in text, "skill should teach MCP alias inspection")
     require("use `--force` only when intentionally" in text, "skill should teach cautious MCP alias replacement")
@@ -405,6 +448,7 @@ def check_skill() -> None:
 def check_examples() -> None:
     examples = sorted((ROOT / "examples").glob("*.toml"))
     require(examples, "example configs missing")
+    require('command = "npm run dev -- --port {port}"' in read("examples/switchyard.toml"), "basic example should show explicit dynamic port command")
     code = """
 from pathlib import Path
 from switchyard.config import load_config
@@ -616,10 +660,12 @@ def check_mcp_smoke() -> None:
 
 def check_cli_json_smoke() -> None:
     with tempfile.TemporaryDirectory(prefix="switchyard-release-cli-") as temp:
-        root = Path(temp)
+        workspace = Path(temp)
+        root = workspace / "project"
+        root.mkdir()
         env = os.environ.copy()
         env["PYTHONPATH"] = str(ROOT / "src")
-        env["SWITCHYARD_HOME"] = str(root / "home")
+        env["SWITCHYARD_HOME"] = str(workspace / "home")
         result = run([sys.executable, "-m", "switchyard", "init", "--dry-run", "--json"], cwd=root, env=env)
         init_data = json.loads(result.stdout)
         require(init_data["ok"] is True, "init --dry-run --json should report ok")
@@ -662,6 +708,9 @@ def check_cli_json_smoke() -> None:
         )
         require("codex mcp add" not in result.stdout, "mcp install help should not mention obsolete codex mcp add")
         result = run([sys.executable, "-m", "switchyard", "mcp", "--help"], cwd=root, env=env)
+        require("[config|install|projects]" in result.stdout, "mcp help usage should show setup subcommands as optional")
+        require("commands:" in result.stdout, "mcp help should label setup subcommands as commands")
+        require("positional arguments:" not in result.stdout, "mcp help should not make setup subcommands look required")
         require("Run inside a project" in result.stdout, "mcp help should point users at path-free project setup")
         require("switchyard mcp install" in result.stdout, "mcp help should point users at generated setup")
         require("--project" in result.stdout, "mcp help should point users at alias setup")
@@ -671,6 +720,8 @@ def check_cli_json_smoke() -> None:
         require("/path/to/project" not in result.stdout, "mcp help should not use path placeholders")
         for subcommand in ["config", "install"]:
             result = run([sys.executable, "-m", "switchyard", "mcp", subcommand, "--help"], cwd=root, env=env)
+            require(f"usage: switchyard mcp {subcommand}" in result.stdout, f"mcp {subcommand} help should use a clean prog")
+            require("[config|install|projects]" not in result.stdout, f"mcp {subcommand} help should not include parent usage noise")
             require("--cwd" not in result.stdout, f"mcp {subcommand} help should not advertise cwd setup")
             require("/path/to/project" not in result.stdout, f"mcp {subcommand} help should not use path placeholders")
         result = run([sys.executable, "-m", "switchyard", "mcp", "install", "--dry-run"], cwd=root, env=env)
@@ -685,10 +736,16 @@ def check_cli_json_smoke() -> None:
         require(install_json["ok"] is True and install_json["dry_run"] is True, "mcp install dry-run --json should report dry run")
         require(install_json["registered"] is False, "mcp install dry-run --json should not claim registration")
         require(install_json["args"][-2:] == ["--project", "switchyard"], "mcp install dry-run --json should use project alias args")
+        require(
+            install_json["env"].get("SWITCHYARD_HOME") == str(Path(env["SWITCHYARD_HOME"]).resolve()),
+            "mcp install dry-run --json should preserve SWITCHYARD_HOME",
+        )
+        require("[mcp_servers.switchyard.env]" in install_json["config_text"], "mcp install dry-run --json should emit MCP env table")
         require("cwd =" not in install_json["config_text"], "mcp install dry-run --json should not require Codex cwd field")
         require(str(root.resolve()) not in result.stdout, "mcp install dry-run --json should not print project paths")
         result = run([sys.executable, "-m", "switchyard", "mcp", "config"], cwd=root, env=env)
         require('"--project", "switchyard"' in result.stdout, "mcp config should use project alias args")
+        require(str(Path(env["SWITCHYARD_HOME"]).resolve()) in result.stdout, "mcp config should preserve SWITCHYARD_HOME for alias lookup")
         require("cwd =" not in result.stdout, "mcp config should not require Codex cwd field")
         require(str(root.resolve()) not in result.stdout, "mcp config should not print project paths into setup")
         require("/path/to/project" not in result.stdout, "mcp config should not use path placeholders")
@@ -696,6 +753,10 @@ def check_cli_json_smoke() -> None:
         config_json = json.loads(result.stdout)
         require(config_json["ok"] is True and config_json["registered"] is True, "mcp config --json should register alias")
         require(config_json["args"][-2:] == ["--project", "switchyard"], "mcp config --json should use project alias args")
+        require(
+            config_json["env"].get("SWITCHYARD_HOME") == str(Path(env["SWITCHYARD_HOME"]).resolve()),
+            "mcp config --json should preserve SWITCHYARD_HOME",
+        )
         require("cwd =" not in config_json["config_text"], "mcp config --json should not require Codex cwd field")
         require(str(root.resolve()) not in result.stdout, "mcp config --json should not print project paths")
         result = run([sys.executable, "-m", "switchyard", "mcp", "projects", "--json"], cwd=root, env=env)
@@ -709,6 +770,8 @@ def check_cli_json_smoke() -> None:
         require(install_result["dry_run"] is False, "mcp install --json should report real install")
         config_text = (Path(env["CODEX_HOME"]) / "config.toml").read_text()
         require('"--project", "switchyard"' in config_text, "mcp install should write project alias args")
+        require("[mcp_servers.switchyard.env]" in config_text, "mcp install should write MCP env table")
+        require(str(Path(env["SWITCHYARD_HOME"]).resolve()) in config_text, "mcp install should preserve SWITCHYARD_HOME")
         require("cwd =" not in config_text, "mcp install should not write Codex cwd field")
         require(str(root.resolve()) not in config_text, "mcp install should not write project paths")
         require("--cwd" not in config_text, "mcp install should not write cwd into server args")

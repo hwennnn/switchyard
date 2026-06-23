@@ -41,8 +41,8 @@ What works today:
 - One-command Codex MCP setup using local project aliases, not path args.
 - Bundled Codex skill for agent workflow guidance.
 
-Release readiness is enforced with unit, e2e, concurrency, MCP, package, and
-benchmark gates. Current benchmark guardrails include:
+Release readiness is enforced with unit, e2e, concurrency, MCP, benchmark, and
+package gates. Current benchmark guardrails include:
 
 | Check | Gate |
 | --- | --- |
@@ -50,7 +50,9 @@ benchmark gates. Current benchmark guardrails include:
 | service startup smoke | median under 5000 ms |
 | `brief --json` payload | under 12000 bytes |
 | source tree | under 250 KB |
-| wheel artifact | under 350 KB |
+
+The full release gate also builds and install-smokes the wheel, and keeps the
+wheel artifact under 350 KB.
 
 From a repository checkout:
 
@@ -196,6 +198,9 @@ prints a commented fallback that launches the current Python interpreter with
 `args = ["-m", "switchyard", "mcp", "--project", "name"]`. Either way, the
 project is resolved through the local alias, and the generated block does not
 emit `cwd`, `--cwd`, or an absolute project path.
+If `SWITCHYARD_HOME` is set during setup, the generated block includes an
+`[mcp_servers.name.env]` table so the MCP server can find the same local alias
+state when Codex launches it later.
 
 To inspect the config first, use the setup helper. It registers the same local
 alias and prints ready-to-paste TOML:
@@ -305,7 +310,7 @@ start = 41000
 end = 49999
 
 [services.web]
-command = "npm run dev"
+command = "npm run dev -- --port {port}"
 port = 3000
 
 [services.api]
@@ -332,6 +337,10 @@ SWITCHYARD_WEB_PORT
 SWITCHYARD_API_URL
 SWITCHYARD_API_PORT
 ```
+
+Service commands should either honor `PORT`/`HOST` or include placeholders such
+as `{port}` and `{host}`. Otherwise the process may ignore Switchyard's assigned
+port and bind its own default.
 
 Commands may use tokens:
 
@@ -423,7 +432,7 @@ SWITCHYARD_HOME=/tmp/switchyard switchyard status
 - Rejects proxy and service hosts outside loopback addresses.
 - Stops only recorded service PIDs whose command still matches the registry.
 - Scopes stop actions to the current registered worktree branch when run inside one.
-- Does not edit tracked `.env` files.
+- Does not replace existing env targets by default; `--force-env` is explicit.
 - Rejects env paths outside the project/worktree.
 - Keeps generated state outside the repo by default.
 - No public sharing, ngrok, Tailscale, or LAN exposure in v0.

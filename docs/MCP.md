@@ -39,6 +39,9 @@ If no `switchyard` executable is visible, the helper prints a commented
 fallback that launches the current Python interpreter with
 `args = ["-m", "switchyard", "mcp", "--project", "name"]`. The generated block
 does not contain `cwd`, `--cwd`, or an absolute project path.
+If `SWITCHYARD_HOME` is set during setup, the generated block includes an
+`[mcp_servers.name.env]` table so Codex launches the server with the same local
+alias state.
 
 To inspect the config first, generate ready-to-paste setup text:
 

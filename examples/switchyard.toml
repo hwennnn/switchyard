@@ -15,10 +15,9 @@ start = 41000
 end = 49999
 
 [services.web]
-command = "npm run dev"
+command = "npm run dev -- --port {port}"
 port = 3000
 
 [services.api]
 command = "npm run api -- --port {port}"
 port = 8080
-

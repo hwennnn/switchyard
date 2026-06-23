@@ -104,6 +104,9 @@ falls back to the current Python interpreter with
 config should not contain `cwd`, `--cwd`, or an absolute project path. Keep
 approval enabled for tools that create worktrees, start port forwarders, or
 start/stop services.
+If `SWITCHYARD_HOME` is set during setup, generated config includes an
+`[mcp_servers.name.env]` table so the alias state is available when the MCP
+client launches later.
 Use `switchyard mcp config --json` or
 `switchyard mcp install --dry-run --json` when an agent needs machine-readable
 setup details or setup errors instead of prose/TOML scraping.

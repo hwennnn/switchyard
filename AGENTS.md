@@ -36,6 +36,25 @@ and `switchyard_branch_runtime` guides branch runtime setup.
 
 Use `switchyard_create` only when the user asked for a missing branch runtime.
 
+## MCP Setup
+
+For a trusted checkout, install or inspect Codex MCP setup from inside the
+repository:
+
+```sh
+switchyard mcp install
+switchyard mcp config --json
+switchyard mcp install --dry-run --json
+```
+
+The generated config uses a local project alias with
+`args = ["mcp", "--project", "name"]`. Do not hand-write `cwd`, `--cwd`, an
+absolute project path, or placeholder project paths in MCP client config.
+If `SWITCHYARD_HOME` is set, setup JSON/config should include
+`[mcp_servers.name.env]` so the alias remains resolvable when the MCP client
+launches later.
+Use `switchyard mcp projects --json` to inspect local aliases.
+
 ## Runtime Actions
 
 Starting and stopping services are visible local actions:

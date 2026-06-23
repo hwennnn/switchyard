@@ -192,6 +192,7 @@ def default_config_text(root: Path) -> str:
     project_name = slugify(root.name)
     return f"""# Switchyard maps each agent worktree to its own local runtime.
 # Desired ports are preferences. If a port is busy, Switchyard allocates a free one.
+# Commands should honor PORT/HOST env vars or include {{port}}/{{host}} placeholders.
 
 [project]
 name = "{project_name}"

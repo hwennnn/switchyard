@@ -27,6 +27,10 @@
 - One-command Codex MCP setup with `switchyard mcp install`.
 - Generated MCP config uses local project aliases so users do not hand-maintain project paths.
 - MCP help hides the `--cwd` compatibility escape hatch from normal setup.
+- MCP help shows setup subcommands as optional so bare `switchyard mcp` is clearly valid.
+- MCP aliases require an exact registered `switchyard.toml` instead of climbing to parent configs.
+- MCP tool calls stay pinned to the server project even when `cwd` points at a nested checkout with its own config.
+- MCP setup preserves explicit `SWITCHYARD_HOME` in generated Codex config.
 - MCP setup refuses silent alias repoints across projects unless `--force` is used.
 - MCP setup preserves existing per-tool Codex approval settings on reinstall.
 - MCP dry-run output explains that aliases are not registered during dry runs.
@@ -47,6 +51,7 @@
 - Service commands can reference peer `{service_url}` and `{service_port}` placeholders.
 - Config validation rejects non-string or empty `[project].worktree_root` values.
 - Config validation rejects non-loopback proxy and service bind hosts.
+- Internal proxy/forward serve commands reject non-loopback hosts.
 - Bundled Codex skill with `switchyard skill show/install`.
 - Hardened release readiness, benchmark, and PyPI publish harnesses.
 - PyPI metadata advertises the tested Python versions and source/documentation links.

@@ -73,9 +73,11 @@ jobs:
           . .release-smoke/bin/activate
           python -m pip install dist/*.whl
           switchyard --version
-          smoke_project="$(mktemp -d)"
-          export SWITCHYARD_HOME="$smoke_project/switchyard-home"
-          export CODEX_HOME="$smoke_project/codex-home"
+          smoke_root="$(mktemp -d)"
+          smoke_project="$smoke_root/project"
+          mkdir -p "$smoke_project"
+          export SWITCHYARD_HOME="$smoke_root/switchyard-home"
+          export CODEX_HOME="$smoke_root/codex-home"
           cat > "$smoke_project/switchyard.toml" <<'EOF'
           [project]
           name = "release-smoke"
@@ -97,6 +99,8 @@ jobs:
           assert data["ok"] is True
           assert data["registered"] is True
           assert data["args"][-2:] == ["--project", "switchyard"]
+          assert data["env"]["SWITCHYARD_HOME"] == str(Path(os.environ["SWITCHYARD_HOME"]).resolve())
+          assert "[mcp_servers.switchyard.env]" in data["config_text"]
           assert "cwd =" not in data["config_text"]
           assert str(smoke_project) not in data["config_text"]
           PY
@@ -117,6 +121,8 @@ jobs:
           assert data["dry_run"] is True
           assert data["registered"] is False
           assert data["args"][-2:] == ["--project", "switchyard"]
+          assert data["env"]["SWITCHYARD_HOME"] == str(Path(os.environ["SWITCHYARD_HOME"]).resolve())
+          assert "[mcp_servers.switchyard.env]" in data["config_text"]
           assert "cwd =" not in data["config_text"]
           assert str(smoke_project) not in data["config_text"]
           PY
@@ -136,6 +142,9 @@ jobs:
           assert data["registered"] is True
           assert data["args"][-2:] == ["--project", "switchyard"]
           assert data["codex_config_path"] == str(codex_config)
+          assert data["env"]["SWITCHYARD_HOME"] == str(Path(os.environ["SWITCHYARD_HOME"]).resolve())
+          assert "[mcp_servers.switchyard.env]" in data["config_text"]
+          assert "[mcp_servers.switchyard.env]" in config_text
           assert "cwd =" not in data["config_text"]
           assert "cwd =" not in config_text
           assert str(smoke_project) not in data["config_text"]
@@ -198,6 +207,16 @@ jobs:
           done
           switchyard --version
           switchyard mcp --help | grep -F "Run without a subcommand to start the stdio MCP server"
+          switchyard mcp --help | grep -F "[config|install|projects]"
+          switchyard mcp --help | grep -F "commands:"
+          ! switchyard mcp --help | grep -F "positional arguments:"
+          ! switchyard mcp --help | grep -F -- "--cwd"
+          switchyard mcp config --help | grep -F "usage: switchyard mcp config"
+          ! switchyard mcp config --help | grep -F "[config|install|projects]"
+          ! switchyard mcp config --help | grep -F -- "--cwd"
+          switchyard mcp install --help | grep -F "usage: switchyard mcp install"
+          ! switchyard mcp install --help | grep -F "[config|install|projects]"
+          ! switchyard mcp install --help | grep -F -- "--cwd"
 
   publish-pypi:
     if: inputs.publish_target == 'pypi'

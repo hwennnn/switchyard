@@ -487,8 +487,8 @@ def set_server_root(root: Path | None) -> None:
 
 
 def registered_worktree_cwd(root: Path, cwd: Path) -> bool:
-    config_path = discover_config(root)
-    if not config_path:
+    config_path = root / CONFIG_NAME
+    if not config_path.exists():
         return False
     config = load_config(config_path)
     registry = Registry(create=False)
@@ -501,9 +501,9 @@ def registered_worktree_cwd(root: Path, cwd: Path) -> bool:
 
 def load_project(cwd: Path, ensure: bool = True):
     root = SERVER_ROOT or Path.cwd().resolve()
-    if cwd != root and registered_worktree_cwd(root, cwd):
-        config_path = discover_config(root)
-        if not config_path:
+    if SERVER_ROOT:
+        config_path = root / CONFIG_NAME
+        if not config_path.exists():
             raise McpError(-32004, f"could not find {CONFIG_NAME} from {root}")
         config = load_config(config_path)
         registry = Registry(create=ensure)

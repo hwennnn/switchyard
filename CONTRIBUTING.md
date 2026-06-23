@@ -13,6 +13,13 @@ python3 -m venv .venv
 . .venv/bin/activate
 pip install -e .
 PYTHONPATH=src python3 -m unittest discover -s tests
+python3 scripts/release_check.py --skip-package
+```
+
+Use the full release gate before packaging or publishing:
+
+```sh
+python3 scripts/release_check.py
 ```
 
 ## Design Principles

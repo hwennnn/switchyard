@@ -1,8 +1,8 @@
 # Release
 
-Switchyard is packaged on PyPI as `switchyard-dev` because `switchyard` is
-already occupied by another Python project. The installed console commands are
-still:
+Switchyard will be published on PyPI as `switchyard-dev` because `switchyard`
+is already occupied by another Python project. The installed console commands
+are still:
 
 ```sh
 switchyard
@@ -56,7 +56,7 @@ API tokens in repository secrets.
 The workflow rejects branch runs, mismatched tags, and changelog entries that
 still say `Unreleased`.
 
-Manual install smoke:
+After publishing to TestPyPI or PyPI, run a manual install smoke:
 
 ```sh
 pipx install switchyard-dev
@@ -90,6 +90,8 @@ data = json.loads(text)
 assert data["ok"] is True
 assert data["registered"] is True
 assert data["args"][-2:] == ["--project", "switchyard"]
+assert data["env"]["SWITCHYARD_HOME"] == str(Path(os.environ["SWITCHYARD_HOME"]).resolve())
+assert "[mcp_servers.switchyard.env]" in data["config_text"]
 assert "cwd =" not in data["config_text"]
 assert str(project) not in data["config_text"]
 PY
@@ -110,6 +112,8 @@ assert data["ok"] is True
 assert data["dry_run"] is True
 assert data["registered"] is False
 assert data["args"][-2:] == ["--project", "switchyard"]
+assert data["env"]["SWITCHYARD_HOME"] == str(Path(os.environ["SWITCHYARD_HOME"]).resolve())
+assert "[mcp_servers.switchyard.env]" in data["config_text"]
 assert "cwd =" not in data["config_text"]
 assert str(project) not in data["config_text"]
 PY
@@ -129,6 +133,9 @@ assert data["dry_run"] is False
 assert data["registered"] is True
 assert data["args"][-2:] == ["--project", "switchyard"]
 assert data["codex_config_path"] == str(codex_config)
+assert data["env"]["SWITCHYARD_HOME"] == str(Path(os.environ["SWITCHYARD_HOME"]).resolve())
+assert "[mcp_servers.switchyard.env]" in data["config_text"]
+assert "[mcp_servers.switchyard.env]" in config_text
 assert "cwd =" not in data["config_text"]
 assert "cwd =" not in config_text
 assert str(project) not in data["config_text"]

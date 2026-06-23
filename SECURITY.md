@@ -8,7 +8,7 @@ Switchyard runs local developer commands. Treat `switchyard.toml` as executable 
 - Does not expose services publicly.
 - Rejects proxy and service bind hosts outside `127.0.0.1`, `localhost`, or `::1`.
 - Does not use ngrok, Tailscale, or LAN sharing in v0.
-- Does not read secrets except by linking/copying files you explicitly configure.
+- Does not scan secret files; env sync only links/copies files you explicitly configure.
 - Rejects env file paths that escape the project/worktree.
 - Serializes runtime operations per project to reduce port/state races.
 - Checks recorded service commands before stopping running PIDs.
@@ -33,6 +33,9 @@ Make sure secret files are gitignored.
 Absolute paths, `..`, and empty path components are rejected before filesystem
 mutation.
 
+Service commands inherit the environment of the shell that starts Switchyard.
+Start Switchyard from the environment you intend those local processes to see.
+
 ## MCP
 
 Generate MCP setup from inside the trusted project:
@@ -52,6 +55,9 @@ while still resolving the project through the alias. Direct `switchyard mcp`
 startup from a project or child directory auto-pins to the nearest
 `switchyard.toml`. Tool calls can only load the alias's project, subdirectories
 under it, or worktrees already registered for that project.
+If `SWITCHYARD_HOME` is set during setup, generated config includes an
+`[mcp_servers.name.env]` table so the MCP server resolves aliases from the same
+local state directory when the client launches later.
 If startup happens from a registered worktree, the server keeps the parent
 project as its boundary and treats that worktree as the default request cwd.
 Managed worktrees may still be created in Switchyard's configured local
