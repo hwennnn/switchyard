@@ -112,6 +112,8 @@ def check_public_docs() -> None:
     release_workflow = read(".github/workflows/release.yml")
     require("switchyard skill show" in release_workflow, "release workflow should smoke bundled skill from wheel")
     require("switchyard doctor --json" in release_workflow, "release workflow should smoke doctor JSON from wheel")
+    require("switchyard mcp config" in release_workflow, "release workflow should smoke MCP config from wheel")
+    require("switchyard mcp install --dry-run" in release_workflow, "release workflow should smoke MCP install dry run")
     require("Validate release tag" in release_workflow, "release workflow should validate release tag")
     require("GITHUB_REF_TYPE" in release_workflow, "release workflow should require a tag ref")
     require("CHANGELOG.md must finalize" in release_workflow, "release workflow should require finalized changelog")
@@ -438,6 +440,26 @@ def build_and_check_package() -> None:
         )
         result = run([str(python), "-m", "switchyard", "doctor", "--json"], cwd=smoke_project, env=env)
         require(json.loads(result.stdout)["project"]["name"] == "installed-demo", "installed doctor --json failed")
+        result = run([str(python), "-m", "switchyard", "mcp", "config"], cwd=smoke_project, env=env)
+        require('args = ["mcp"]' in result.stdout, "installed mcp config should keep server args pathless")
+        require(f'cwd = "{smoke_project.resolve()}"' in result.stdout, "installed mcp config should use Codex cwd field")
+        result = run([str(python), "-m", "switchyard", "mcp", "install", "--dry-run"], cwd=smoke_project, env=env)
+        require("# Would update:" in result.stdout, "installed mcp install dry run should print target config path")
+        require('args = ["mcp"]' in result.stdout, "installed mcp install dry run should keep server args pathless")
+        nested = smoke_project / "apps" / "web"
+        nested.mkdir(parents=True)
+        mcp_payload = "\n".join(
+            [
+                '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"switchyard_doctor","arguments":{}}}',
+                "",
+            ]
+        )
+        result = run([str(python), "-m", "switchyard", "mcp"], cwd=nested, env=env, input_text=mcp_payload)
+        mcp_line = json.loads(result.stdout)
+        require(
+            mcp_line["result"]["structuredContent"]["project"] == "installed-demo",
+            "installed mcp server should auto-detect project root",
+        )
         result = run([str(python), "-m", "switchyard", "skill", "show"], cwd=root, env=env)
         require("switchyard_brief" in result.stdout, "installed package missing bundled skill")
         skill_target = root / "skills"

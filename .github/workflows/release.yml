@@ -69,6 +69,9 @@ jobs:
           command = "python -m http.server {port}"
           EOF
           (cd "$smoke_project" && switchyard doctor --json | grep release-smoke)
+          (cd "$smoke_project" && switchyard mcp config | grep -F 'args = ["mcp"]')
+          (cd "$smoke_project" && switchyard mcp config | grep -F "cwd = \"$smoke_project\"")
+          (cd "$smoke_project" && switchyard mcp install --dry-run | grep -F "# Would update:")
           switchyard skill show | grep switchyard_brief
           skill_target="$(mktemp -d)"
           switchyard skill install --target "$skill_target"
