@@ -49,7 +49,7 @@ switchyard mcp config --json
 
 The helper registers the local project alias and prints the same path-free TOML.
 Use `--json` for machine-readable setup details, including the generated TOML,
-launch command, and alias registration state.
+launch command, alias registration state, and `ok: false` setup errors.
 Use `--name` for multiple projects:
 
 ```sh

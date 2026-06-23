@@ -494,6 +494,23 @@ command = "python -m http.server {port}"
         self.assertNotIn(str(root), stdout.getvalue())
         self.assertEqual(state["project_aliases"]["switchyard-demo"], str(root))
 
+    def test_mcp_config_json_failure_stays_machine_readable(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp).resolve()
+
+            stdout = StringIO()
+            stderr = StringIO()
+            with patch.dict(os.environ, {"SWITCHYARD_HOME": str(root / "home")}), chdir(root):
+                with redirect_stdout(stdout), redirect_stderr(stderr):
+                    code = main(["mcp", "config", "--json"])
+
+            data = json.loads(stdout.getvalue())
+
+        self.assertEqual(code, 1)
+        self.assertFalse(data["ok"])
+        self.assertIn("switchyard.toml", data["error"])
+        self.assertEqual(stderr.getvalue(), "")
+
     def test_mcp_install_dry_run_detects_project_root(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp).resolve()
@@ -626,6 +643,34 @@ command = "python -m http.server {port}"
         self.assertEqual(data["codex_config_path"], str(codex_home / "config.toml"))
         self.assertEqual(data["server_project"], "switchyard-demo")
         self.assertIn('"--project", "switchyard-demo"', config_text)
+
+    def test_mcp_install_json_alias_collision_stays_machine_readable(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            workspace = Path(temp).resolve()
+            first = workspace / "first"
+            second = workspace / "second"
+            first.mkdir()
+            second.mkdir()
+            self.write_config(first)
+            self.write_config(second)
+            home = workspace / "home"
+
+            with patch.dict(os.environ, {"SWITCHYARD_HOME": str(home)}), chdir(first):
+                with redirect_stdout(StringIO()), redirect_stderr(StringIO()):
+                    self.assertEqual(main(["mcp", "config", "--name", "switchyard-demo"]), 0)
+
+            stdout = StringIO()
+            stderr = StringIO()
+            with patch.dict(os.environ, {"SWITCHYARD_HOME": str(home)}), chdir(second):
+                with redirect_stdout(stdout), redirect_stderr(stderr):
+                    code = main(["mcp", "install", "--json", "--name", "switchyard-demo"])
+
+            data = json.loads(stdout.getvalue())
+
+        self.assertEqual(code, 1)
+        self.assertFalse(data["ok"])
+        self.assertIn("already points", data["error"])
+        self.assertEqual(stderr.getvalue(), "")
 
     def test_mcp_install_updates_existing_server_block(self) -> None:
         with tempfile.TemporaryDirectory() as temp:

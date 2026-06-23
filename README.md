@@ -207,7 +207,7 @@ switchyard mcp install --dry-run --json
 ```
 
 Use `--json` when an agent or script needs the generated TOML, launch command,
-and alias state without scraping prose.
+alias state, or setup error envelope without scraping prose.
 
 To see registered aliases:
 

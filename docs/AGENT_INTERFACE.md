@@ -37,7 +37,7 @@ Python interpreter with
 client setup free of hand-written project paths. Generated Codex config should
 not contain `cwd`, `--cwd`, or an absolute project path. Use
 `switchyard mcp config --json` or `switchyard mcp install --dry-run --json`
-when an agent needs machine-readable setup details. Use
+when an agent needs machine-readable setup details or a setup error envelope. Use
 `switchyard mcp projects --json` to inspect registered aliases.
 
 Clients that support MCP resources can read stable, read-only context before

@@ -32,6 +32,7 @@
 - MCP dry-run output explains that aliases are not registered during dry runs.
 - MCP setup chooses a launchable server command while keeping project lookup on local aliases.
 - MCP setup commands expose machine-readable JSON for agents and scripts.
+- MCP setup JSON returns `ok: false` error envelopes for setup failures.
 - Pathless MCP server startup auto-pins to the nearest `switchyard.toml`.
 - MCP startup from registered worktrees now uses the parent project and branch-scoped defaults.
 - MCP install writes the full Codex config block directly instead of shelling out to `codex mcp add`.

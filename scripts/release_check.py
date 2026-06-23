@@ -16,13 +16,20 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
+CONFIG_NAME = "switchyard.toml"
 
 
 class CheckError(RuntimeError):
     pass
 
 
-def run(args: list[str], cwd: Path = ROOT, env: dict[str, str] | None = None, input_text: str | None = None) -> subprocess.CompletedProcess[str]:
+def run(
+    args: list[str],
+    cwd: Path = ROOT,
+    env: dict[str, str] | None = None,
+    input_text: str | None = None,
+    check: bool = True,
+) -> subprocess.CompletedProcess[str]:
     result = subprocess.run(
         args,
         cwd=str(cwd),
@@ -32,7 +39,7 @@ def run(args: list[str], cwd: Path = ROOT, env: dict[str, str] | None = None, in
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
     )
-    if result.returncode != 0:
+    if check and result.returncode != 0:
         raise CheckError(
             "command failed: "
             + " ".join(args)
@@ -200,6 +207,7 @@ def check_public_docs() -> None:
     require("MCP help frames `--cwd` as an escape hatch" in changelog, "CHANGELOG should mention path-free MCP setup help")
     require("MCP setup chooses a launchable server command" in changelog, "CHANGELOG should mention generated MCP launch command behavior")
     require("MCP setup commands expose machine-readable JSON" in changelog, "CHANGELOG should mention MCP setup JSON")
+    require("MCP setup JSON returns `ok: false`" in changelog, "CHANGELOG should mention MCP setup JSON errors")
     require(
         "MCP startup from registered worktrees now uses the parent project" in changelog,
         "CHANGELOG should mention MCP registered-worktree startup",
@@ -215,6 +223,7 @@ def check_public_docs() -> None:
         require("env_warnings" in doc_text, f"{doc_name} should document brief env warnings")
         require("registered worktree" in doc_text and "parent project" in doc_text, f"{doc_name} should document MCP worktree startup")
         require("switchyard mcp config --json" in doc_text, f"{doc_name} should document machine-readable MCP config setup")
+        require("setup error" in doc_text or "setup errors" in doc_text, f"{doc_name} should document MCP setup JSON errors")
         require("current" in doc_text and "Python" in doc_text and "interpreter" in doc_text, f"{doc_name} should document Python MCP launch fallback")
         require("absolute project path" in doc_text and "`--cwd`" in doc_text, f"{doc_name} should reject path-based MCP setup")
         require("does not initialize Switchyard state" in doc_text, f"{doc_name} should document read-only MCP resources")
@@ -351,6 +360,7 @@ def check_skill() -> None:
     require("switchyard mcp config" in text, "skill should teach generated MCP setup")
     require("switchyard mcp config --json" in text, "skill should teach machine-readable MCP config setup")
     require("switchyard mcp install --dry-run --json" in text, "skill should teach machine-readable MCP install dry run")
+    require("setup errors" in text, "skill should teach machine-readable MCP setup errors")
     require("switchyard mcp projects --json" in text, "skill should teach MCP alias inspection")
     require("use `--force` only when intentionally" in text, "skill should teach cautious MCP alias replacement")
     require("local project alias" in text, "skill should teach alias-based MCP config args")
@@ -628,6 +638,11 @@ def check_cli_json_smoke() -> None:
         result = run([sys.executable, "-m", "switchyard", "list", "--json"], cwd=root, env=env)
         data = json.loads(result.stdout)
         require(data == {"worktrees": []}, "list --json should report empty worktrees")
+        with tempfile.TemporaryDirectory(prefix="switchyard-missing-config-") as missing:
+            result = run([sys.executable, "-m", "switchyard", "mcp", "config", "--json"], cwd=Path(missing), env=env, check=False)
+            missing_config = json.loads(result.stdout)
+            require(result.returncode == 1, "mcp config --json should fail outside a project")
+            require(missing_config["ok"] is False and CONFIG_NAME in missing_config["error"], "mcp config --json failure should be machine-readable")
         result = run([sys.executable, "-m", "switchyard", "mcp", "install", "--help"], cwd=root, env=env)
         require(
             "Print the Codex config update without writing it" in result.stdout,
@@ -679,6 +694,31 @@ def check_cli_json_smoke() -> None:
         require("cwd =" not in config_text, "mcp install should not write Codex cwd field")
         require(str(root.resolve()) not in config_text, "mcp install should not write project paths")
         require("--cwd" not in config_text, "mcp install should not write cwd into server args")
+        collision_root = root / "collision"
+        collision_root.mkdir()
+        (collision_root / CONFIG_NAME).write_text(
+            textwrap.dedent(
+                """
+                [project]
+                name = "collision"
+
+                [services.web]
+                command = "python -m http.server {port}"
+                """
+            )
+        )
+        result = run(
+            [sys.executable, "-m", "switchyard", "mcp", "install", "--json"],
+            cwd=collision_root,
+            env=env,
+            check=False,
+        )
+        collision_error = json.loads(result.stdout)
+        require(result.returncode == 1, "mcp install --json should fail on alias collision")
+        require(
+            collision_error["ok"] is False and "already points" in collision_error["error"],
+            "mcp install --json alias collision should be machine-readable",
+        )
     ok("CLI JSON smoke")
 
 
