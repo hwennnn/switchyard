@@ -48,7 +48,8 @@ switchyard mcp config --name switchyard-entropic
 
 ## Tools
 
-- `switchyard_doctor`: project config, proxy, services, and Switchyard version.
+- `switchyard_doctor`: project config, proxy, services, Switchyard version, and
+  `env_warnings` for missing configured env link/copy sources.
 - `switchyard_create`: create a managed git worktree and sync configured env files.
 - `switchyard_list`: registered Switchyard worktrees for the project.
 - `switchyard_status`: registered services with running/stale state.

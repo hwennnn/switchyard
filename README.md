@@ -113,6 +113,9 @@ switchyard brief
 switchyard logs web --branch feature/login --json
 ```
 
+`doctor --json` includes `env_warnings` for missing configured env link/copy
+sources, so agents can catch setup gaps before creating a worktree.
+
 Stop it:
 
 ```sh

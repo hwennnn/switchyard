@@ -149,6 +149,9 @@ class McpTests(unittest.TestCase):
 [project]
 name = "demo"
 
+[env]
+link = [".env.local"]
+
 [services.web]
 command = "python -m http.server {port}"
 port = 8000
@@ -173,6 +176,7 @@ port = 8000
         self.assertFalse(result["isError"])
         self.assertEqual(result["structuredContent"]["project"], "demo")
         self.assertEqual(result["structuredContent"]["services"], ["web"])
+        self.assertEqual(result["structuredContent"]["env_warnings"], ["missing link source .env.local"])
 
     def test_read_only_tools_do_not_initialize_switchyard_state(self) -> None:
         with tempfile.TemporaryDirectory() as temp:

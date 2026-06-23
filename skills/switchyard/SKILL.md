@@ -27,6 +27,9 @@ switchyard doctor --json
 switchyard brief --json
 ```
 
+Read `env_warnings` from `switchyard doctor --json` or `switchyard_doctor`
+before creating worktrees; missing env sources should be fixed or reported.
+
 If MCP tools are available, use this order:
 
 1. `switchyard_brief`

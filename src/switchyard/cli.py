@@ -15,7 +15,7 @@ from pathlib import Path
 
 from . import __version__
 from .config import CONFIG_NAME, default_config_text, detect_default_service, discover_config, load_config
-from .envsync import sync_env_files
+from .envsync import env_source_warnings, sync_env_files
 from .gittools import GitError, append_info_exclude, create_worktree, current_branch, repo_root, status_short
 from .mcp import serve_mcp
 from .proxy import serve, serve_fixed
@@ -161,6 +161,7 @@ def cmd_doctor(args: argparse.Namespace) -> int:
         print(f"config: {exc}")
         print(f"home: {switchyard_home()}")
         return 1
+    env_warnings = env_source_warnings(config.root, config.env)
     payload = {
         "ok": True,
         "switchyard": __version__,
@@ -178,6 +179,7 @@ def cmd_doctor(args: argparse.Namespace) -> int:
             "url": f"http://{config.proxy.host}:{config.proxy.port}",
         },
         "services": sorted(config.services),
+        "env_warnings": env_warnings,
     }
     if args.json:
         print(json.dumps(payload, indent=2, sort_keys=True))
@@ -189,6 +191,8 @@ def cmd_doctor(args: argparse.Namespace) -> int:
     print(f"config: {config.path}")
     print(f"proxy: http://{config.proxy.host}:{config.proxy.port}")
     print(f"services: {', '.join(config.services)}")
+    for warning in env_warnings:
+        print(f"env: {warning}")
     return 0
 
 

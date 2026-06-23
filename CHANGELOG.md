@@ -9,6 +9,7 @@
 - Checkout mappings in compact `brief` output.
 - Machine-readable `init --dry-run --json` for first-run setup previews.
 - Machine-readable `doctor --json` for setup and release harnesses.
+- `doctor --json` and `switchyard_doctor` report missing configured env sources.
 - Machine-readable action output and error envelopes for `create`, `list`, `up`, `down`, `checkout`, and `uncheckout`.
 - Machine-readable `logs --json` with structured log tail lines.
 - Built-in local HTTP reverse proxy and canonical checkout forwarder.

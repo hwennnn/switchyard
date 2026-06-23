@@ -19,6 +19,16 @@ def safe_env_pair(source_root: Path, worktree: Path, item: str) -> tuple[Path, P
     return source, target
 
 
+def env_source_warnings(source_root: Path, env: EnvConfig) -> list[str]:
+    warnings: list[str] = []
+    for mode, items in [("link", env.link), ("copy", env.copy)]:
+        for item in items:
+            source, _ = safe_env_pair(source_root, source_root, item)
+            if not source.exists():
+                warnings.append(f"missing {mode} source {item}")
+    return warnings
+
+
 def sync_env_files(source_root: Path, worktree: Path, env: EnvConfig, force: bool = False) -> list[str]:
     actions: list[str] = []
     for item in env.link:

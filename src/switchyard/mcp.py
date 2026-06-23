@@ -7,7 +7,7 @@ from typing import Any, Callable
 
 from . import __version__
 from .config import CONFIG_NAME, discover_config, load_config
-from .envsync import sync_env_files
+from .envsync import env_source_warnings, sync_env_files
 from .gittools import GitError, create_worktree, current_branch, status_short
 from .registry import Registry
 from .runtime import (
@@ -173,8 +173,9 @@ DOCTOR_OUTPUT_SCHEMA = object_schema(
         "config": {"type": "string"},
         "proxy": PROXY_OUTPUT_SCHEMA,
         "services": STRING_ARRAY,
+        "env_warnings": STRING_ARRAY,
     },
-    ["switchyard", "home", "project", "project_root", "config", "proxy", "services"],
+    ["switchyard", "home", "project", "project_root", "config", "proxy", "services", "env_warnings"],
 )
 CREATE_OUTPUT_SCHEMA = object_schema(
     {
@@ -514,6 +515,7 @@ def tool_doctor(arguments: dict[str, Any]) -> dict[str, Any]:
         "config": str(config.path),
         "proxy": {"host": config.proxy.host, "port": config.proxy.port, "tld": config.proxy.tld},
         "services": sorted(config.services),
+        "env_warnings": env_source_warnings(config.root, config.env),
     }
     return tool_result(data)
 

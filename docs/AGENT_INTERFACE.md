@@ -76,7 +76,8 @@ switchyard list --json
 ```
 
 When checking setup, previewing first-run config, or reporting why a project is
-not initialized.
+not initialized. `doctor --json` includes `env_warnings` for missing configured
+env link/copy sources.
 
 Use:
 

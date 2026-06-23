@@ -159,6 +159,34 @@ port = 8000
         self.assertEqual(data["project"]["name"], "demo")
         self.assertEqual(data["services"], ["web"])
         self.assertEqual(data["proxy"]["url"], "http://127.0.0.1:7331")
+        self.assertEqual(data["env_warnings"], [])
+
+    def test_doctor_json_reports_missing_env_sources(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / "switchyard.toml").write_text(
+                """
+[env]
+link = [".env.local"]
+copy = ["secrets/dev.env"]
+
+[services.web]
+command = "python -m http.server {port}"
+"""
+            )
+
+            stdout = StringIO()
+            with patch.dict(os.environ, {"SWITCHYARD_HOME": str(root / "home")}), chdir(root):
+                with redirect_stdout(stdout), redirect_stderr(StringIO()):
+                    code = main(["doctor", "--json"])
+
+            data = json.loads(stdout.getvalue())
+
+        self.assertEqual(code, 0)
+        self.assertEqual(
+            data["env_warnings"],
+            ["missing link source .env.local", "missing copy source secrets/dev.env"],
+        )
 
     def test_doctor_json_failure_stays_machine_readable(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
