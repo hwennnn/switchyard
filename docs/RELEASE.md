@@ -69,10 +69,30 @@ ref: refs/tags/v0.1.0
 
 For PyPI, use the same repository and workflow with environment `pypi`.
 
-After publishing to TestPyPI or PyPI, run a manual install smoke:
+After publishing to TestPyPI, run an install smoke against the TestPyPI index:
+
+```sh
+version=0.1.0
+python3 -m venv /tmp/switchyard-testpypi-smoke
+. /tmp/switchyard-testpypi-smoke/bin/activate
+python -m pip install --upgrade pip
+python -m pip install \
+  --index-url https://test.pypi.org/simple/ \
+  --extra-index-url https://pypi.org/simple/ \
+  "switchyard-dev==$version"
+```
+
+After publishing to PyPI, run the same smoke from the public index:
 
 ```sh
 pipx install switchyard-dev
+```
+
+Then smoke the installed command from inside a temporary project. The MCP setup
+commands must infer the project from the current checkout and must not require
+`cwd`, `--cwd`, or an absolute project path:
+
+```sh
 switchyard --version
 switchyard mcp --help
 switchyard skill show
