@@ -94,6 +94,7 @@ Example output:
     }
   ],
   "checkouts": [],
+  "env_warnings": [],
   "recent_errors": []
 }
 ```
@@ -147,8 +148,9 @@ switchyard brief
 switchyard logs web --branch feature/login --json
 ```
 
-`doctor --json` includes `env_warnings` for missing configured env link/copy
-sources, so agents can catch setup gaps before creating a worktree.
+`brief --json`, `switchyard://project/brief`, and `doctor --json` include
+`env_warnings` for missing configured env link/copy sources, so agents can
+catch setup gaps before creating a worktree.
 
 Stop it:
 
@@ -182,6 +184,8 @@ The generated Codex block uses a stable project alias:
 ```toml
 args = ["mcp", "--project", "name"]
 ```
+
+It does not emit `cwd`, `--cwd`, or an absolute project path.
 
 To inspect the config first, use the setup helper. It registers the same local
 alias and prints ready-to-paste TOML:

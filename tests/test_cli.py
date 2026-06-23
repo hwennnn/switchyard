@@ -418,6 +418,17 @@ command = "python -m http.server {port}"
         self.assertIn("Print the Codex config update without writing it", stdout.getvalue())
         self.assertNotIn("codex mcp add", stdout.getvalue())
 
+    def test_mcp_help_treats_cwd_as_escape_hatch(self) -> None:
+        stdout = StringIO()
+        with redirect_stdout(stdout), self.assertRaises(SystemExit) as raised:
+            main(["mcp", "--help"])
+
+        self.assertEqual(raised.exception.code, 0)
+        self.assertIn("Escape hatch", stdout.getvalue())
+        self.assertIn("normal setup uses mcp install", stdout.getvalue())
+        self.assertIn("or --project", stdout.getvalue())
+        self.assertNotIn("/path/to/project", stdout.getvalue())
+
     def test_mcp_parent_cwd_applies_to_setup_subcommands(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             workspace = Path(temp).resolve()
@@ -522,7 +533,19 @@ command = "other"
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp).resolve()
             worktree = root / ".worktrees" / "feature-demo"
-            self.write_config(root)
+            (root / "switchyard.toml").write_text(
+                """
+[project]
+name = "demo"
+
+[env]
+link = [".env.local"]
+
+[services.web]
+command = "python -m http.server {port}"
+port = 8000
+"""
+            )
             worktree.mkdir(parents=True)
             (worktree / "switchyard.toml").write_text((root / "switchyard.toml").read_text())
 
@@ -541,6 +564,33 @@ command = "other"
         self.assertEqual(data["branch"], "feature/demo")
         self.assertEqual(Path(data["project_root"]).resolve(), root)
         self.assertEqual(data["changed_files"], [])
+        self.assertEqual(data["env_warnings"], ["missing link source .env.local"])
+
+    def test_brief_text_prints_env_warnings(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp).resolve()
+            (root / "switchyard.toml").write_text(
+                """
+[project]
+name = "demo"
+
+[env]
+link = [".env.local"]
+
+[services.web]
+command = "python -m http.server {port}"
+port = 8000
+"""
+            )
+
+            stdout = StringIO()
+            with patch.dict(os.environ, {"SWITCHYARD_HOME": str(root / "home")}), chdir(root):
+                with redirect_stdout(stdout), redirect_stderr(StringIO()):
+                    code = main(["brief"])
+
+        self.assertEqual(code, 0)
+        self.assertIn("env warnings:", stdout.getvalue())
+        self.assertIn("missing link source .env.local", stdout.getvalue())
 
     def test_status_uses_registered_worktree_context(self) -> None:
         with tempfile.TemporaryDirectory() as temp:

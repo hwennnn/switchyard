@@ -204,7 +204,7 @@ class RuntimeTests(unittest.TestCase):
                 root=root,
                 path=root / "switchyard.toml",
                 worktree_root=None,
-                env=EnvConfig(),
+                env=EnvConfig(link=[".env.local"]),
                 proxy=ProxyConfig(port=7331),
                 ports=PortsConfig(),
                 services={"web": ServiceConfig(name="web", command="python app.py", port=3000)},
@@ -235,6 +235,7 @@ class RuntimeTests(unittest.TestCase):
                 self.assertEqual(brief["checkouts"][0]["status"], "stale")
                 self.assertEqual(brief["checkouts"][0]["listen_port"], 3000)
                 self.assertEqual(brief["checkouts"][0]["target_port"], 41000)
+                self.assertEqual(brief["env_warnings"], ["missing link source .env.local"])
             finally:
                 process.terminate()
                 process.wait(timeout=5)

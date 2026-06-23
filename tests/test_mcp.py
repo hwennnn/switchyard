@@ -115,6 +115,9 @@ class McpTests(unittest.TestCase):
 [project]
 name = "demo"
 
+[env]
+link = [".env.local"]
+
 [services.web]
 command = "python -m http.server {port}"
 port = 8000
@@ -155,8 +158,10 @@ port = 8000
         brief = json.loads(brief_response["result"]["contents"][0]["text"])
         guide = guide_response["result"]["contents"][0]["text"]
         self.assertEqual(doctor["project"], "demo")
+        self.assertEqual(doctor["env_warnings"], ["missing link source .env.local"])
         self.assertEqual(brief["project"], "demo")
         self.assertEqual(brief["services"], [])
+        self.assertEqual(brief["env_warnings"], ["missing link source .env.local"])
         self.assertIn("switchyard_brief", guide)
         self.assertFalse(home.exists())
 

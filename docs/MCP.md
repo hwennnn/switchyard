@@ -32,6 +32,9 @@ project alias; the Codex config only needs stable args:
 args = ["mcp", "--project", "name"]
 ```
 
+The generated block does not contain `cwd`, `--cwd`, or an absolute project
+path.
+
 To inspect the config first, generate ready-to-paste setup text:
 
 ```sh
@@ -61,7 +64,7 @@ Clients that support MCP resources can read stable, read-only context before
 choosing a tool:
 
 - `switchyard://project/brief`: compact runtime state, service URLs, checkout
-  state, changed files, and recent errors.
+  state, changed files, `env_warnings`, and recent errors.
 - `switchyard://project/doctor`: project setup, proxy config, services, and
   `env_warnings`.
 - `switchyard://agent/guide`: short agent workflow guide.
@@ -88,7 +91,8 @@ or write Switchyard state.
 - `switchyard_create`: create a managed git worktree and sync configured env files.
 - `switchyard_list`: registered Switchyard worktrees for the project.
 - `switchyard_status`: registered services with running/stale state.
-- `switchyard_brief`: compact project/runtime summary, including service and checkout state.
+- `switchyard_brief`: compact project/runtime summary, including service,
+  checkout, changed-file, `env_warnings`, and recent-error state.
 - `switchyard_where`: URL, port, PID, worktree, and log path for one service.
 - `switchyard_logs`: recent log tail for one service or branch.
 - `switchyard_up`: start local services for a branch/worktree.

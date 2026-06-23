@@ -8,6 +8,7 @@ import urllib.request
 from pathlib import Path
 
 from .config import ProjectConfig, ServiceConfig
+from .envsync import env_source_warnings
 from .registry import Registry
 from .utils import (
     child_pythonpath,
@@ -480,6 +481,7 @@ def brief_for(config: ProjectConfig, registry: Registry, branch: str | None, cha
             for record in checkouts
         ],
         "changed_files": changed_files[:50],
+        "env_warnings": env_source_warnings(config.root, config.env),
         "recent_errors": errors[:20],
     }
 

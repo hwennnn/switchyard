@@ -29,7 +29,8 @@ using a local project alias:
 args = ["mcp", "--project", "name"]
 ```
 
-The alias keeps MCP client setup free of hand-written project paths.
+The alias keeps MCP client setup free of hand-written project paths. Generated
+Codex config should not contain `cwd`, `--cwd`, or an absolute project path.
 Use `switchyard mcp projects --json` to inspect registered aliases.
 
 Clients that support MCP resources can read stable, read-only context before
@@ -99,8 +100,8 @@ switchyard list --json
 ```
 
 When checking setup, previewing first-run config, or reporting why a project is
-not initialized. `doctor --json` includes `env_warnings` for missing configured
-env link/copy sources.
+not initialized. `doctor --json` includes detailed `env_warnings` for missing
+configured env link/copy sources.
 
 Use:
 
@@ -135,9 +136,14 @@ CLI uses that worktree's branch and parent project automatically:
     }
   ],
   "changed_files": [" M src/app.tsx"],
+  "env_warnings": [],
   "recent_errors": []
 }
 ```
+
+`switchyard brief --json` and `switchyard://project/brief` also include
+`env_warnings`, so agents can see missing env sources in the first compact
+state read.
 
 Use:
 

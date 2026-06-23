@@ -474,6 +474,10 @@ def cmd_brief(args: argparse.Namespace) -> int:
         print("changed files:")
         for line in brief["changed_files"][:20]:
             print(f"- {line}")
+    if brief["env_warnings"]:
+        print("env warnings:")
+        for warning in brief["env_warnings"][:10]:
+            print(f"- {warning}")
     if brief["recent_errors"]:
         print("recent errors:")
         for item in brief["recent_errors"][:10]:
@@ -847,7 +851,10 @@ def build_parser() -> argparse.ArgumentParser:
     mcp.add_argument(
         "--cwd",
         dest="mcp_cwd",
-        help="Project directory to use when not launching from inside the project",
+        help=(
+            "Escape hatch: project directory when not launching from inside the project; "
+            "normal setup uses mcp install or --project"
+        ),
     )
     mcp.add_argument(
         "--project",
@@ -856,11 +863,11 @@ def build_parser() -> argparse.ArgumentParser:
     )
     mcp_sub = mcp.add_subparsers(dest="mcp_command")
     mcp_config = mcp_sub.add_parser("config", help="Print copy-paste Codex MCP config for this project")
-    mcp_config.add_argument("--cwd", help="Project directory to generate config for")
+    mcp_config.add_argument("--cwd", help="Escape hatch: generate config for another checkout")
     mcp_config.add_argument("--name", default="switchyard", help="MCP server name in Codex config")
     mcp_config.add_argument("--force", action="store_true", help="Replace an existing alias that points to another project")
     mcp_install = mcp_sub.add_parser("install", help="Add this project to Codex MCP config")
-    mcp_install.add_argument("--cwd", help="Project directory to install config for")
+    mcp_install.add_argument("--cwd", help="Escape hatch: install config for another checkout")
     mcp_install.add_argument("--name", default="switchyard", help="MCP server name in Codex config")
     mcp_install.add_argument("--dry-run", action="store_true", help="Print the Codex config update without writing it")
     mcp_install.add_argument("--force", action="store_true", help="Replace an existing alias that points to another project")

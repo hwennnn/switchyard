@@ -27,8 +27,10 @@ switchyard doctor --json
 switchyard brief --json
 ```
 
-Read `env_warnings` from `switchyard doctor --json` or `switchyard_doctor`
-before creating worktrees; missing env sources should be fixed or reported.
+Read `env_warnings` from `switchyard brief --json`,
+`switchyard://project/brief`, `switchyard doctor --json`, or
+`switchyard_doctor` before creating worktrees; missing env sources should be
+fixed or reported.
 
 If MCP tools are available, use this order:
 
@@ -91,8 +93,9 @@ hard-coded project path args in normal setup.
 and writes the full server block to `~/.codex/config.toml`.
 `switchyard mcp config` registers the same alias and prints the trusted config
 snippet with `args = ["mcp", "--project", "name"]`, keeping setup free of
-hard-coded project paths. Keep approval enabled for tools that create
-worktrees, start port forwarders, or start/stop services.
+hard-coded project paths. Generated MCP client config should not contain
+`cwd`, `--cwd`, or an absolute project path. Keep approval enabled for tools
+that create worktrees, start port forwarders, or start/stop services.
 Use `switchyard mcp projects --json` to inspect registered aliases.
 Use `--name` for multiple projects; use `--force` only when intentionally
 replacing an alias.

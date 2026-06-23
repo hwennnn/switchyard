@@ -41,10 +41,11 @@ processes, or log paths.
 Recommended flow:
 
 1. Read `switchyard://project/brief` or call `switchyard_brief`.
-2. Call `switchyard_where` for one service when you need a URL, port, PID, or log path.
-3. Call `switchyard_logs` only for focused debugging.
-4. Call `switchyard_create` only when the user wants a missing branch runtime.
-5. Call `switchyard_up`, `switchyard_checkout`, `switchyard_uncheckout`, or `switchyard_down` only for requested local runtime changes.
+2. Check `env_warnings`; call `switchyard_doctor` only when setup details need deeper inspection.
+3. Call `switchyard_where` for one service when you need a URL, port, PID, or log path.
+4. Call `switchyard_logs` only for focused debugging.
+5. Call `switchyard_create` only when the user wants a missing branch runtime.
+6. Call `switchyard_up`, `switchyard_checkout`, `switchyard_uncheckout`, or `switchyard_down` only for requested local runtime changes.
 
 Mutation tools create git worktrees, start project commands, start local port
 forwarders, or stop Switchyard-managed local state. Keep client approval enabled
@@ -55,7 +56,7 @@ RESOURCES: list[dict[str, str]] = [
         "uri": "switchyard://project/brief",
         "name": "project-brief",
         "title": "Switchyard Project Brief",
-        "description": "Read-only compact runtime state for the current Switchyard project.",
+        "description": "Read-only compact runtime state, env warnings, and recent errors for the current Switchyard project.",
         "mimeType": "application/json",
     },
     {
@@ -265,9 +266,10 @@ BRIEF_OUTPUT_SCHEMA = object_schema(
         "services": array_schema(SERVICE_RECORD_SCHEMA),
         "checkouts": array_schema(CHECKOUT_RECORD_SCHEMA),
         "changed_files": STRING_ARRAY,
+        "env_warnings": STRING_ARRAY,
         "recent_errors": array_schema(RECENT_ERROR_SCHEMA),
     },
-    ["project", "project_root", "branch", "services", "checkouts", "changed_files", "recent_errors"],
+    ["project", "project_root", "branch", "services", "checkouts", "changed_files", "env_warnings", "recent_errors"],
 )
 LOGS_OUTPUT_SCHEMA = object_schema({"logs": array_schema(LOG_ENTRY_SCHEMA)}, ["logs"])
 RUNTIME_ACTION_OUTPUT_SCHEMA = object_schema(
@@ -564,7 +566,7 @@ def prompt_text(name: str, arguments: dict[str, str]) -> str:
         return (
             "Use Switchyard as the local runtime source of truth for this project.\n\n"
             "1. Read `switchyard://project/brief` if MCP resources are available; otherwise call `switchyard_brief`.\n"
-            "2. Read `switchyard://project/doctor` or call `switchyard_doctor` if setup or env files look suspicious.\n"
+            "2. Check `env_warnings`; read `switchyard://project/doctor` or call `switchyard_doctor` only when setup details need deeper inspection.\n"
             "3. Use `switchyard_where` for a specific service URL/port/log path.\n"
             "4. Use `switchyard_logs` only for focused debugging.\n"
             "5. Ask for approval before `switchyard_create`, `switchyard_up`, `switchyard_checkout`, `switchyard_uncheckout`, or `switchyard_down`."
@@ -579,7 +581,7 @@ def prompt_text(name: str, arguments: dict[str, str]) -> str:
             f"Prepare the Switchyard runtime for branch `{branch}` and services: {service_text}.\n\n"
             "1. Read `switchyard://project/brief` or call `switchyard_brief` to see current runtime state.\n"
             "2. If the branch worktree is missing and the user wants it, call `switchyard_create` with that branch.\n"
-            "3. Before starting services, check `switchyard://project/doctor` or `switchyard_doctor` for `env_warnings`.\n"
+            "3. Before starting services, check `env_warnings`; use `switchyard_doctor` only when setup details need deeper inspection.\n"
             "4. If the user approved runtime changes, call `switchyard_up` with the branch and selected services.\n"
             "5. Report URLs from `switchyard_where` or the resulting brief, and read logs only for services that need debugging."
         )

@@ -178,7 +178,9 @@ def run_once() -> dict[str, object]:
             metrics.append(timed("proxy_fetch", fetch))
             brief = timed("brief_json", lambda: run([sys.executable, "-m", "switchyard", "brief", "feature/bench", "--json"], repo, env).stdout)
             brief["bytes"] = len(str(brief["result"]).encode())
-            brief["has_checkouts"] = "checkouts" in json.loads(str(brief["result"]))
+            brief_payload = json.loads(str(brief["result"]))
+            brief["has_checkouts"] = "checkouts" in brief_payload
+            brief["has_env_warnings"] = "env_warnings" in brief_payload
             metrics.append(brief)
             metrics.append(timed("down", lambda: run([sys.executable, "-m", "switchyard", "down", "--branch", "feature/bench"], repo, env).stdout))
             return {
