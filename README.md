@@ -110,7 +110,22 @@ Example output:
 
 ## Install
 
-Switchyard is pre-release. Install from source today:
+Install the CLI from PyPI:
+
+```sh
+pipx install switchyard-dev
+```
+
+Or with pip:
+
+```sh
+python3 -m pip install switchyard-dev
+```
+
+The package distribution name is `switchyard-dev`; the installed commands are
+`switchyard` and `sy`.
+
+For source development:
 
 ```sh
 git clone https://github.com/hwennnn/switchyard.git
@@ -119,9 +134,6 @@ python3 -m venv .venv
 . .venv/bin/activate
 pip install -e .
 ```
-
-The PyPI package name is reserved as `switchyard-dev`; once published, the
-installed commands will be `switchyard` and `sy`.
 
 Or run from source:
 

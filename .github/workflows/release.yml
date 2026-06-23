@@ -73,6 +73,7 @@ jobs:
           . .release-smoke/bin/activate
           python -m pip install dist/*.whl
           switchyard --version
+          sy --version
           smoke_root="$(mktemp -d)"
           smoke_project="$smoke_root/project"
           mkdir -p "$smoke_project"
@@ -221,6 +222,7 @@ jobs:
             sleep 15
           done
           switchyard --version
+          sy --version
           switchyard mcp --help | grep -F "Run without a subcommand to start the stdio MCP server"
           switchyard mcp --help | grep -F "[config|install|projects|smoke]"
           switchyard mcp --help | grep -F "commands:"
@@ -286,6 +288,42 @@ jobs:
           name: python-package-distributions
           path: dist/
 
+      - name: Verify TestPyPI install before PyPI
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          python -m venv .pre-pypi-smoke
+          . .pre-pypi-smoke/bin/activate
+          python -m pip install --upgrade pip
+          for attempt in 1 2 3 4 5; do
+            if python -m pip install --no-cache-dir \
+              --index-url https://test.pypi.org/simple/ \
+              --extra-index-url https://pypi.org/simple/ \
+              "switchyard-dev==$version"; then
+              break
+            fi
+            if [ "$attempt" = "5" ]; then
+              exit 1
+            fi
+            sleep 15
+          done
+          switchyard --version
+          sy --version
+          smoke_root="$(mktemp -d)"
+          smoke_project="$smoke_root/project"
+          mkdir -p "$smoke_project"
+          export SWITCHYARD_HOME="$smoke_root/switchyard-home"
+          export CODEX_HOME="$smoke_root/codex-home"
+          cat > "$smoke_project/switchyard.toml" <<'EOF'
+          [project]
+          name = "pre-pypi-smoke"
+
+          [services.web]
+          command = "python -m http.server {port}"
+          EOF
+          (cd "$smoke_project" && switchyard doctor --json | grep pre-pypi-smoke)
+          (cd "$smoke_project" && switchyard mcp smoke --json > "$smoke_project/mcp-smoke.json")
+          grep '"ok": true' "$smoke_project/mcp-smoke.json"
+
       - name: Trusted Publisher claims
         run: |
           {
@@ -300,3 +338,36 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       - uses: pypa/gh-action-pypi-publish@cef221092ed1bacb1cc03d23a2d87d1d172e277b # pypa publish release v1
+
+      - name: PyPI install smoke
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          python -m venv .pypi-smoke
+          . .pypi-smoke/bin/activate
+          python -m pip install --upgrade pip
+          for attempt in 1 2 3 4 5; do
+            if python -m pip install --no-cache-dir "switchyard-dev==$version"; then
+              break
+            fi
+            if [ "$attempt" = "5" ]; then
+              exit 1
+            fi
+            sleep 15
+          done
+          switchyard --version
+          sy --version
+          smoke_root="$(mktemp -d)"
+          smoke_project="$smoke_root/project"
+          mkdir -p "$smoke_project"
+          export SWITCHYARD_HOME="$smoke_root/switchyard-home"
+          export CODEX_HOME="$smoke_root/codex-home"
+          cat > "$smoke_project/switchyard.toml" <<'EOF'
+          [project]
+          name = "pypi-smoke"
+
+          [services.web]
+          command = "python -m http.server {port}"
+          EOF
+          (cd "$smoke_project" && switchyard doctor --json | grep pypi-smoke)
+          (cd "$smoke_project" && switchyard mcp smoke --json > "$smoke_project/mcp-smoke.json")
+          grep '"ok": true' "$smoke_project/mcp-smoke.json"

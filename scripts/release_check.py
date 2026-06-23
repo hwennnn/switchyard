@@ -116,10 +116,15 @@ def check_public_docs() -> None:
         "Links or copies only configured env paths, and rejects env paths outside the project/worktree.",
     ]:
         require(needle in readme, f"README local trust model missing {needle!r}")
-    require("Switchyard is pre-release. Install from source today:" in readme, "README should be source-first before PyPI publish")
+    require("pipx install switchyard-dev" in readme, "README should lead with PyPI install")
+    require("python3 -m pip install switchyard-dev" in readme, "README should document pip install")
+    require("The package distribution name is `switchyard-dev`" in readme, "README should document the PyPI distribution name")
+    require("installed commands are\n`switchyard` and `sy`" in readme, "README should document installed console commands")
+    require("For source development:" in readme, "README should keep source install as the development path")
     require("git clone https://github.com/hwennnn/switchyard.git" in readme, "README source install should include clone URL")
-    require("The PyPI package name is reserved as `switchyard-dev`" in readme, "README should avoid implying PyPI publish is live")
-    require("Once published:" not in readme, "README install section should not lead with unpublished commands")
+    require("Switchyard is pre-release. Install from source today:" not in readme, "README long description should be publish-ready")
+    require("once published" not in readme.lower(), "README should not imply the PyPI package is unavailable")
+    require("reserved as `switchyard-dev`" not in readme, "README should not imply a reserved package name")
     require(
         "[examples directory](https://github.com/hwennnn/switchyard/tree/main/examples)" in readme,
         "README examples link should use an absolute GitHub URL",
@@ -222,8 +227,12 @@ def check_public_docs() -> None:
     agents = read("AGENTS.md")
     require(f"## {project_version()} - Unreleased" not in changelog, "CHANGELOG should be finalized before release")
     require(f"## {project_version()} - " in changelog, "CHANGELOG should include the current package version")
-    require("will be published on PyPI as `switchyard-dev`" in release_doc, "release docs should not imply unpublished PyPI package is live")
-    require("Switchyard is packaged on PyPI" not in release_doc, "release docs should avoid live PyPI wording before publish")
+    require("is published on PyPI as `switchyard-dev`" in release_doc, "release docs should use publish-ready package wording")
+    require("will be published on PyPI as" not in release_doc, "release docs should not use stale pre-publish wording")
+    require("Configure a pending publisher for `switchyard-dev`" in release_doc, "release docs should document pending publisher setup")
+    require("verify the" in release_doc and "TestPyPI project page exists" in release_doc, "release docs should tell maintainers to verify first upload")
+    require("PyPI job verifies TestPyPI" in release_doc and "before promotion" in release_doc, "release docs should document pre-PyPI TestPyPI verification")
+    require("public-index install smoke after publishing" in release_doc, "release docs should document post-PyPI install smoke")
     require("environment to `testpypi`" in release_doc and "environment `pypi`" in release_doc, "release docs should document trusted publisher environments")
     require("invalid-publisher" in release_doc, "release docs should document Trusted Publisher failure mode")
     require("repository: hwennnn/switchyard" in release_doc, "release docs should document trusted publisher repository claim")
@@ -317,6 +326,7 @@ def check_public_docs() -> None:
     require("permissions:\n  contents: read" in ci_workflow, "CI workflow should use read-only permissions")
     release_workflow = read(".github/workflows/release.yml")
     require("switchyard skill show" in release_workflow, "release workflow should smoke bundled skill from wheel")
+    require(release_workflow.count("sy --version") >= 4, "release workflow should smoke sy console script in wheel/TestPyPI/PyPI paths")
     require("switchyard doctor --json" in release_workflow, "release workflow should smoke doctor JSON from wheel")
     require("switchyard mcp config" in release_workflow, "release workflow should smoke MCP config from wheel")
     require("switchyard mcp config --json" in release_workflow, "release workflow should smoke MCP config JSON from wheel")
@@ -355,6 +365,21 @@ def check_public_docs() -> None:
     require("switchyard skill install --target" in testpypi_smoke, "TestPyPI smoke should validate skill installation")
     require("TestPyPI Trusted Publisher claims" in release_workflow, "release workflow should print TestPyPI trusted publisher claims")
     require("PyPI Trusted Publisher claims" in release_workflow, "release workflow should print PyPI trusted publisher claims")
+    pypi_job = release_workflow.split("\n  publish-pypi:", 1)[1]
+    require("Verify TestPyPI install before PyPI" in pypi_job, "PyPI job should verify TestPyPI before publishing")
+    pre_pypi_smoke = pypi_job.split("- name: Verify TestPyPI install before PyPI", 1)[1].split("- name: Trusted Publisher claims", 1)[0]
+    require("--index-url https://test.pypi.org/simple/" in pre_pypi_smoke, "pre-PyPI smoke should install from TestPyPI")
+    require("--extra-index-url https://pypi.org/simple/" in pre_pypi_smoke, "pre-PyPI smoke should include PyPI dependency fallback")
+    require("name = \"pre-pypi-smoke\"" in pre_pypi_smoke, "pre-PyPI smoke should create a configured project")
+    require("sy --version" in pre_pypi_smoke, "pre-PyPI smoke should verify the sy console script")
+    require("switchyard mcp smoke --json" in pre_pypi_smoke, "pre-PyPI smoke should verify MCP setup from TestPyPI")
+    require("PyPI install smoke" in pypi_job, "PyPI job should install-smoke the public package after publishing")
+    pypi_smoke = pypi_job.split("- name: PyPI install smoke", 1)[1]
+    require('python -m pip install --no-cache-dir "switchyard-dev==$version"' in pypi_smoke, "PyPI smoke should install from the public index")
+    require("--index-url https://test.pypi.org/simple/" not in pypi_smoke, "PyPI smoke should not install from TestPyPI")
+    require("name = \"pypi-smoke\"" in pypi_smoke, "PyPI smoke should create a configured project")
+    require("sy --version" in pypi_smoke, "PyPI smoke should verify the sy console script")
+    require("switchyard mcp smoke --json" in pypi_smoke, "PyPI smoke should verify MCP setup from the public package")
     require("environment: testpypi" in release_workflow, "release workflow should summarize TestPyPI environment claim")
     require("environment: pypi" in release_workflow, "release workflow should summarize PyPI environment claim")
     require("ref: $GITHUB_REF" in release_workflow, "release workflow should summarize trusted publisher ref claim")
@@ -969,6 +994,15 @@ def build_and_check_package() -> None:
             "switchyard/assets/skills/switchyard/agents/openai.yaml" in wheel_names,
             "wheel should include packaged Switchyard skill agent config",
         )
+        console_venv = root / "console-venv"
+        venv.EnvBuilder(with_pip=True).create(console_venv)
+        console_python = console_venv / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
+        console_bin = console_venv / ("Scripts" if os.name == "nt" else "bin")
+        run([str(console_python), "-m", "pip", "install", str(wheel)], cwd=root)
+        for command in ["switchyard", "sy"]:
+            executable = console_bin / (f"{command}.exe" if os.name == "nt" else command)
+            result = run([str(executable), "--version"], cwd=root)
+            require(f"switchyard {project_version()}" in result.stdout, f"{command} console script version check failed")
         install_dir = root / "install"
         install_dir.mkdir()
         run([str(python), "-m", "pip", "install", "--target", str(install_dir), str(wheel)], cwd=root)

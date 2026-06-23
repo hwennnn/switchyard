@@ -1,6 +1,6 @@
 # Release
 
-Switchyard will be published on PyPI as `switchyard-dev` because `switchyard`
+Switchyard is published on PyPI as `switchyard-dev` because `switchyard`
 is already occupied by another Python project. The installed console commands
 are still:
 
@@ -42,7 +42,8 @@ python3 -m twine check dist/*
 Use PyPI Trusted Publishing through GitHub Actions. This avoids long-lived PyPI
 API tokens in repository secrets.
 
-1. Create or claim the `switchyard-dev` project on PyPI/TestPyPI.
+1. Configure a pending publisher for `switchyard-dev` on PyPI/TestPyPI, or
+   verify the existing project has the matching Trusted Publisher.
 2. Configure Trusted Publishers for `hwennnn/switchyard`.
 3. Set the workflow name to `release.yml`.
 4. Set the environment to `testpypi` for TestPyPI and `pypi` for PyPI.
@@ -50,9 +51,11 @@ API tokens in repository secrets.
 6. Tag the release as `v<version>` from `src/switchyard/__init__.py`.
 7. Run the `Release` workflow manually from that tag with `publish_target` set
    to `testpypi`.
-8. Install from TestPyPI and smoke test the CLI.
+8. Confirm the workflow's TestPyPI install smoke passed and verify the
+   TestPyPI project page exists.
 9. Run the same workflow from the tag with `publish_target` set to `pypi`
-   and `testpypi_smoke_confirmed` checked.
+   and `testpypi_smoke_confirmed` checked. The PyPI job verifies TestPyPI
+   before promotion and runs a public-index install smoke after publishing.
 
 The workflow rejects branch runs, mismatched tags, and changelog entries that
 still say `Unreleased`.
