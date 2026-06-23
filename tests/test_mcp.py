@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 import subprocess
 import tempfile
@@ -29,6 +30,7 @@ class McpTests(unittest.TestCase):
 
         self.assertEqual(response["result"]["protocolVersion"], "2025-06-18")
         self.assertIn("tools", response["result"]["capabilities"])
+        self.assertIn("resources", response["result"]["capabilities"])
         self.assertIn("instructions", response["result"])
         self.assertIn("switchyard_checkout", response["result"]["instructions"])
         self.assertIn("switchyard_uncheckout", response["result"]["instructions"])
@@ -90,6 +92,90 @@ class McpTests(unittest.TestCase):
         self.assertIn("switchyard_checkout", names)
         self.assertIn("switchyard_uncheckout", names)
         self.assertIn("switchyard_down", names)
+
+    def test_resources_list_includes_project_context_and_agent_guide(self) -> None:
+        response = handle_request({"jsonrpc": "2.0", "id": 2, "method": "resources/list"})
+
+        resources = {resource["uri"]: resource for resource in response["result"]["resources"]}
+        self.assertEqual(resources["switchyard://project/brief"]["mimeType"], "application/json")
+        self.assertEqual(resources["switchyard://project/doctor"]["mimeType"], "application/json")
+        self.assertEqual(resources["switchyard://agent/guide"]["mimeType"], "text/markdown")
+
+    def test_resources_read_project_context_without_initializing_state(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp) / "project"
+            home = Path(temp) / "home"
+            root.mkdir()
+            (root / "switchyard.toml").write_text(
+                """
+[project]
+name = "demo"
+
+[services.web]
+command = "python -m http.server {port}"
+port = 8000
+"""
+            )
+
+            with patch.dict(os.environ, {"SWITCHYARD_HOME": str(home)}):
+                set_server_root(root)
+                try:
+                    doctor_response = handle_request(
+                        {
+                            "jsonrpc": "2.0",
+                            "id": 3,
+                            "method": "resources/read",
+                            "params": {"uri": "switchyard://project/doctor"},
+                        }
+                    )
+                    brief_response = handle_request(
+                        {
+                            "jsonrpc": "2.0",
+                            "id": 4,
+                            "method": "resources/read",
+                            "params": {"uri": "switchyard://project/brief"},
+                        }
+                    )
+                    guide_response = handle_request(
+                        {
+                            "jsonrpc": "2.0",
+                            "id": 5,
+                            "method": "resources/read",
+                            "params": {"uri": "switchyard://agent/guide"},
+                        }
+                    )
+                finally:
+                    set_server_root(None)
+
+        doctor = json.loads(doctor_response["result"]["contents"][0]["text"])
+        brief = json.loads(brief_response["result"]["contents"][0]["text"])
+        guide = guide_response["result"]["contents"][0]["text"]
+        self.assertEqual(doctor["project"], "demo")
+        self.assertEqual(brief["project"], "demo")
+        self.assertEqual(brief["services"], [])
+        self.assertIn("switchyard_brief", guide)
+        self.assertFalse(home.exists())
+
+    def test_resources_read_rejects_unknown_or_malformed_uri(self) -> None:
+        cases = [
+            ({}, "uri must be a string"),
+            ({"uri": 123}, "uri must be a string"),
+            ({"uri": "switchyard://missing"}, "unknown resource"),
+        ]
+
+        for params, expected in cases:
+            with self.subTest(expected=expected):
+                response = handle_request(
+                    {
+                        "jsonrpc": "2.0",
+                        "id": 6,
+                        "method": "resources/read",
+                        "params": params,
+                    }
+                )
+
+                self.assertIn("error", response)
+                self.assertIn(expected, response["error"]["message"])
 
     def test_tools_list_includes_safety_annotations(self) -> None:
         response = handle_request({"jsonrpc": "2.0", "id": 2, "method": "tools/list"})

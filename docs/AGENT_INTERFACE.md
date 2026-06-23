@@ -32,6 +32,17 @@ args = ["mcp", "--project", "name"]
 The alias keeps MCP client setup free of hand-written project paths.
 Use `switchyard mcp projects --json` to inspect registered aliases.
 
+Clients that support MCP resources can read stable, read-only context before
+choosing a tool:
+
+```txt
+switchyard://project/brief
+switchyard://project/doctor
+switchyard://agent/guide
+```
+
+Reading these resources does not initialize Switchyard state.
+
 ## Codex Skill
 
 Install the bundled skill when an agent benefits from Switchyard-specific

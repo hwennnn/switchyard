@@ -32,11 +32,14 @@ before creating worktrees; missing env sources should be fixed or reported.
 
 If MCP tools are available, use this order:
 
-1. `switchyard_brief`
+1. Read `switchyard://project/brief` if MCP resources are available, otherwise call `switchyard_brief`
 2. `switchyard_where`
 3. `switchyard_logs`
 4. `switchyard_create` only when a missing branch runtime is needed
 5. `switchyard_up`, `switchyard_checkout`, `switchyard_uncheckout`, or `switchyard_down` only when runtime changes are needed
+
+`switchyard://project/doctor` exposes project setup and `env_warnings`.
+`switchyard://agent/guide` exposes a short read-only workflow guide.
 
 MCP tool annotations mark discovery tools as read-only, `switchyard_up` as a
 conservative project-command action, and runtime tools as mutations; still keep

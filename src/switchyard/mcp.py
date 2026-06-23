@@ -31,6 +31,46 @@ INSTRUCTIONS = (
     "switchyard_create, switchyard_up, switchyard_checkout, switchyard_uncheckout, and switchyard_down "
     "change local state and should be treated as user-visible actions."
 )
+AGENT_RESOURCE_GUIDE = """# Switchyard Agent Guide
+
+Use Switchyard as the local runtime source of truth before guessing ports,
+processes, or log paths.
+
+Recommended flow:
+
+1. Read `switchyard://project/brief` or call `switchyard_brief`.
+2. Call `switchyard_where` for one service when you need a URL, port, PID, or log path.
+3. Call `switchyard_logs` only for focused debugging.
+4. Call `switchyard_create` only when the user wants a missing branch runtime.
+5. Call `switchyard_up`, `switchyard_checkout`, `switchyard_uncheckout`, or `switchyard_down` only for requested local runtime changes.
+
+Mutation tools create git worktrees, start project commands, start local port
+forwarders, or stop Switchyard-managed local state. Keep client approval enabled
+for those tools.
+"""
+RESOURCES: list[dict[str, str]] = [
+    {
+        "uri": "switchyard://project/brief",
+        "name": "project-brief",
+        "title": "Switchyard Project Brief",
+        "description": "Read-only compact runtime state for the current Switchyard project.",
+        "mimeType": "application/json",
+    },
+    {
+        "uri": "switchyard://project/doctor",
+        "name": "project-doctor",
+        "title": "Switchyard Project Doctor",
+        "description": "Read-only project setup, proxy, services, and env source warnings.",
+        "mimeType": "application/json",
+    },
+    {
+        "uri": "switchyard://agent/guide",
+        "name": "agent-guide",
+        "title": "Switchyard Agent Guide",
+        "description": "Read-only guide for agent-safe Switchyard tool usage.",
+        "mimeType": "text/markdown",
+    },
+]
 
 
 class McpError(Exception):
@@ -467,6 +507,26 @@ def tool_result(data: Any, text: str | None = None, is_error: bool = False) -> d
     }
 
 
+def resource_result(uri: str, mime_type: str, text: str) -> dict[str, Any]:
+    return {"contents": [{"uri": uri, "mimeType": mime_type, "text": text}]}
+
+
+def list_resources() -> list[dict[str, str]]:
+    return [dict(resource) for resource in RESOURCES]
+
+
+def read_resource(uri: str) -> dict[str, Any]:
+    if uri == "switchyard://agent/guide":
+        return resource_result(uri, "text/markdown", AGENT_RESOURCE_GUIDE)
+    if uri == "switchyard://project/doctor":
+        data = tool_doctor({})["structuredContent"]
+        return resource_result(uri, "application/json", json_text(data))
+    if uri == "switchyard://project/brief":
+        data = tool_brief({})["structuredContent"]
+        return resource_result(uri, "application/json", json_text(data))
+    raise McpError(-32004, f"unknown resource: {uri}")
+
+
 def normalize_services(value: Any) -> list[str] | None:
     if value in (None, []):
         return None
@@ -716,13 +776,29 @@ def handle_request(message: dict[str, Any]) -> dict[str, Any] | None:
             message_id,
             {
                 "protocolVersion": negotiated,
-                "capabilities": {"tools": {"listChanged": False}},
+                "capabilities": {
+                    "tools": {"listChanged": False},
+                    "resources": {"subscribe": False, "listChanged": False},
+                },
                 "serverInfo": {"name": "switchyard", "title": "Switchyard", "version": __version__},
                 "instructions": INSTRUCTIONS,
             },
         )
     if method == "ping":
         return response(message_id, {})
+    if method == "resources/list":
+        return response(message_id, {"resources": list_resources()})
+    if method == "resources/read":
+        try:
+            params = optional_object(message.get("params"), "params")
+            uri = params.get("uri")
+            if not isinstance(uri, str) or not uri:
+                raise McpError(-32602, "uri must be a string")
+            return response(message_id, read_resource(uri))
+        except McpError as exc:
+            return error_response(message_id, exc.code, exc.message)
+        except Exception as exc:
+            return error_response(message_id, -32000, str(exc))
     if method == "tools/list":
         return response(message_id, {"tools": [{"name": name, **definition} for name, definition in TOOLS.items()]})
     if method == "tools/call":

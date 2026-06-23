@@ -229,6 +229,16 @@ local state, so MCP clients should keep user approval enabled for them.
 Switchyard marks read-only discovery tools and local mutation tools with MCP
 tool annotations so clients can present safer approval UI.
 
+MCP clients that prefer resources can read stable, read-only context first:
+
+```txt
+switchyard://project/brief
+switchyard://project/doctor
+switchyard://agent/guide
+```
+
+These MCP resources do not initialize Switchyard state.
+
 Shell-only agents can run `switchyard brief --json` from a registered worktree;
 Switchyard resolves the parent project and current branch automatically.
 

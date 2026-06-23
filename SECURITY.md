@@ -58,3 +58,6 @@ Keep approval enabled for
 worktrees, start port forwarders, or start and stop local processes.
 The MCP tool list also includes read-only/destructive/idempotent hints for
 clients that surface tool risk in their approval UI.
+MCP resources such as `switchyard://project/brief`,
+`switchyard://project/doctor`, and `switchyard://agent/guide` are read-only and
+do not initialize Switchyard state.

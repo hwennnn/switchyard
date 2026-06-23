@@ -133,6 +133,11 @@ def check_public_docs() -> None:
     require("switchyard list [--json]" in readme, "README should document machine-readable worktree list")
     require("switchyard logs [service] [--branch branch] [--json]" in readme, "README should document machine-readable logs")
     require("tool annotations" in readme, "README should document MCP tool annotations")
+    require("MCP clients that prefer resources" in readme, "README should document MCP resources")
+    require("switchyard://project/brief" in readme, "README should document project brief resource")
+    require("switchyard://project/doctor" in readme, "README should document project doctor resource")
+    require("switchyard://agent/guide" in readme, "README should document agent guide resource")
+    require("These MCP resources do not initialize Switchyard state" in readme, "README should document read-only resource state behavior")
     require("## Status" in readme, "README should include current project status")
     require("MCP initialize + doctor" in readme, "README should document benchmark guardrails")
     require("python3 scripts/benchmark.py --runs 3" in readme, "README should document benchmark reproduction")
@@ -152,9 +157,16 @@ def check_public_docs() -> None:
     require((ROOT / "docs/RELEASE.md").exists(), "docs/RELEASE.md missing")
     require((ROOT / "AGENTS.md").exists(), "AGENTS.md missing")
     architecture = read("docs/ARCHITECTURE.md")
+    mcp_doc = read("docs/MCP.md")
+    agent_interface = read("docs/AGENT_INTERFACE.md")
     release_doc = read("docs/RELEASE.md")
     contributing = read("CONTRIBUTING.md")
     agents = read("AGENTS.md")
+    for doc_name, doc_text in [("docs/MCP.md", mcp_doc), ("docs/AGENT_INTERFACE.md", agent_interface)]:
+        require("switchyard://project/brief" in doc_text, f"{doc_name} should document MCP project brief resource")
+        require("switchyard://project/doctor" in doc_text, f"{doc_name} should document MCP project doctor resource")
+        require("switchyard://agent/guide" in doc_text, f"{doc_name} should document MCP agent guide resource")
+        require("does not initialize Switchyard state" in doc_text, f"{doc_name} should document read-only MCP resources")
     require("MCP client compatibility fixtures" in contributing, "CONTRIBUTING should point MCP work at compatibility fixtures")
     require("MCP client compatibility fixtures" in architecture, "architecture roadmap should treat MCP server as shipped")
     require("MCP server wrapper" not in architecture + contributing, "public roadmap should not imply MCP server is missing")
@@ -214,6 +226,8 @@ def check_security_docs() -> None:
     require("local project alias" in security, "SECURITY.md should document MCP alias pinning")
     require("nearest `switchyard.toml`" in security, "SECURITY.md should document pathless MCP launch")
     require("read-only/destructive/idempotent hints" in security, "SECURITY.md should document MCP safety hints")
+    require("switchyard://project/brief" in security, "SECURITY.md should document read-only MCP resources")
+    require("do not initialize Switchyard state" in security, "SECURITY.md should document MCP resource state behavior")
     require("switchyard_create" in security, "SECURITY.md should mention MCP worktree creation")
     require("switchyard_checkout" in security, "SECURITY.md should mention MCP checkout forwarding")
     require("worktree_root` must be a non-empty string path" in security, "SECURITY.md should document worktree_root validation")
@@ -253,6 +267,9 @@ def check_skill() -> None:
     require("switchyard list --json" in text, "skill should teach machine-readable worktree list")
     require("switchyard logs web --branch feature/name -n 120 --json" in text, "skill should teach machine-readable logs")
     require("MCP tool annotations" in text, "skill should teach MCP safety annotations")
+    require("switchyard://project/brief" in text, "skill should teach MCP resource brief")
+    require("switchyard://project/doctor" in text, "skill should teach MCP resource doctor")
+    require("switchyard://agent/guide" in text, "skill should teach MCP resource guide")
     require("/path/to/project" not in text, "skill should not ship path placeholders")
     agent_text = agent.read_text()
     require("default_prompt: \"Use $switchyard" in agent_text, "skill default prompt should mention $switchyard")
@@ -324,6 +341,9 @@ def check_mcp_smoke() -> None:
             [
                 '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18"}}',
                 '{"jsonrpc":"2.0","id":2,"method":"tools/list"}',
+                '{"jsonrpc":"2.0","id":11,"method":"resources/list"}',
+                '{"jsonrpc":"2.0","id":12,"method":"resources/read","params":{"uri":"switchyard://project/brief"}}',
+                '{"jsonrpc":"2.0","id":13,"method":"resources/read","params":{"uri":"switchyard://agent/guide"}}',
                 '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"switchyard_doctor","arguments":{}}}',
                 '{"jsonrpc":"2.0","id":6,"method":"tools/call","params":{"name":"switchyard_status","arguments":{}}}',
                 '{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"switchyard_up","arguments":{"branch":"feature/mcp","servies":["web"]}}}',
@@ -336,6 +356,7 @@ def check_mcp_smoke() -> None:
         result = run([sys.executable, "-m", "switchyard", "mcp"], cwd=server_cwd, env=env, input_text=readonly_payload)
         lines = [json.loads(line) for line in result.stdout.splitlines()]
         require(lines[0]["result"]["serverInfo"]["name"] == "switchyard", "MCP initialize failed")
+        require("resources" in lines[0]["result"]["capabilities"], "MCP initialize should advertise resources")
         instructions = lines[0]["result"]["instructions"]
         require("switchyard_checkout" in instructions and "switchyard_uncheckout" in instructions, "MCP instructions incomplete")
         tools = {tool["name"]: tool for tool in lines[1]["result"]["tools"]}
@@ -371,21 +392,32 @@ def check_mcp_smoke() -> None:
             "logs" in tools["switchyard_logs"]["outputSchema"]["properties"],
             "switchyard_logs should describe logs output",
         )
-        require(lines[2]["result"]["structuredContent"]["project"] == "demo", "MCP doctor failed")
-        require(lines[2]["result"]["structuredContent"]["env_warnings"] == [], "MCP doctor should include env warnings")
-        require(lines[3]["result"]["structuredContent"] == {"services": []}, "MCP status should return services envelope")
-        require(lines[4]["result"]["isError"] is True, "MCP tools should reject unknown arguments")
-        require("unexpected argument(s): servies" in lines[4]["result"]["content"][0]["text"], "MCP typo error should be clear")
-        require(lines[5]["result"]["isError"] is True, "MCP tools should reject non-string cwd")
-        require("cwd must be a string" in lines[5]["result"]["content"][0]["text"], "MCP cwd type error should be clear")
-        require(lines[6]["error"]["code"] == -32602, "MCP tools should reject non-object arguments")
-        require("arguments must be an object" in lines[6]["error"]["message"], "MCP arguments type error should be clear")
-        require(lines[7]["error"]["code"] == -32602, "MCP initialize should reject non-string protocolVersion")
+        resources = {resource["uri"]: resource for resource in lines[2]["result"]["resources"]}
+        require("switchyard://project/brief" in resources, "MCP resources should include project brief")
+        require("switchyard://agent/guide" in resources, "MCP resources should include agent guide")
         require(
-            "protocolVersion must be a string" in lines[7]["error"]["message"],
+            json.loads(lines[3]["result"]["contents"][0]["text"])["project"] == "demo",
+            "MCP project brief resource failed",
+        )
+        require(
+            "switchyard_brief" in lines[4]["result"]["contents"][0]["text"],
+            "MCP agent guide resource should teach switchyard_brief",
+        )
+        require(lines[5]["result"]["structuredContent"]["project"] == "demo", "MCP doctor failed")
+        require(lines[5]["result"]["structuredContent"]["env_warnings"] == [], "MCP doctor should include env warnings")
+        require(lines[6]["result"]["structuredContent"] == {"services": []}, "MCP status should return services envelope")
+        require(lines[7]["result"]["isError"] is True, "MCP tools should reject unknown arguments")
+        require("unexpected argument(s): servies" in lines[7]["result"]["content"][0]["text"], "MCP typo error should be clear")
+        require(lines[8]["result"]["isError"] is True, "MCP tools should reject non-string cwd")
+        require("cwd must be a string" in lines[8]["result"]["content"][0]["text"], "MCP cwd type error should be clear")
+        require(lines[9]["error"]["code"] == -32602, "MCP tools should reject non-object arguments")
+        require("arguments must be an object" in lines[9]["error"]["message"], "MCP arguments type error should be clear")
+        require(lines[10]["error"]["code"] == -32602, "MCP initialize should reject non-string protocolVersion")
+        require(
+            "protocolVersion must be a string" in lines[10]["error"]["message"],
             "MCP protocolVersion type error should be clear",
         )
-        require(not (root / "home").exists(), "read-only MCP doctor should not initialize Switchyard state")
+        require(not (root / "home").exists(), "read-only MCP context should not initialize Switchyard state")
 
         action_payload = "\n".join(
             [
@@ -563,20 +595,29 @@ def build_and_check_package() -> None:
         mcp_payload = "\n".join(
             [
                 '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"switchyard_doctor","arguments":{}}}',
+                '{"jsonrpc":"2.0","id":2,"method":"resources/read","params":{"uri":"switchyard://project/brief"}}',
                 "",
             ]
         )
         result = run([str(python), "-m", "switchyard", "mcp"], cwd=nested, env=env, input_text=mcp_payload)
-        mcp_line = json.loads(result.stdout)
+        mcp_lines = [json.loads(line) for line in result.stdout.splitlines()]
         require(
-            mcp_line["result"]["structuredContent"]["project"] == "installed-demo",
+            mcp_lines[0]["result"]["structuredContent"]["project"] == "installed-demo",
             "installed mcp server should auto-detect project root",
         )
-        result = run([str(python), "-m", "switchyard", "mcp", "--project", "switchyard"], cwd=root, env=env, input_text=mcp_payload)
-        mcp_line = json.loads(result.stdout)
         require(
-            mcp_line["result"]["structuredContent"]["project"] == "installed-demo",
+            json.loads(mcp_lines[1]["result"]["contents"][0]["text"])["project"] == "installed-demo",
+            "installed mcp resources should auto-detect project root",
+        )
+        result = run([str(python), "-m", "switchyard", "mcp", "--project", "switchyard"], cwd=root, env=env, input_text=mcp_payload)
+        mcp_lines = [json.loads(line) for line in result.stdout.splitlines()]
+        require(
+            mcp_lines[0]["result"]["structuredContent"]["project"] == "installed-demo",
             "installed mcp server should resolve local project alias",
+        )
+        require(
+            json.loads(mcp_lines[1]["result"]["contents"][0]["text"])["project"] == "installed-demo",
+            "installed mcp resources should resolve local project alias",
         )
         result = run([str(python), "-m", "switchyard", "skill", "show"], cwd=root, env=env)
         require("switchyard_brief" in result.stdout, "installed package missing bundled skill")

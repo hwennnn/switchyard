@@ -55,6 +55,20 @@ List registered aliases from anywhere:
 switchyard mcp projects --json
 ```
 
+## Resources
+
+Clients that support MCP resources can read stable, read-only context before
+choosing a tool:
+
+- `switchyard://project/brief`: compact runtime state, service URLs, checkout
+  state, changed files, and recent errors.
+- `switchyard://project/doctor`: project setup, proxy config, services, and
+  `env_warnings`.
+- `switchyard://agent/guide`: short agent workflow guide.
+
+Project resources use the server root detected by `switchyard mcp` or resolved
+from `--project <name>`. Reading resources does not initialize Switchyard state.
+
 ## Tools
 
 - `switchyard_doctor`: project config, proxy, services, Switchyard version, and
