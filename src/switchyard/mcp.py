@@ -28,6 +28,7 @@ SERVER_CWD: Path | None = None
 INSTRUCTIONS = (
     "Switchyard exposes local runtime state for parallel agent worktrees. "
     "Prefer the switchyard://project/brief resource first when available; otherwise call switchyard_brief. "
+    "Use configured_services from the brief before choosing service names, and check env_warnings before creating worktrees. "
     "Use switchyard_runtime_handoff for a read-only starter prompt. "
     "Then use switchyard_where or switchyard_logs for focused context. "
     "Use switchyard_create when a requested branch runtime does not exist yet. "

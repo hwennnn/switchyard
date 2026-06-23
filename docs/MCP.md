@@ -108,11 +108,12 @@ or write Switchyard state.
 Recommended agent flow:
 
 1. Read `switchyard://project/brief`, or call `switchyard_brief` when resources are unavailable.
-2. Use `switchyard_runtime_handoff` when the client exposes prompts and wants a ready-made starter workflow.
-3. Call `switchyard_where` for one service.
-4. Call `switchyard_logs` for focused debugging.
-5. Call `switchyard_create` when the user wants a new branch runtime.
-6. Call `switchyard_up`, `switchyard_checkout`, `switchyard_uncheckout`, or
+2. Use `configured_services` before choosing service names, and check `env_warnings` before creating worktrees.
+3. Use `switchyard_runtime_handoff` when the client exposes prompts and wants a ready-made starter workflow.
+4. Call `switchyard_where` for one service.
+5. Call `switchyard_logs` for focused debugging.
+6. Call `switchyard_create` when the user wants a new branch runtime.
+7. Call `switchyard_up`, `switchyard_checkout`, `switchyard_uncheckout`, or
    `switchyard_down` only when the user wants runtime changes.
 
 ## Tool Annotations

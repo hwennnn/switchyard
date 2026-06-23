@@ -36,6 +36,8 @@ class McpTests(unittest.TestCase):
         self.assertIn("switchyard_checkout", response["result"]["instructions"])
         self.assertIn("switchyard_uncheckout", response["result"]["instructions"])
         self.assertIn("switchyard://project/brief", response["result"]["instructions"])
+        self.assertIn("configured_services", response["result"]["instructions"])
+        self.assertIn("env_warnings", response["result"]["instructions"])
         self.assertIn("switchyard_runtime_handoff", response["result"]["instructions"])
         self.assertNotIn("Prefer switchyard_brief first", response["result"]["instructions"])
 

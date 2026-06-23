@@ -422,6 +422,8 @@ def check_mcp_smoke() -> None:
         require("resources" in lines[0]["result"]["capabilities"], "MCP initialize should advertise resources")
         require("prompts" in lines[0]["result"]["capabilities"], "MCP initialize should advertise prompts")
         instructions = lines[0]["result"]["instructions"]
+        require("configured_services" in instructions, "MCP instructions should teach configured service discovery")
+        require("env_warnings" in instructions, "MCP instructions should teach env warning checks")
         require("switchyard_checkout" in instructions and "switchyard_uncheckout" in instructions, "MCP instructions incomplete")
         tools = {tool["name"]: tool for tool in lines[1]["result"]["tools"]}
         tool_names = set(tools)
