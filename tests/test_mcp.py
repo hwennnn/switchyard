@@ -522,6 +522,25 @@ port = 8000
                 self.assertTrue(result["isError"])
                 self.assertIn(expected, result["content"][0]["text"])
 
+    def test_tools_reject_unknown_arguments_before_side_effects(self) -> None:
+        for name, arguments in [
+            ("switchyard_doctor", {"typo": True}),
+            ("switchyard_up", {"branch": "feature/demo", "servies": ["web"]}),
+        ]:
+            with self.subTest(name=name):
+                response = handle_request(
+                    {
+                        "jsonrpc": "2.0",
+                        "id": 30,
+                        "method": "tools/call",
+                        "params": {"name": name, "arguments": arguments},
+                    }
+                )
+
+                result = response["result"]
+                self.assertTrue(result["isError"])
+                self.assertIn("unexpected argument(s)", result["content"][0]["text"])
+
     def test_tool_cwd_must_stay_under_server_root(self) -> None:
         with tempfile.TemporaryDirectory() as allowed, tempfile.TemporaryDirectory() as other:
             allowed_root = Path(allowed)

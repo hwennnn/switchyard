@@ -492,6 +492,17 @@ def bool_argument(arguments: dict[str, Any], key: str, default: bool = False) ->
     return value
 
 
+def validate_tool_arguments(tool_name: str, arguments: dict[str, Any]) -> None:
+    schema = TOOLS[tool_name]["inputSchema"]
+    if schema.get("additionalProperties", True):
+        return
+    allowed = set(schema.get("properties", {}))
+    unexpected = sorted(set(arguments) - allowed)
+    if unexpected:
+        names = ", ".join(unexpected)
+        raise McpError(-32602, f"unexpected argument(s): {names}")
+
+
 def tool_doctor(arguments: dict[str, Any]) -> dict[str, Any]:
     cwd = cwd_from(arguments)
     config, registry = load_project(cwd, ensure=False)
@@ -699,6 +710,7 @@ def handle_request(message: dict[str, Any]) -> dict[str, Any] | None:
         if not handler:
             return error_response(message_id, -32602, f"unknown tool: {name}")
         try:
+            validate_tool_arguments(str(name), arguments)
             return response(message_id, handler(arguments))
         except McpError as exc:
             return response(message_id, tool_result({"error": exc.message}, exc.message, is_error=True))

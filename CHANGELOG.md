@@ -17,6 +17,7 @@
 - MCP output schemas for structured agent tool results.
 - MCP input schemas describe registered-worktree branch defaults for safer agent calls.
 - MCP tools reject non-string branch and service arguments instead of coercing them.
+- MCP tools reject unknown arguments so typos cannot silently broaden actions.
 - One-command Codex MCP setup with `switchyard mcp install`.
 - Generated MCP config uses Codex `cwd` so server args stay pathless.
 - Pathless MCP server startup auto-pins to the nearest `switchyard.toml`.
