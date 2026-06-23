@@ -5,8 +5,37 @@ repo_url: https://github.com/hwennnn/switchyard
 repo_name: hwennnn/switchyard
 strict: true
 theme:
-  name: mkdocs
-  navigation_depth: 3
+  name: material
+  logo: assets/logo.svg
+  favicon: assets/logo.svg
+  features:
+    - navigation.instant
+    - navigation.sections
+    - navigation.top
+    - search.highlight
+    - toc.follow
+  palette:
+    - scheme: default
+      primary: teal
+      accent: deep orange
+    - scheme: slate
+      primary: teal
+      accent: deep orange
+      toggle:
+        icon: material/weather-night
+        name: Switch to light mode
+  font:
+    text: Inter
+    code: JetBrains Mono
+extra_css:
+  - assets/stylesheets/extra.css
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
 nav:
   - Home: index.md
   - API Reference: API.md

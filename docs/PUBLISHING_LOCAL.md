@@ -159,7 +159,7 @@ The workflow:
 - Runs on pushes to `main` that change `docs/**`, `mkdocs.yml`, or the docs
   workflow.
 - Can also be run manually with `workflow_dispatch`.
-- Installs `mkdocs==1.6.1`.
+- Installs `mkdocs==1.6.1` and `mkdocs-material==9.7.6`.
 - Runs `mkdocs build --strict`.
 - Uploads the generated `site/` directory as a GitHub Pages artifact.
 - Deploys with the official GitHub Pages deployment action.
@@ -184,7 +184,7 @@ Local docs smoke:
 ```sh
 python3 -m venv /tmp/switchyard-docs
 . /tmp/switchyard-docs/bin/activate
-python -m pip install mkdocs==1.6.1
+python -m pip install mkdocs==1.6.1 mkdocs-material==9.7.6
 mkdocs build --strict
 ```
 

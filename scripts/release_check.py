@@ -226,6 +226,8 @@ def check_public_docs() -> None:
     require((ROOT / "docs/API.md").exists(), "docs/API.md missing")
     require((ROOT / "docs/PUBLISHING_LOCAL.md").exists(), "docs/PUBLISHING_LOCAL.md missing")
     require((ROOT / "docs/index.md").exists(), "docs index missing")
+    require((ROOT / "docs/assets/logo.svg").exists(), "docs logo missing")
+    require((ROOT / "docs/assets/stylesheets/extra.css").exists(), "docs stylesheet missing")
     require((ROOT / "mkdocs.yml").exists(), "mkdocs config missing")
     require((ROOT / "docs/RELEASE.md").exists(), "docs/RELEASE.md missing")
     require((ROOT / "AGENTS.md").exists(), "AGENTS.md missing")
@@ -344,13 +346,17 @@ def check_public_docs() -> None:
     docs_index = read("docs/index.md")
     require("site_url: https://hwennnn.github.io/switchyard/" in mkdocs_config, "mkdocs should set the GitHub Pages URL")
     require("strict: true" in mkdocs_config, "mkdocs should build in strict mode")
+    require("name: material" in mkdocs_config, "mkdocs should use the Material theme")
+    require("assets/stylesheets/extra.css" in mkdocs_config, "mkdocs should load the Switchyard stylesheet")
+    require("assets/logo.svg" in mkdocs_config, "mkdocs should use the Switchyard logo")
     for page in ["API.md", "MCP.md", "AGENT_INTERFACE.md", "PUBLISHING_LOCAL.md", "RELEASE.md"]:
         require(page in mkdocs_config, f"mkdocs nav missing {page}")
+    require("doc-grid" in docs_index and "doc-card" in docs_index, "docs index should use card navigation")
     require("API Reference" in docs_index and "Publishing And CI/CD" in docs_index, "docs index should link core docs")
     require("name: Docs" in docs_workflow, "docs workflow should be named Docs")
     require("pages: write" in docs_workflow and "id-token: write" in docs_workflow, "docs workflow should have Pages permissions")
     require("environment:\n      name: github-pages" in docs_workflow, "docs workflow should deploy to github-pages environment")
-    require("python -m pip install mkdocs==1.6.1" in docs_workflow, "docs workflow should pin mkdocs")
+    require("python -m pip install mkdocs==1.6.1 mkdocs-material==9.7.6" in docs_workflow, "docs workflow should pin mkdocs and theme")
     require("mkdocs build --strict" in docs_workflow, "docs workflow should build strictly")
     require("actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b" in docs_workflow, "docs workflow should pin configure-pages")
     require("actions/upload-pages-artifact@7b1f4a764d45c48632c6b24a0339c27f5614fb0b" in docs_workflow, "docs workflow should pin upload-pages-artifact")
@@ -475,6 +481,7 @@ def check_public_docs() -> None:
         "Docs Publishing",
         "Settings` -> `Pages`",
         "Source` to `GitHub Actions`",
+        "mkdocs-material==9.7.6",
         "mkdocs build --strict",
         "Release Workflow",
         "Verify TestPyPI install before PyPI",
