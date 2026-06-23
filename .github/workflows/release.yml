@@ -185,6 +185,19 @@ jobs:
           name: python-package-distributions
           path: dist/
 
+      - name: Trusted Publisher claims
+        run: |
+          {
+            echo "## TestPyPI Trusted Publisher claims"
+            echo
+            echo '```txt'
+            echo "repository: $GITHUB_REPOSITORY"
+            echo "workflow: release.yml"
+            echo "environment: testpypi"
+            echo "ref: $GITHUB_REF"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - uses: pypa/gh-action-pypi-publish@cef221092ed1bacb1cc03d23a2d87d1d172e277b # pypa publish release v1
         with:
           repository-url: https://test.pypi.org/legacy/
@@ -236,5 +249,18 @@ jobs:
         with:
           name: python-package-distributions
           path: dist/
+
+      - name: Trusted Publisher claims
+        run: |
+          {
+            echo "## PyPI Trusted Publisher claims"
+            echo
+            echo '```txt'
+            echo "repository: $GITHUB_REPOSITORY"
+            echo "workflow: release.yml"
+            echo "environment: pypi"
+            echo "ref: $GITHUB_REF"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - uses: pypa/gh-action-pypi-publish@cef221092ed1bacb1cc03d23a2d87d1d172e277b # pypa publish release v1
