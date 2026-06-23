@@ -194,9 +194,24 @@ Update:
 - `src/switchyard/__init__.py`
 - `CHANGELOG.md`
 
-Then tag:
+Then create an annotated tag from the exact commit you want to publish:
 
 ```sh
-git tag v0.1.0
-git push origin v0.1.0
+version="$(python3 - <<'PY'
+namespace = {}
+exec(open("src/switchyard/__init__.py").read(), namespace)
+print(namespace["__version__"])
+PY
+)"
+git tag -a "v$version" -m "Switchyard $version"
+git push origin "v$version"
+```
+
+Do not move a release tag after publishing to TestPyPI or PyPI. Before any
+package has been published, a release-candidate tag may be moved only to include
+release-only fixes that should be part of that same version:
+
+```sh
+git tag -f -a "v$version" -m "Switchyard $version"
+git push --force origin "v$version"
 ```
