@@ -216,6 +216,9 @@ command = "npm run api -- --port {port}"
 port = 8080
 ```
 
+See `examples/` for fuller configs, including a multi-service app with Docker
+backing services and peer placeholders.
+
 Desired ports are preferences. If `3000` is busy, Switchyard allocates a free port and injects:
 
 ```sh

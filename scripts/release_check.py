@@ -174,6 +174,25 @@ def check_skill() -> None:
     ok("agent skill")
 
 
+def check_examples() -> None:
+    examples = sorted((ROOT / "examples").glob("*.toml"))
+    require(examples, "example configs missing")
+    code = """
+from pathlib import Path
+from switchyard.config import load_config
+
+for path in sorted(Path("examples").glob("*.toml")):
+    config = load_config(path)
+    if not config.services:
+        raise SystemExit(f"{path} has no services")
+    print(path)
+"""
+    result = run([sys.executable, "-c", code], env={**os.environ, "PYTHONPATH": str(ROOT / "src")})
+    for example in examples:
+        require(str(example.relative_to(ROOT)) in result.stdout, f"example config not validated: {example.name}")
+    ok("example configs")
+
+
 def check_no_internal_research() -> None:
     needles = ("just" + "rach", "Competitive" + " Research", "POLISH" + "_HARNESS", "runtime isolation" + " harness")
     for path in ROOT.rglob("*"):
@@ -420,6 +439,7 @@ def main() -> int:
         check_public_docs,
         check_security_docs,
         check_skill,
+        check_examples,
         check_no_internal_research,
         lambda: run([sys.executable, "-m", "compileall", "src"]) and ok("compile"),
         lambda: run([sys.executable, "-m", "unittest", "discover", "-s", "tests"], env={**os.environ, "PYTHONPATH": "src"}) and ok("unit tests"),

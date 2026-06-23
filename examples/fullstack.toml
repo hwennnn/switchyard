@@ -1,0 +1,32 @@
+[project]
+name = "fullstack-demo"
+worktree_root = ".worktrees/switchyard"
+
+[env]
+link = [".env.local", "apps/web/.env.local"]
+copy = []
+
+[proxy]
+host = "127.0.0.1"
+port = 7331
+tld = "localhost"
+
+[ports]
+start = 41000
+end = 49999
+
+[services.postgres]
+command = "POSTGRES_PORT={port} docker compose up postgres"
+port = 5432
+
+[services.redis]
+command = "REDIS_PORT={port} docker compose up redis"
+port = 6379
+
+[services.api]
+command = "cd services/api && DATABASE_PORT={postgres_port} REDIS_PORT={redis_port} python -m uvicorn app.main:app --reload --port {port}"
+port = 8000
+
+[services.web]
+command = "cd apps/web && NEXT_PUBLIC_API_BASE_URL={api_url} npm run dev -- --port {port}"
+port = 3000

@@ -27,3 +27,4 @@
 - Hardened release readiness, benchmark, and PyPI publish harnesses.
 - Minimal sdist allowlist with package-content checks.
 - Pinned CI actions and multi-run benchmark release gate.
+- Validated example configs, including a full-stack peer-placeholder example.
