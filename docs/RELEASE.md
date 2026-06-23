@@ -78,10 +78,41 @@ command = "python -m http.server {port}"
 EOF
 (cd "$project" && switchyard doctor --json | grep '"env_warnings": \[\]')
 (cd "$project" && switchyard mcp config | grep -F 'args = ["mcp", "--project", "switchyard"]')
+(cd "$project" && switchyard mcp config --json > "$tmp/mcp-config.json")
+PROJECT="$project" TMP="$tmp" python3 - <<'PY'
+import json
+import os
+from pathlib import Path
+
+project = Path(os.environ["PROJECT"]).resolve()
+text = Path(os.environ["TMP"], "mcp-config.json").read_text()
+data = json.loads(text)
+assert data["ok"] is True
+assert data["registered"] is True
+assert data["args"][-2:] == ["--project", "switchyard"]
+assert "cwd =" not in data["config_text"]
+assert str(project) not in data["config_text"]
+PY
 (cd "$project" && switchyard mcp projects --json | grep '"name": "switchyard"')
 (cd "$project" && switchyard mcp projects --json | grep '"status": "ok"')
 ! (cd "$project" && switchyard mcp config | grep -F "cwd =")
 (cd "$project" && switchyard mcp install --dry-run | grep -F "# Would update:")
+(cd "$project" && switchyard mcp install --dry-run --json > "$tmp/mcp-install-dry-run.json")
+PROJECT="$project" TMP="$tmp" python3 - <<'PY'
+import json
+import os
+from pathlib import Path
+
+project = Path(os.environ["PROJECT"]).resolve()
+text = Path(os.environ["TMP"], "mcp-install-dry-run.json").read_text()
+data = json.loads(text)
+assert data["ok"] is True
+assert data["dry_run"] is True
+assert data["registered"] is False
+assert data["args"][-2:] == ["--project", "switchyard"]
+assert "cwd =" not in data["config_text"]
+assert str(project) not in data["config_text"]
+PY
 printf '%s\n\n' '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"switchyard_doctor","arguments":{}}}' \
   | switchyard mcp --project switchyard \
   | grep release-smoke

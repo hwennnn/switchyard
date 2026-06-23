@@ -85,10 +85,41 @@ jobs:
           EOF
           (cd "$smoke_project" && switchyard doctor --json | grep release-smoke)
           (cd "$smoke_project" && switchyard mcp config | grep -F 'args = ["mcp", "--project", "switchyard"]')
+          (cd "$smoke_project" && switchyard mcp config --json > "$smoke_project/mcp-config.json")
+          SMOKE_PROJECT="$smoke_project" python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          smoke_project = Path(os.environ["SMOKE_PROJECT"]).resolve()
+          text = (smoke_project / "mcp-config.json").read_text()
+          data = json.loads(text)
+          assert data["ok"] is True
+          assert data["registered"] is True
+          assert data["args"][-2:] == ["--project", "switchyard"]
+          assert "cwd =" not in data["config_text"]
+          assert str(smoke_project) not in data["config_text"]
+          PY
           (cd "$smoke_project" && switchyard mcp projects --json | grep '"name": "switchyard"')
           (cd "$smoke_project" && switchyard mcp projects --json | grep '"status": "ok"')
           ! (cd "$smoke_project" && switchyard mcp config | grep -F "cwd =")
           (cd "$smoke_project" && switchyard mcp install --dry-run | grep -F "# Would update:")
+          (cd "$smoke_project" && switchyard mcp install --dry-run --json > "$smoke_project/mcp-install-dry-run.json")
+          SMOKE_PROJECT="$smoke_project" python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          smoke_project = Path(os.environ["SMOKE_PROJECT"]).resolve()
+          text = (smoke_project / "mcp-install-dry-run.json").read_text()
+          data = json.loads(text)
+          assert data["ok"] is True
+          assert data["dry_run"] is True
+          assert data["registered"] is False
+          assert data["args"][-2:] == ["--project", "switchyard"]
+          assert "cwd =" not in data["config_text"]
+          assert str(smoke_project) not in data["config_text"]
+          PY
           printf '%s\n' \
             '{"jsonrpc":"2.0","id":1,"method":"resources/read","params":{"uri":"switchyard://project/brief"}}' \
             '{"jsonrpc":"2.0","id":2,"method":"prompts/get","params":{"name":"switchyard_branch_runtime","arguments":{"branch":"feature/release","services":"web"}}}' \
