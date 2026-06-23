@@ -22,6 +22,8 @@ For MCP clients, prefer:
 switchyard_brief -> switchyard_where -> switchyard_logs
 ```
 
+Use `switchyard_create` only when the user asked for a missing branch runtime.
+
 ## Runtime Actions
 
 Starting and stopping services are visible local actions:
@@ -44,7 +46,7 @@ switchyard down --branch feature/name web
 - Do not edit tracked `.env` files.
 - Do not kill processes that Switchyard did not launch.
 - Treat service commands in `switchyard.toml` as project code.
-- Keep MCP approval enabled for `switchyard_up` and `switchyard_down`.
+- Keep MCP approval enabled for `switchyard_create`, `switchyard_up`, and `switchyard_down`.
 - Keep local-only research, scratch harnesses, and competitive notes out of
   public commits.
 

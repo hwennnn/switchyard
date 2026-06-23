@@ -72,6 +72,7 @@ def check_public_docs() -> None:
     readme = read("README.md")
     require("switchyard mcp" in readme, "README should document MCP")
     require("switchyard mcp config" in readme, "README should document copy-paste MCP setup")
+    require("switchyard_create" in readme and "switchyard_list" in readme, "README should document MCP worktree tools")
     require("switchyard skill install" in readme, "README should document bundled skill install")
     require("switchyard doctor --json" in readme, "README should document machine-readable doctor")
     require("switchyard-dev" in readme, "README should document publish package name")
@@ -95,6 +96,7 @@ def check_security_docs() -> None:
     for needle in ["127.0.0.1", "Does not expose services publicly", "Checks recorded service commands", "switchyard.toml"]:
         require(needle in security, f"SECURITY.md missing {needle!r}")
     require("switchyard mcp config" in security, "SECURITY.md should document generated MCP setup")
+    require("switchyard_create" in security, "SECURITY.md should mention MCP worktree creation")
     ok("security docs")
 
 
@@ -114,6 +116,7 @@ def check_skill() -> None:
     require("name: switchyard" in text, "skill name missing")
     require("description:" in text and "Switchyard" in text.split("---", 2)[1], "skill description missing")
     require("switchyard_brief" in text, "skill should teach MCP tool order")
+    require("switchyard_create" in text, "skill should teach MCP worktree creation")
     require("switchyard mcp config" in text, "skill should teach generated MCP setup")
     require("switchyard doctor --json" in text, "skill should teach machine-readable doctor")
     require("/path/to/project" not in text, "skill should not ship path placeholders")
@@ -141,6 +144,12 @@ def check_no_internal_research() -> None:
 def check_mcp_smoke() -> None:
     with tempfile.TemporaryDirectory(prefix="switchyard-release-mcp-") as temp:
         root = Path(temp)
+        run(["git", "init"], cwd=root)
+        run(["git", "config", "user.email", "test@example.com"], cwd=root)
+        run(["git", "config", "user.name", "Test User"], cwd=root)
+        (root / "README.md").write_text("demo\n")
+        run(["git", "add", "README.md"], cwd=root)
+        run(["git", "commit", "-m", "init"], cwd=root)
         (root / "switchyard.toml").write_text(
             textwrap.dedent(
                 """
@@ -161,6 +170,8 @@ def check_mcp_smoke() -> None:
                 '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18"}}',
                 '{"jsonrpc":"2.0","id":2,"method":"tools/list"}',
                 '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"switchyard_doctor","arguments":{}}}',
+                '{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"switchyard_create","arguments":{"branch":"feature/mcp"}}}',
+                '{"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"name":"switchyard_list","arguments":{}}}',
                 "",
             ]
         )
@@ -168,8 +179,13 @@ def check_mcp_smoke() -> None:
         lines = [json.loads(line) for line in result.stdout.splitlines()]
         require(lines[0]["result"]["serverInfo"]["name"] == "switchyard", "MCP initialize failed")
         tool_names = {tool["name"] for tool in lines[1]["result"]["tools"]}
-        require("switchyard_brief" in tool_names and "switchyard_up" in tool_names, "MCP tool list incomplete")
+        require(
+            {"switchyard_brief", "switchyard_create", "switchyard_list", "switchyard_up"}.issubset(tool_names),
+            "MCP tool list incomplete",
+        )
         require(lines[2]["result"]["structuredContent"]["project"] == "demo", "MCP doctor failed")
+        require(lines[3]["result"]["structuredContent"]["created"] is True, "MCP create failed")
+        require(lines[4]["result"]["structuredContent"]["worktrees"][0]["branch"] == "feature/mcp", "MCP list failed")
     ok("MCP smoke")
 
 

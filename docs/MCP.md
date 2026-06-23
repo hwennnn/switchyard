@@ -32,6 +32,8 @@ switchyard mcp config --name switchyard-entropic
 ## Tools
 
 - `switchyard_doctor`: project config, proxy, services, and Switchyard version.
+- `switchyard_create`: create a managed git worktree and sync configured env files.
+- `switchyard_list`: registered Switchyard worktrees for the project.
 - `switchyard_status`: registered services with running/stale state.
 - `switchyard_brief`: compact project/runtime summary for agent context.
 - `switchyard_where`: URL, port, PID, worktree, and log path for one service.
@@ -44,13 +46,15 @@ Recommended agent flow:
 1. Call `switchyard_brief` for compact state.
 2. Call `switchyard_where` for one service.
 3. Call `switchyard_logs` for focused debugging.
-4. Call `switchyard_up` or `switchyard_down` only when the user wants runtime changes.
+4. Call `switchyard_create` when the user wants a new branch runtime.
+5. Call `switchyard_up` or `switchyard_down` only when the user wants runtime changes.
 
 ## Safety
 
 - The MCP server is local stdio, not a network listener.
 - `switchyard mcp config` pins the generated server command to one detected
   project root; tool calls cannot jump to a different local repository.
+- `switchyard_create` creates a local git worktree and syncs configured env files.
 - `switchyard_up` starts local processes from `switchyard.toml`.
 - `switchyard_down` stops Switchyard-managed PIDs.
 - Keep client approval enabled for write/action tools.

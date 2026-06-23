@@ -144,6 +144,8 @@ The MCP server exposes agent-friendly tools:
 
 ```txt
 switchyard_doctor
+switchyard_create
+switchyard_list
 switchyard_status
 switchyard_brief
 switchyard_where
@@ -153,8 +155,9 @@ switchyard_down
 ```
 
 Agents should usually call `switchyard_brief` first, then `switchyard_where` or
-`switchyard_logs` for focused follow-up. `switchyard_up` and `switchyard_down`
-start or stop local processes, so MCP clients should keep user approval enabled.
+`switchyard_logs` for focused follow-up. `switchyard_create`, `switchyard_up`,
+and `switchyard_down` change local state, so MCP clients should keep user
+approval enabled for them.
 
 ## Agent Skill
 

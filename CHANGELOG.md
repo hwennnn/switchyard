@@ -9,5 +9,6 @@
 - Machine-readable `doctor --json` for setup and release harnesses.
 - Built-in local HTTP reverse proxy and canonical checkout forwarder.
 - Stdio MCP server for agent-readable runtime state.
+- MCP worktree create/list tools for agent-managed branch runtimes.
 - Bundled Codex skill with `switchyard skill show/install`.
 - Release readiness and benchmark harnesses.

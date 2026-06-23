@@ -7,7 +7,8 @@ from typing import Any, Callable
 
 from . import __version__
 from .config import CONFIG_NAME, discover_config, load_config
-from .gittools import GitError, current_branch, status_short
+from .envsync import sync_env_files
+from .gittools import GitError, create_worktree, current_branch, status_short
 from .registry import Registry
 from .runtime import (
     brief_for,
@@ -25,7 +26,8 @@ SERVER_ROOT: Path | None = None
 INSTRUCTIONS = (
     "Switchyard exposes local runtime state for parallel agent worktrees. "
     "Prefer switchyard_brief first, then switchyard_where or switchyard_logs for focused context. "
-    "switchyard_up and switchyard_down start or stop local processes and should be treated as user-visible actions."
+    "Use switchyard_create when a requested branch runtime does not exist yet. "
+    "switchyard_create, switchyard_up, and switchyard_down change local state and should be treated as user-visible actions."
 )
 
 
@@ -66,6 +68,27 @@ TOOLS: dict[str, dict[str, Any]] = {
                 "branch": {"type": "string", "description": "Optional branch name or slug to filter services."},
             }
         ),
+    },
+    "switchyard_create": {
+        "title": "Create a worktree runtime",
+        "description": "Create a managed git worktree for a branch and sync configured env files.",
+        "inputSchema": object_schema(
+            {
+                **COMMON_CWD,
+                "branch": {"type": "string", "description": "Branch name for the new worktree."},
+                "base": {"type": "string", "description": "Optional git base revision when creating a new branch."},
+                "force_env": {
+                    "type": "boolean",
+                    "description": "Replace existing env targets when syncing configured env files. Defaults to false.",
+                },
+            },
+            ["branch"],
+        ),
+    },
+    "switchyard_list": {
+        "title": "List Switchyard worktrees",
+        "description": "Return Switchyard-registered worktrees for this project.",
+        "inputSchema": object_schema(COMMON_CWD),
     },
     "switchyard_brief": {
         "title": "Get compact agent runtime brief",
@@ -201,6 +224,24 @@ def normalize_services(value: Any) -> list[str] | None:
     return value
 
 
+def string_argument(arguments: dict[str, Any], key: str, required: bool = False) -> str | None:
+    value = arguments.get(key)
+    if value in (None, ""):
+        if required:
+            raise McpError(-32602, f"{key} is required")
+        return None
+    if not isinstance(value, str):
+        raise McpError(-32602, f"{key} must be a string")
+    return value
+
+
+def bool_argument(arguments: dict[str, Any], key: str, default: bool = False) -> bool:
+    value = arguments.get(key, default)
+    if not isinstance(value, bool):
+        raise McpError(-32602, f"{key} must be a boolean")
+    return value
+
+
 def tool_doctor(arguments: dict[str, Any]) -> dict[str, Any]:
     cwd = cwd_from(arguments)
     config, registry = load_project(cwd)
@@ -214,6 +255,39 @@ def tool_doctor(arguments: dict[str, Any]) -> dict[str, Any]:
         "services": sorted(config.services),
     }
     return tool_result(data)
+
+
+def tool_create(arguments: dict[str, Any]) -> dict[str, Any]:
+    cwd = cwd_from(arguments)
+    config, registry = load_project(cwd)
+    branch = string_argument(arguments, "branch", required=True)
+    base = string_argument(arguments, "base")
+    force_env = bool_argument(arguments, "force_env")
+    assert branch is not None
+    existing = registry.get_worktree(config.root, branch)
+    if existing and existing.get("branch") != branch:
+        raise McpError(-32602, f"branch names collide after slugging: {existing.get('branch')} and {branch}")
+    if existing and Path(str(existing["path"])).exists():
+        data = {
+            "created": False,
+            "branch": existing["branch"],
+            "worktree": existing["path"],
+            "env": [],
+            "message": "worktree already registered",
+        }
+        return tool_result(data)
+    path = registry.default_worktree_path(config, branch)
+    create_worktree(config.root, path, branch, base)
+    actions = sync_env_files(config.root, path, config.env, force=force_env)
+    registry.upsert_worktree(config, branch, path)
+    data = {"created": True, "branch": branch, "worktree": str(path), "env": actions}
+    return tool_result(data)
+
+
+def tool_list(arguments: dict[str, Any]) -> dict[str, Any]:
+    cwd = cwd_from(arguments)
+    config, registry = load_project(cwd)
+    return tool_result({"worktrees": registry.list_worktrees(config.root)})
 
 
 def tool_status(arguments: dict[str, Any]) -> dict[str, Any]:
@@ -298,6 +372,8 @@ def tool_down(arguments: dict[str, Any]) -> dict[str, Any]:
 
 TOOL_HANDLERS: dict[str, Callable[[dict[str, Any]], dict[str, Any]]] = {
     "switchyard_doctor": tool_doctor,
+    "switchyard_create": tool_create,
+    "switchyard_list": tool_list,
     "switchyard_status": tool_status,
     "switchyard_brief": tool_brief,
     "switchyard_where": tool_where,

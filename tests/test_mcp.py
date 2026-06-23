@@ -1,12 +1,17 @@
 from __future__ import annotations
 
 import os
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
 
 from switchyard.mcp import handle_request, set_server_root
+
+
+def git(repo: Path, *args: str) -> None:
+    subprocess.run(["git", *args], cwd=repo, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
 
 
 class McpTests(unittest.TestCase):
@@ -41,6 +46,8 @@ class McpTests(unittest.TestCase):
 
         names = {tool["name"] for tool in response["result"]["tools"]}
         self.assertIn("switchyard_brief", names)
+        self.assertIn("switchyard_create", names)
+        self.assertIn("switchyard_list", names)
         self.assertIn("switchyard_up", names)
         self.assertIn("switchyard_down", names)
 
@@ -76,6 +83,66 @@ port = 8000
         self.assertFalse(result["isError"])
         self.assertEqual(result["structuredContent"]["project"], "demo")
         self.assertEqual(result["structuredContent"]["services"], ["web"])
+
+    def test_create_tool_creates_worktree_and_list_reports_it(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            git(root, "init")
+            git(root, "config", "user.email", "test@example.com")
+            git(root, "config", "user.name", "Test User")
+            (root / "README.md").write_text("demo\n")
+            (root / ".env.local").write_text("secret=local\n")
+            git(root, "add", "README.md", ".env.local")
+            git(root, "commit", "-m", "init")
+            (root / "switchyard.toml").write_text(
+                """
+[env]
+copy = [".env.local"]
+
+[services.web]
+command = "python -m http.server {port}"
+port = 8000
+"""
+            )
+
+            with patch.dict(os.environ, {"SWITCHYARD_HOME": str(root / ".switchyard-home")}):
+                set_server_root(root)
+                try:
+                    create_response = handle_request(
+                        {
+                            "jsonrpc": "2.0",
+                            "id": 5,
+                            "method": "tools/call",
+                            "params": {"name": "switchyard_create", "arguments": {"branch": "feature/demo"}},
+                        }
+                    )
+                    list_response = handle_request(
+                        {
+                            "jsonrpc": "2.0",
+                            "id": 6,
+                            "method": "tools/call",
+                            "params": {"name": "switchyard_list", "arguments": {}},
+                        }
+                    )
+                    collision_response = handle_request(
+                        {
+                            "jsonrpc": "2.0",
+                            "id": 7,
+                            "method": "tools/call",
+                            "params": {"name": "switchyard_create", "arguments": {"branch": "feature-demo"}},
+                        }
+                    )
+                finally:
+                    set_server_root(None)
+
+            create_result = create_response["result"]["structuredContent"]
+            worktree = Path(create_result["worktree"])
+            self.assertTrue(create_result["created"])
+            self.assertEqual(create_result["branch"], "feature/demo")
+            self.assertEqual((worktree / ".env.local").read_text(), "secret=local\n")
+            self.assertEqual(list_response["result"]["structuredContent"]["worktrees"][0]["branch"], "feature/demo")
+            self.assertTrue(collision_response["result"]["isError"])
+            self.assertIn("branch names collide", collision_response["result"]["content"][0]["text"])
 
     def test_tool_cwd_must_stay_under_server_root(self) -> None:
         with tempfile.TemporaryDirectory() as allowed, tempfile.TemporaryDirectory() as other:

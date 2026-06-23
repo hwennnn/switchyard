@@ -37,7 +37,9 @@ Generate MCP setup from inside the trusted project:
 switchyard mcp config
 ```
 
-The generated config pins the server to the detected project root. Tool calls
-can only address that root or subdirectories under it. Keep approval enabled for
-`switchyard_up` and `switchyard_down`, because those tools start and stop local
-processes.
+The generated config pins project lookup to the detected root. Tool calls can
+only load that project or subdirectories under it. Managed worktrees may still
+be created in Switchyard's configured local worktree directory, such as
+`SWITCHYARD_HOME` or `[project].worktree_root`. Keep approval enabled for
+`switchyard_create`, `switchyard_up`, and `switchyard_down`, because those tools
+create worktrees or start and stop local processes.
