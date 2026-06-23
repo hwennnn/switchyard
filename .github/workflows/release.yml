@@ -232,6 +232,42 @@ jobs:
           switchyard mcp install --help | grep -F "usage: switchyard mcp install"
           ! switchyard mcp install --help | grep -F "[config|install|projects|smoke]"
           ! switchyard mcp install --help | grep -F -- "--cwd"
+          smoke_root="$(mktemp -d)"
+          smoke_project="$smoke_root/project"
+          mkdir -p "$smoke_project"
+          export SWITCHYARD_HOME="$smoke_root/switchyard-home"
+          export CODEX_HOME="$smoke_root/codex-home"
+          cat > "$smoke_project/switchyard.toml" <<'EOF'
+          [project]
+          name = "testpypi-smoke"
+
+          [services.web]
+          command = "python -m http.server {port}"
+          EOF
+          (cd "$smoke_project" && switchyard doctor --json | grep testpypi-smoke)
+          (cd "$smoke_project" && switchyard mcp config --json > "$smoke_project/mcp-config.json")
+          SMOKE_PROJECT="$smoke_project" python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          smoke_project = Path(os.environ["SMOKE_PROJECT"]).resolve()
+          data = json.loads((smoke_project / "mcp-config.json").read_text())
+          assert data["ok"] is True
+          assert data["registered"] is True
+          assert data["args"][-2:] == ["--project", "switchyard"]
+          assert data["env"]["SWITCHYARD_HOME"] == str(Path(os.environ["SWITCHYARD_HOME"]).resolve())
+          assert "[mcp_servers.switchyard.env]" in data["config_text"]
+          assert "cwd =" not in data["config_text"]
+          assert str(smoke_project) not in data["config_text"]
+          PY
+          (cd "$smoke_project" && switchyard mcp projects --json | grep '"status": "ok"')
+          (cd "$smoke_project" && switchyard mcp smoke --json > "$smoke_project/mcp-smoke.json")
+          grep '"ok": true' "$smoke_project/mcp-smoke.json"
+          switchyard skill show | grep switchyard_brief
+          skill_target="$(mktemp -d)"
+          switchyard skill install --target "$skill_target"
+          test -f "$skill_target/switchyard/SKILL.md"
 
   publish-pypi:
     if: inputs.publish_target == 'pypi'
