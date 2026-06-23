@@ -77,11 +77,12 @@ If the server is launched directly, run `switchyard mcp` from the project or any
 child directory; it resolves the nearest `switchyard.toml` automatically. Avoid
 hard-coded project path args in normal setup.
 
-`switchyard mcp install` detects the project root and writes the full server
-block to `~/.codex/config.toml`. `switchyard mcp config` prints the trusted
-config snippet with Codex's `cwd` field, keeping the server command itself as
-`switchyard mcp`. Keep approval enabled for tools that create worktrees, start
-port forwarders, or start/stop services.
+`switchyard mcp install` detects the project root, registers a local project alias,
+and writes the full server block to `~/.codex/config.toml`.
+`switchyard mcp config` registers the same alias and prints the trusted config
+snippet with `args = ["mcp", "--project", "name"]`, keeping setup free of
+hard-coded project paths. Keep approval enabled for tools that create
+worktrees, start port forwarders, or start/stop services.
 
 ## Safety
 

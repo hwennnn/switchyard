@@ -133,15 +133,21 @@ itself to the nearest `switchyard.toml`. You should not need to hand-write a
 project path argument for normal setup.
 
 For Codex, run the installer from inside the project. It detects the real
-project root and writes the MCP server config without making you type a path:
+project root once, stores it as a local Switchyard alias, and writes MCP config
+without making you type or maintain a path:
 
 ```sh
 switchyard mcp install
 ```
 
-To inspect the config first, use the setup helper. It prints TOML that uses
-Codex's `cwd` field, so the server command stays `switchyard mcp` instead of
-making you hand-edit a path inside the args:
+The generated Codex block uses a stable project alias:
+
+```toml
+args = ["mcp", "--project", "name"]
+```
+
+To inspect the config first, use the setup helper. It registers the same local
+alias and prints ready-to-paste TOML:
 
 ```sh
 switchyard mcp config
@@ -300,7 +306,7 @@ switchyard logs [service] [--branch branch] [--json]
 switchyard open <service> [branch]
 switchyard where <service> [branch] [--json]
 switchyard brief [branch] [--json]
-switchyard mcp
+switchyard mcp [--project name]
 switchyard mcp config [--name name] [--cwd other-checkout]
 switchyard mcp install [--name name] [--cwd other-checkout] [--dry-run]
 switchyard skill show

@@ -14,6 +14,7 @@ from switchyard.cli import (
     install_mcp_config,
     main,
     mcp_config_text,
+    resolve_mcp_project_root,
     resolve_mcp_config_root,
     resolve_mcp_server_root,
     skill_text,
@@ -174,15 +175,15 @@ port = 8000
         self.assertFalse(data["ok"])
         self.assertIn("switchyard.toml", data["error"])
 
-    def test_mcp_config_text_uses_codex_cwd(self) -> None:
+    def test_mcp_config_text_uses_project_alias(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp).resolve()
 
             text = mcp_config_text("switchyard", root)
 
-        self.assertIn('args = ["mcp"]', text)
-        self.assertIn(f'cwd = "{root}"', text)
-        self.assertIn(str(root), text)
+        self.assertIn('args = ["mcp", "--project", "switchyard"]', text)
+        self.assertNotIn("cwd =", text)
+        self.assertNotIn(str(root), text)
         self.assertNotIn("/path/to/project", text)
 
     def test_mcp_config_root_discovers_project_from_subdir(self) -> None:
@@ -207,6 +208,22 @@ port = 8000
             with chdir(subdir):
                 resolved = resolve_mcp_server_root(None)
 
+        self.assertEqual(resolved, root)
+
+    def test_mcp_server_root_resolves_registered_project_alias(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp).resolve()
+            outside = root / "outside"
+            outside.mkdir()
+            self.write_config(root)
+
+            with patch.dict(os.environ, {"SWITCHYARD_HOME": str(root / "home")}), chdir(root):
+                with redirect_stdout(StringIO()), redirect_stderr(StringIO()):
+                    code = main(["mcp", "config", "--name", "switchyard-demo"])
+            with patch.dict(os.environ, {"SWITCHYARD_HOME": str(root / "home")}), chdir(outside):
+                resolved = resolve_mcp_project_root("switchyard-demo")
+
+        self.assertEqual(code, 0)
         self.assertEqual(resolved, root)
 
     def test_mcp_command_launches_from_detected_project_root(self) -> None:
@@ -239,9 +256,10 @@ port = 8000
 
         self.assertEqual(code, 0)
         self.assertIn("# Would update:", stdout.getvalue())
-        self.assertIn('args = ["mcp"]', stdout.getvalue())
-        self.assertIn(f'cwd = "{root}"', stdout.getvalue())
-        self.assertIn(str(root), stdout.getvalue())
+        self.assertIn("# Would register local MCP project: switchyard-demo", stdout.getvalue())
+        self.assertIn('args = ["mcp", "--project", "switchyard-demo"]', stdout.getvalue())
+        self.assertNotIn("cwd =", stdout.getvalue())
+        self.assertNotIn(str(root), stdout.getvalue())
         self.assertNotIn("/path/to/project", stdout.getvalue())
 
     def test_mcp_install_help_describes_toml_update(self) -> None:
@@ -264,17 +282,17 @@ port = 8000
 
             install_stdout = StringIO()
             config_stdout = StringIO()
-            with chdir(other), redirect_stderr(StringIO()):
-                with redirect_stdout(install_stdout):
-                    install_code = main(["mcp", "--cwd", str(root), "install", "--dry-run"])
-                with redirect_stdout(config_stdout):
-                    config_code = main(["mcp", "--cwd", str(root), "config"])
+            with patch.dict(os.environ, {"SWITCHYARD_HOME": str(workspace / "home")}):
+                with chdir(other), redirect_stderr(StringIO()):
+                    with redirect_stdout(install_stdout):
+                        install_code = main(["mcp", "--cwd", str(root), "install", "--dry-run"])
+                    with redirect_stdout(config_stdout):
+                        config_code = main(["mcp", "--cwd", str(root), "config"])
 
         self.assertEqual(install_code, 0)
         self.assertEqual(config_code, 0)
-        self.assertIn(str(root), install_stdout.getvalue())
-        self.assertIn('args = ["mcp"]', install_stdout.getvalue())
-        self.assertIn(f"# Generated for: {root}", config_stdout.getvalue())
+        self.assertIn('args = ["mcp", "--project", "switchyard"]', install_stdout.getvalue())
+        self.assertIn("# Registered local MCP project: switchyard", config_stdout.getvalue())
         self.assertNotIn(str(other), install_stdout.getvalue())
         self.assertNotIn(str(other), config_stdout.getvalue())
 
@@ -285,16 +303,19 @@ port = 8000
             self.write_config(root)
 
             stdout = StringIO()
-            with patch.dict(os.environ, {"CODEX_HOME": str(codex_home)}):
+            with patch.dict(os.environ, {"CODEX_HOME": str(codex_home), "SWITCHYARD_HOME": str(root / "home")}):
                 with chdir(root), redirect_stdout(stdout), redirect_stderr(StringIO()):
                     code = main(["mcp", "install", "--name", "switchyard-demo"])
             config_text = (codex_home / "config.toml").read_text()
+            state = Registry(root / "home", create=False).read()
 
         self.assertEqual(code, 0)
         self.assertIn("[mcp_servers.switchyard-demo]", config_text)
-        self.assertIn('args = ["mcp"]', config_text)
-        self.assertIn(f'cwd = "{root}"', config_text)
+        self.assertIn('args = ["mcp", "--project", "switchyard-demo"]', config_text)
+        self.assertNotIn("cwd =", config_text)
+        self.assertEqual(state["project_aliases"]["switchyard-demo"], str(root))
         self.assertIn("Codex MCP server", stdout.getvalue())
+        self.assertIn("server project: switchyard-demo", stdout.getvalue())
 
     def test_mcp_install_updates_existing_server_block(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
@@ -322,8 +343,8 @@ command = "other"
         self.assertEqual(action, "updated")
         self.assertIn('model = "gpt-5.5"', text)
         self.assertIn("[mcp_servers.other]", text)
-        self.assertIn('args = ["mcp"]', text)
-        self.assertIn(f'cwd = "{root}"', text)
+        self.assertIn('args = ["mcp", "--project", "switchyard"]', text)
+        self.assertNotIn("cwd =", text)
         self.assertNotIn("--cwd", text)
         self.assertNotIn("[mcp_servers.switchyard.tools.switchyard_up]", text)
         self.assertNotIn('approval_mode = "approve"', text)

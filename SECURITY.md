@@ -42,12 +42,13 @@ switchyard mcp install
 switchyard mcp config
 ```
 
-The installed/generated config pins project lookup to the detected root. The
-generated TOML uses Codex's `cwd` field so the server can still run as
-`switchyard mcp`. Direct `switchyard mcp` startup from a project or child
-directory auto-pins to the nearest `switchyard.toml`, so normal setup should
-not require hard-coded path arguments. Tool calls can only load that project,
-subdirectories under it, or worktrees already registered for that project.
+The installed/generated config pins project lookup to a local project alias
+registered from the detected root. The generated TOML uses
+`args = ["mcp", "--project", "name"]`, so normal setup should not require
+hard-coded path arguments. Direct `switchyard mcp` startup from a project or
+child directory auto-pins to the nearest `switchyard.toml`. Tool calls can only
+load the alias's project, subdirectories under it, or worktrees already
+registered for that project.
 Managed worktrees may still be created in Switchyard's configured local
 worktree directory, such as `SWITCHYARD_HOME` or `[project].worktree_root`.
 Keep approval enabled for

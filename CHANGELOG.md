@@ -20,7 +20,7 @@
 - MCP tools reject unknown arguments so typos cannot silently broaden actions.
 - MCP JSON-RPC validation rejects malformed params, protocol versions, tool names, and argument objects.
 - One-command Codex MCP setup with `switchyard mcp install`.
-- Generated MCP config uses Codex `cwd` so server args stay pathless.
+- Generated MCP config uses local project aliases so users do not hand-maintain project paths.
 - Pathless MCP server startup auto-pins to the nearest `switchyard.toml`.
 - MCP install writes the full Codex config block directly instead of shelling out to `codex mcp add`.
 - MCP setup help describes the generated Codex config path instead of obsolete shell commands.

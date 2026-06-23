@@ -23,8 +23,13 @@ switchyard mcp config
 
 `switchyard mcp install` detects the root and writes the full server block to
 `~/.codex/config.toml`. `switchyard mcp config` prints a trusted config snippet
-that uses Codex's `cwd` field, keeping the server command itself as
-`switchyard mcp`.
+using a local project alias:
+
+```toml
+args = ["mcp", "--project", "name"]
+```
+
+The alias keeps MCP client setup free of hand-written project paths.
 
 ## Codex Skill
 

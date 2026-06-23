@@ -503,7 +503,10 @@ def cmd_forward(args: argparse.Namespace) -> int:
 
 
 def cmd_mcp(args: argparse.Namespace) -> int:
-    root = resolve_mcp_server_root(getattr(args, "mcp_cwd", None))
+    try:
+        root = resolve_mcp_server_root(getattr(args, "mcp_cwd", None), getattr(args, "mcp_project", None))
+    except Exception as exc:
+        return fail(str(exc))
     os.chdir(root)
     return serve_mcp(root)
 
@@ -512,7 +515,22 @@ def mcp_setup_cwd(args: argparse.Namespace) -> str | None:
     return getattr(args, "cwd", None) or getattr(args, "mcp_cwd", None)
 
 
-def resolve_mcp_server_root(cwd: str | None) -> Path:
+def resolve_mcp_project_root(project: str) -> Path:
+    validate_mcp_name(project)
+    root = Registry().resolve_project_alias(project)
+    if not root:
+        raise FileNotFoundError(f"unknown MCP project {project!r}; run `switchyard mcp install --name {project}` from the project")
+    config_path = discover_config(root)
+    if not config_path:
+        raise FileNotFoundError(f"registered MCP project {project!r} no longer has {CONFIG_NAME}; rerun `switchyard mcp install --name {project}`")
+    return config_path.parent.resolve()
+
+
+def resolve_mcp_server_root(cwd: str | None, project: str | None = None) -> Path:
+    if cwd and project:
+        raise ValueError("use either --cwd or --project, not both")
+    if project:
+        return resolve_mcp_project_root(project)
     root = Path(cwd).expanduser().resolve() if cwd else Path.cwd().resolve()
     config_path = discover_config(root)
     if config_path:
@@ -520,7 +538,11 @@ def resolve_mcp_server_root(cwd: str | None) -> Path:
     return root
 
 
-def resolve_mcp_config_root(cwd: str | None) -> tuple[Path, bool]:
+def resolve_mcp_config_root(cwd: str | None, project: str | None = None) -> tuple[Path, bool]:
+    if cwd and project:
+        raise ValueError("use either --cwd or --project, not both")
+    if project:
+        return resolve_mcp_project_root(project), True
     root = Path(cwd).expanduser().resolve() if cwd else Path.cwd().resolve()
     config_path = discover_config(root)
     if config_path:
@@ -534,15 +556,19 @@ def validate_mcp_name(name: str) -> None:
         raise ValueError("MCP server name must contain only letters, numbers, underscores, and dashes")
 
 
-def mcp_config_text(name: str, root: Path) -> str:
+def register_mcp_project(name: str, root: Path) -> None:
     validate_mcp_name(name)
-    args = ["mcp"]
+    Registry().register_project_alias(name, root)
+
+
+def mcp_config_text(name: str, _root: Path) -> str:
+    validate_mcp_name(name)
+    args = ["mcp", "--project", name]
     args_text = ", ".join(json.dumps(item) for item in args)
     return (
         f"[mcp_servers.{name}]\n"
         'command = "switchyard"\n'
         f"args = [{args_text}]\n"
-        f"cwd = {json.dumps(str(root))}\n"
         "startup_timeout_sec = 10\n"
         "tool_timeout_sec = 60\n"
         'default_tools_approval_mode = "prompt"\n'
@@ -591,14 +617,18 @@ def install_mcp_config(name: str, root: Path, path: Path | None = None) -> tuple
 
 def cmd_mcp_config(args: argparse.Namespace) -> int:
     try:
-        root, found_config = resolve_mcp_config_root(mcp_setup_cwd(args))
+        root, found_config = resolve_mcp_config_root(mcp_setup_cwd(args), getattr(args, "mcp_project", None))
         text = mcp_config_text(args.name, root)
     except Exception as exc:
         return fail(str(exc))
-    print(f"# Generated for: {root}")
-    print("# Paste into ~/.codex/config.toml, or run `switchyard mcp install`.")
     if not found_config:
-        print(f"# Note: no {CONFIG_NAME} was found from that directory; run `switchyard init` there first.")
+        return fail(f"could not find {CONFIG_NAME} from {root}; run `switchyard init` there first")
+    try:
+        register_mcp_project(args.name, root)
+    except Exception as exc:
+        return fail(str(exc))
+    print(f"# Registered local MCP project: {args.name}")
+    print("# Paste into ~/.codex/config.toml, or run `switchyard mcp install`.")
     print()
     print(text, end="")
     return 0
@@ -606,7 +636,7 @@ def cmd_mcp_config(args: argparse.Namespace) -> int:
 
 def cmd_mcp_install(args: argparse.Namespace) -> int:
     try:
-        root, found_config = resolve_mcp_config_root(mcp_setup_cwd(args))
+        root, found_config = resolve_mcp_config_root(mcp_setup_cwd(args), getattr(args, "mcp_project", None))
         text = mcp_config_text(args.name, root)
     except Exception as exc:
         return fail(str(exc))
@@ -614,15 +644,17 @@ def cmd_mcp_install(args: argparse.Namespace) -> int:
         return fail(f"could not find {CONFIG_NAME} from {root}; run `switchyard init` there first")
     if args.dry_run:
         print(f"# Would update: {codex_config_path()}")
+        print(f"# Would register local MCP project: {args.name}")
         print()
         print(text, end="")
         return 0
     try:
+        register_mcp_project(args.name, root)
         config_path, action = install_mcp_config(args.name, root)
     except Exception as exc:
         return fail(str(exc))
     print(f"{action} Codex MCP server {args.name!r} in {config_path}")
-    print(f"server cwd: {root}")
+    print(f"server project: {args.name}")
     return 0
 
 
@@ -763,6 +795,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--cwd",
         dest="mcp_cwd",
         help="Project directory to use when not launching from inside the project",
+    )
+    mcp.add_argument(
+        "--project",
+        dest="mcp_project",
+        help="Registered project alias from `switchyard mcp install`",
     )
     mcp_sub = mcp.add_subparsers(dest="mcp_command")
     mcp_config = mcp_sub.add_parser("config", help="Print copy-paste Codex MCP config for this project")

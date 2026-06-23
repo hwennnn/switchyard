@@ -25,14 +25,21 @@ switchyard mcp install
 ```
 
 This detects the project root and writes the full MCP server block to your
-Codex config. To inspect the config first, generate ready-to-paste setup text:
+Codex config. The project path is stored in Switchyard's local state as a
+project alias; the Codex config only needs stable args:
+
+```toml
+args = ["mcp", "--project", "name"]
+```
+
+To inspect the config first, generate ready-to-paste setup text:
 
 ```sh
 switchyard mcp config
 ```
 
-The helper prints TOML that uses Codex's native `cwd` field. Use `--name` for
-multiple projects:
+The helper registers the local project alias and prints the same path-free TOML.
+Use `--name` for multiple projects:
 
 ```sh
 switchyard mcp install --name switchyard-entropic
@@ -86,8 +93,9 @@ so agents can read tool results without scraping text.
 ## Safety
 
 - The MCP server is local stdio, not a network listener.
-- `switchyard mcp install` and `switchyard mcp config` pin project lookup to one
-  detected root; tool calls cannot jump to a different local repository.
+- `switchyard mcp install` and `switchyard mcp config` register one local
+  project alias for the detected root; tool calls cannot jump to a different
+  local repository.
 - `switchyard_create` creates a local git worktree and syncs configured env files.
 - `switchyard_up` starts local processes from `switchyard.toml`.
 - `switchyard_checkout` starts local canonical-port forwarders.
@@ -97,5 +105,6 @@ so agents can read tool results without scraping text.
   `switchyard_down` default to that worktree's branch. From the project root,
   an omitted branch still means all matching Switchyard-managed runtime state.
 - Keep client approval enabled for write/action tools.
-- Use `--cwd` only when installing/generating config for a different checkout
-  or starting the server outside the project tree.
+- Use `--cwd` only when installing/generating config for a different checkout.
+- Use `--project <name>` when an MCP client starts the server outside the
+  project tree.

@@ -27,17 +27,18 @@ class Registry:
 
     def read(self) -> dict[str, Any]:
         if not self.path.exists():
-            return {"version": STATE_VERSION, "projects": {}, "proxies": {}}
+            return {"version": STATE_VERSION, "projects": {}, "project_aliases": {}, "proxies": {}}
         try:
             data = json.loads(self.path.read_text())
         except json.JSONDecodeError:
             if not self.create:
-                return {"version": STATE_VERSION, "projects": {}, "proxies": {}}
+                return {"version": STATE_VERSION, "projects": {}, "project_aliases": {}, "proxies": {}}
             backup = self.path.with_suffix(".corrupt.json")
             self.path.replace(backup)
-            return {"version": STATE_VERSION, "projects": {}, "proxies": {}}
+            return {"version": STATE_VERSION, "projects": {}, "project_aliases": {}, "proxies": {}}
         data.setdefault("version", STATE_VERSION)
         data.setdefault("projects", {})
+        data.setdefault("project_aliases", {})
         data.setdefault("proxies", {})
         return data
 
@@ -116,6 +117,18 @@ class Registry:
             project.setdefault("checkouts", {})
             self.write(data)
             return project
+
+    def register_project_alias(self, alias: str, root: Path) -> None:
+        with self.exclusive_state_lock():
+            data = self.read()
+            data.setdefault("project_aliases", {})[alias] = str(root.resolve())
+            self.write(data)
+
+    def resolve_project_alias(self, alias: str) -> Path | None:
+        root = self.read().get("project_aliases", {}).get(alias)
+        if not root:
+            return None
+        return Path(str(root)).expanduser().resolve()
 
     def default_worktree_path(self, config: ProjectConfig, branch: str) -> Path:
         branch_slug = slugify(branch)
