@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import shlex
 import sys
 import time
 import webbrowser
@@ -314,6 +315,47 @@ def cmd_mcp(args: argparse.Namespace) -> int:
     return serve_mcp(root)
 
 
+def resolve_mcp_config_root(cwd: str | None) -> tuple[Path, bool]:
+    root = Path(cwd).expanduser().resolve() if cwd else Path.cwd().resolve()
+    config_path = discover_config(root)
+    if config_path:
+        return config_path.parent.resolve(), True
+    return root, False
+
+
+def mcp_config_text(name: str, root: Path) -> str:
+    allowed = set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-")
+    if not name or any(char not in allowed for char in name):
+        raise ValueError("MCP server name must contain only letters, numbers, underscores, and dashes")
+    args = ["mcp", "--cwd", str(root)]
+    args_text = ", ".join(json.dumps(item) for item in args)
+    return (
+        f"[mcp_servers.{name}]\n"
+        'command = "switchyard"\n'
+        f"args = [{args_text}]\n"
+        "startup_timeout_sec = 10\n"
+        "tool_timeout_sec = 60\n"
+        'default_tools_approval_mode = "prompt"\n'
+    )
+
+
+def cmd_mcp_config(args: argparse.Namespace) -> int:
+    try:
+        root, found_config = resolve_mcp_config_root(args.cwd)
+        text = mcp_config_text(args.name, root)
+    except Exception as exc:
+        return fail(str(exc))
+    print(f"# Generated for: {root}")
+    print("# Paste into a trusted Codex config, or run the matching CLI command below.")
+    if not found_config:
+        print(f"# Note: no {CONFIG_NAME} was found from that directory; run `switchyard init` there first.")
+    print()
+    print(text, end="")
+    print()
+    print(f"codex mcp add {args.name} -- switchyard mcp --cwd {shlex.quote(str(root))}")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="switchyard", description="Local runtimes for parallel agent worktrees.")
     parser.add_argument("--version", action="version", version=f"switchyard {__version__}")
@@ -385,9 +427,14 @@ def build_parser() -> argparse.ArgumentParser:
     brief.add_argument("--json", action="store_true")
     brief.set_defaults(func=cmd_brief)
 
-    mcp = sub.add_parser("mcp", help="Run a stdio MCP server for AI agents")
+    mcp = sub.add_parser("mcp", help="Run or configure a stdio MCP server for AI agents")
     mcp.add_argument("--cwd", help="Project directory to use as the MCP server working directory")
+    mcp_sub = mcp.add_subparsers(dest="mcp_command")
+    mcp_config = mcp_sub.add_parser("config", help="Print copy-paste Codex MCP config for this project")
+    mcp_config.add_argument("--cwd", help="Project directory to generate config for")
+    mcp_config.add_argument("--name", default="switchyard", help="MCP server name in Codex config")
     mcp.set_defaults(func=cmd_mcp)
+    mcp_config.set_defaults(func=cmd_mcp_config)
 
     proxy = sub.add_parser("proxy", help="Manage the built-in reverse proxy")
     proxy_sub = proxy.add_subparsers(dest="proxy_command", required=True)

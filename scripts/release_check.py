@@ -71,6 +71,7 @@ def check_metadata() -> None:
 def check_public_docs() -> None:
     readme = read("README.md")
     require("switchyard mcp" in readme, "README should document MCP")
+    require("switchyard mcp config" in readme, "README should document copy-paste MCP setup")
     require("switchyard-dev" in readme, "README should document publish package name")
     require("brief --json" in readme, "README should show agent-readable state")
     require("No public tunnels" in readme, "README should state local-first safety")
@@ -79,6 +80,8 @@ def check_public_docs() -> None:
     require((ROOT / "AGENTS.md").exists(), "AGENTS.md missing")
     require((ROOT / ".github/workflows/release.yml").exists(), "release workflow missing")
     require(not (ROOT / "docs/COMPETITIVE_RESEARCH.md").exists(), "internal competitive research should not be public")
+    for path in ["README.md", "docs/MCP.md", "docs/AGENT_INTERFACE.md"]:
+        require("/path/to/project" not in read(path), f"{path} should use generated MCP setup, not path placeholders")
     ok("public docs")
 
 
@@ -99,6 +102,8 @@ def check_skill() -> None:
     require("name: switchyard" in text, "skill name missing")
     require("description:" in text and "Switchyard" in text.split("---", 2)[1], "skill description missing")
     require("switchyard_brief" in text, "skill should teach MCP tool order")
+    require("switchyard mcp config" in text, "skill should teach generated MCP setup")
+    require("/path/to/project" not in text, "skill should not ship path placeholders")
     agent_text = agent.read_text()
     require("default_prompt: \"Use $switchyard" in agent_text, "skill default prompt should mention $switchyard")
     ok("agent skill")

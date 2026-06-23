@@ -45,16 +45,15 @@ switchyard down --branch feature/name web
 
 ## MCP Setup
 
-For a trusted project, configure a local stdio MCP server:
+For a trusted project, generate a local stdio MCP config from inside the repo:
 
-```toml
-[mcp_servers.switchyard]
-command = "switchyard"
-args = ["mcp", "--cwd", "/path/to/project"]
-default_tools_approval_mode = "prompt"
+```sh
+switchyard mcp config
 ```
 
-Keep approval enabled for tools that start or stop services.
+The command prints the trusted config snippet and `codex mcp add` command with
+the detected project root already filled in. Keep approval enabled for tools
+that start or stop services.
 
 ## Safety
 

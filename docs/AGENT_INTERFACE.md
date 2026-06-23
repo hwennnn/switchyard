@@ -7,17 +7,17 @@ Switchyard is designed so agents do not need to infer local runtime state from t
 Run Switchyard as a local stdio MCP server:
 
 ```sh
-switchyard mcp --cwd /path/to/project
+switchyard mcp
 ```
 
-Example Codex project config:
+For Codex, generate project-specific setup text from inside the repository:
 
-```toml
-[mcp_servers.switchyard]
-command = "switchyard"
-args = ["mcp", "--cwd", "/path/to/project"]
-default_tools_approval_mode = "prompt"
+```sh
+switchyard mcp config
 ```
+
+The helper prints a trusted config snippet and an equivalent `codex mcp add`
+command with the detected project root already filled in.
 
 Available MCP tools:
 

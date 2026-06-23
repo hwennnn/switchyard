@@ -122,24 +122,21 @@ switchyard proxy stop
 Switchyard ships a stdio MCP server for AI agents:
 
 ```sh
-switchyard mcp --cwd /path/to/project
+switchyard mcp
 ```
 
-For Codex, add a project-scoped `.codex/config.toml` in a trusted project:
-
-```toml
-[mcp_servers.switchyard]
-command = "switchyard"
-args = ["mcp", "--cwd", "/path/to/project"]
-startup_timeout_sec = 10
-tool_timeout_sec = 60
-default_tools_approval_mode = "prompt"
-```
-
-Or add it with the Codex CLI:
+For Codex, run the setup helper from the project. It prints TOML and the
+matching `codex mcp add` command with the real project root already filled in:
 
 ```sh
-codex mcp add switchyard -- switchyard mcp --cwd /path/to/project
+switchyard mcp config
+```
+
+Use `--name` if you want a different MCP server name, or `--cwd` when generating
+config for another checkout:
+
+```sh
+switchyard mcp config --name switchyard-entropic
 ```
 
 The MCP server exposes agent-friendly tools:
@@ -267,6 +264,7 @@ switchyard open <service> [branch]
 switchyard where <service> [branch] [--json]
 switchyard brief [branch] [--json]
 switchyard mcp [--cwd path]
+switchyard mcp config [--cwd path] [--name name]
 switchyard proxy stop
 ```
 
