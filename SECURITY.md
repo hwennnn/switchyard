@@ -45,10 +45,13 @@ switchyard mcp config
 The installed/generated config pins project lookup to a local project alias
 registered from the detected root. The generated TOML uses
 `args = ["mcp", "--project", "name"]`, so normal setup should not require
-hard-coded path arguments, `cwd`, or `--cwd` in MCP client config. Direct
-`switchyard mcp` startup from a project or child directory auto-pins to the
-nearest `switchyard.toml`. Tool calls can only load the alias's project,
-subdirectories under it, or worktrees already registered for that project.
+hard-coded path arguments, `cwd`, or `--cwd` in MCP client config. If no
+`switchyard` executable is visible, setup falls back to the current Python
+interpreter with `args = ["-m", "switchyard", "mcp", "--project", "name"]`
+while still resolving the project through the alias. Direct `switchyard mcp`
+startup from a project or child directory auto-pins to the nearest
+`switchyard.toml`. Tool calls can only load the alias's project, subdirectories
+under it, or worktrees already registered for that project.
 If startup happens from a registered worktree, the server keeps the parent
 project as its boundary and treats that worktree as the default request cwd.
 Managed worktrees may still be created in Switchyard's configured local

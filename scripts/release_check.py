@@ -126,13 +126,15 @@ def check_public_docs() -> None:
     require("switchyard mcp projects --json" in readme, "README should document MCP alias inspection")
     require("unless you pass\n`--force`" in readme, "README should document MCP alias collision safety")
     require('args = ["mcp", "--project", "name"]' in readme, "README should document alias-based MCP config args")
+    require('args = ["-m", "switchyard", "mcp", "--project", "name"]' in readme, "README should document Python MCP launch fallback")
+    require("current" in readme and "Python" in readme and "interpreter" in readme, "README should explain the MCP launch fallback")
     require("nearest `switchyard.toml`" in readme, "README should document pathless MCP launch")
     require(
         "Switchyard-registered worktree" in readme and "parent\nproject as the server boundary" in readme,
         "README should document MCP startup from registered worktrees",
     )
     require(
-        "does not emit `cwd`, `--cwd`, or an absolute project path" in readme,
+        "does not" in readme and "emit `cwd`, `--cwd`, or an absolute project path" in readme,
         "README should explicitly reject path-based MCP client setup",
     )
     require("switchyard_create" in readme and "switchyard_list" in readme, "README should document MCP worktree tools")
@@ -194,6 +196,7 @@ def check_public_docs() -> None:
     require("Compact `brief` output lists configured service names" in changelog, "CHANGELOG should mention configured services in brief")
     require("Compact `brief` output reports missing configured env sources" in changelog, "CHANGELOG should mention brief env warnings")
     require("MCP help frames `--cwd` as an escape hatch" in changelog, "CHANGELOG should mention path-free MCP setup help")
+    require("MCP setup chooses a launchable server command" in changelog, "CHANGELOG should mention generated MCP launch command behavior")
     require(
         "MCP startup from registered worktrees now uses the parent project" in changelog,
         "CHANGELOG should mention MCP registered-worktree startup",
@@ -208,6 +211,7 @@ def check_public_docs() -> None:
         require("configured_services" in doc_text, f"{doc_name} should document configured services in brief")
         require("env_warnings" in doc_text, f"{doc_name} should document brief env warnings")
         require("registered worktree" in doc_text and "parent project" in doc_text, f"{doc_name} should document MCP worktree startup")
+        require("current" in doc_text and "Python" in doc_text and "interpreter" in doc_text, f"{doc_name} should document Python MCP launch fallback")
         require("absolute project path" in doc_text and "`--cwd`" in doc_text, f"{doc_name} should reject path-based MCP setup")
         require("does not initialize Switchyard state" in doc_text, f"{doc_name} should document read-only MCP resources")
         require("switchyard_runtime_handoff" in doc_text, f"{doc_name} should document MCP runtime handoff prompt")
@@ -287,7 +291,8 @@ def check_security_docs() -> None:
     require("switchyard mcp install" in security, "SECURITY.md should document one-command MCP setup")
     require("switchyard mcp config" in security, "SECURITY.md should document generated MCP setup")
     require("local project alias" in security, "SECURITY.md should document MCP alias pinning")
-    require("nearest `switchyard.toml`" in security, "SECURITY.md should document pathless MCP launch")
+    require("current" in security and "Python" in security and "interpreter" in security, "SECURITY.md should document MCP launch fallback")
+    require("nearest" in security and "`switchyard.toml`" in security, "SECURITY.md should document pathless MCP launch")
     require("registered worktree" in security and "parent\nproject as its boundary" in security, "SECURITY.md should document MCP worktree startup boundary")
     require(
         "hard-coded path arguments, `cwd`, or `--cwd`" in security,
@@ -330,10 +335,11 @@ def check_skill() -> None:
     require("switchyard mcp projects --json" in text, "skill should teach MCP alias inspection")
     require("use `--force` only when intentionally" in text, "skill should teach cautious MCP alias replacement")
     require("local project alias" in text, "skill should teach alias-based MCP config args")
+    require("current" in text and "Python" in text and "interpreter" in text, "skill should teach Python MCP launch fallback")
     require("nearest `switchyard.toml`" in text, "skill should teach pathless MCP launch")
     require("registered worktree" in text and "parent project as the server boundary" in text, "skill should teach MCP worktree startup")
     require(
-        "Generated MCP client config should not contain" in text and "`--cwd`" in text and "absolute project path" in text,
+        "Generated MCP client" in text and "config should not contain" in text and "`--cwd`" in text and "absolute project path" in text,
         "skill should reject path-based MCP client setup",
     )
     require("switchyard init --dry-run --json" in text, "skill should teach first-run setup preview")

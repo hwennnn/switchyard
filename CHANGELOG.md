@@ -30,6 +30,7 @@
 - MCP setup refuses silent alias repoints across projects unless `--force` is used.
 - MCP setup preserves existing per-tool Codex approval settings on reinstall.
 - MCP dry-run output explains that aliases are not registered during dry runs.
+- MCP setup chooses a launchable server command while keeping project lookup on local aliases.
 - Pathless MCP server startup auto-pins to the nearest `switchyard.toml`.
 - MCP startup from registered worktrees now uses the parent project and branch-scoped defaults.
 - MCP install writes the full Codex config block directly instead of shelling out to `codex mcp add`.

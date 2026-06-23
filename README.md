@@ -191,7 +191,11 @@ The generated Codex block uses a stable project alias:
 args = ["mcp", "--project", "name"]
 ```
 
-It does not emit `cwd`, `--cwd`, or an absolute project path.
+If the `switchyard` executable is not visible to the current shell, the helper
+prints a commented fallback that launches the current Python interpreter with
+`args = ["-m", "switchyard", "mcp", "--project", "name"]`. Either way, the
+project is resolved through the local alias, and the generated block does not
+emit `cwd`, `--cwd`, or an absolute project path.
 
 To inspect the config first, use the setup helper. It registers the same local
 alias and prints ready-to-paste TOML:

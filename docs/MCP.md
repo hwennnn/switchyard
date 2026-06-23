@@ -29,14 +29,16 @@ switchyard mcp install
 
 This detects the project root and writes the full MCP server block to your
 Codex config. The project path is stored in Switchyard's local state as a
-project alias; the Codex config only needs stable args:
+project alias; the generated config always carries that alias in `--project`:
 
 ```toml
 args = ["mcp", "--project", "name"]
 ```
 
-The generated block does not contain `cwd`, `--cwd`, or an absolute project
-path.
+If no `switchyard` executable is visible, the helper prints a commented
+fallback that launches the current Python interpreter with
+`args = ["-m", "switchyard", "mcp", "--project", "name"]`. The generated block
+does not contain `cwd`, `--cwd`, or an absolute project path.
 
 To inspect the config first, generate ready-to-paste setup text:
 
