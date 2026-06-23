@@ -19,6 +19,7 @@
 - Generated MCP config uses Codex `cwd` so server args stay pathless.
 - Pathless MCP server startup auto-pins to the nearest `switchyard.toml`.
 - MCP install writes the full Codex config block directly instead of shelling out to `codex mcp add`.
+- MCP setup help describes the generated Codex config path instead of obsolete shell commands.
 - MCP worktree create/list tools for agent-managed branch runtimes.
 - MCP checkout/uncheckout tools for canonical local port mappings.
 - MCP tool calls can target registered worktree paths for current-branch context.
@@ -29,6 +30,7 @@
 - Config validation rejects non-loopback proxy and service bind hosts.
 - Bundled Codex skill with `switchyard skill show/install`.
 - Hardened release readiness, benchmark, and PyPI publish harnesses.
+- PyPI metadata advertises the tested Python versions and source/documentation links.
 - Minimal sdist allowlist with package-content checks.
 - Pinned CI actions and multi-run benchmark release gate.
 - Validated example configs, including a full-stack peer-placeholder example.

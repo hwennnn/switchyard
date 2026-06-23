@@ -771,7 +771,7 @@ def build_parser() -> argparse.ArgumentParser:
     mcp_install = mcp_sub.add_parser("install", help="Add this project to Codex MCP config")
     mcp_install.add_argument("--cwd", help="Project directory to install config for")
     mcp_install.add_argument("--name", default="switchyard", help="MCP server name in Codex config")
-    mcp_install.add_argument("--dry-run", action="store_true", help="Print the codex mcp add command without running it")
+    mcp_install.add_argument("--dry-run", action="store_true", help="Print the Codex config update without writing it")
     mcp.set_defaults(func=cmd_mcp)
     mcp_config.set_defaults(func=cmd_mcp_config)
     mcp_install.set_defaults(func=cmd_mcp_install)

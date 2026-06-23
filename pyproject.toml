@@ -19,6 +19,7 @@ classifiers = [
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
   "Topic :: Software Development",
   "Topic :: System :: Systems Administration",
 ]
@@ -26,6 +27,8 @@ dependencies = []
 
 [project.urls]
 Homepage = "https://github.com/hwennnn/switchyard"
+Repository = "https://github.com/hwennnn/switchyard"
+Documentation = "https://github.com/hwennnn/switchyard#readme"
 Issues = "https://github.com/hwennnn/switchyard/issues"
 
 [project.scripts]

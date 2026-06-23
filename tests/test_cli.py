@@ -244,6 +244,15 @@ port = 8000
         self.assertIn(str(root), stdout.getvalue())
         self.assertNotIn("/path/to/project", stdout.getvalue())
 
+    def test_mcp_install_help_describes_toml_update(self) -> None:
+        stdout = StringIO()
+        with redirect_stdout(stdout), self.assertRaises(SystemExit) as raised:
+            main(["mcp", "install", "--help"])
+
+        self.assertEqual(raised.exception.code, 0)
+        self.assertIn("Print the Codex config update without writing it", stdout.getvalue())
+        self.assertNotIn("codex mcp add", stdout.getvalue())
+
     def test_mcp_parent_cwd_applies_to_setup_subcommands(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             workspace = Path(temp).resolve()

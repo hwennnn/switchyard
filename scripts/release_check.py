@@ -63,6 +63,11 @@ def check_metadata() -> None:
     require(project["name"] == "switchyard-dev", "PyPI package name should be switchyard-dev")
     require(project["requires-python"] == ">=3.11", "requires-python should be >=3.11")
     require(project["license"] == "MIT", "license should be MIT")
+    classifiers = project["classifiers"]
+    require("Programming Language :: Python :: 3.13" in classifiers, "classifiers should advertise Python 3.13")
+    urls = project["urls"]
+    require(urls["Repository"] == "https://github.com/hwennnn/switchyard", "repository URL missing")
+    require(urls["Documentation"].endswith("#readme"), "documentation URL should point at README")
     scripts = project["scripts"]
     require(scripts["switchyard"] == "switchyard.cli:main", "switchyard console script missing")
     require(scripts["sy"] == "switchyard.cli:main", "sy console script missing")
@@ -334,6 +339,12 @@ def check_cli_json_smoke() -> None:
         result = run([sys.executable, "-m", "switchyard", "list", "--json"], cwd=root, env=env)
         data = json.loads(result.stdout)
         require(data == {"worktrees": []}, "list --json should report empty worktrees")
+        result = run([sys.executable, "-m", "switchyard", "mcp", "install", "--help"], cwd=root, env=env)
+        require(
+            "Print the Codex config update without writing it" in result.stdout,
+            "mcp install help should describe TOML config dry run",
+        )
+        require("codex mcp add" not in result.stdout, "mcp install help should not mention obsolete codex mcp add")
         result = run([sys.executable, "-m", "switchyard", "mcp", "install", "--dry-run"], cwd=root, env=env)
         require("# Would update:" in result.stdout, "mcp install dry run should print target config path")
         require('args = ["mcp"]' in result.stdout, "mcp install dry run should keep server args pathless")
