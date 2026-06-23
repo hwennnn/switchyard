@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.0 - Unreleased
+## 0.1.0 - 2026-06-23
 
 - Initial CLI for worktree-scoped local runtimes.
 - Dynamic port allocation and stable `.localhost` service URLs.

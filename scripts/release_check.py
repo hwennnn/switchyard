@@ -220,6 +220,8 @@ def check_public_docs() -> None:
     changelog = read("CHANGELOG.md")
     contributing = read("CONTRIBUTING.md")
     agents = read("AGENTS.md")
+    require(f"## {project_version()} - Unreleased" not in changelog, "CHANGELOG should be finalized before release")
+    require(f"## {project_version()} - " in changelog, "CHANGELOG should include the current package version")
     require("will be published on PyPI as `switchyard-dev`" in release_doc, "release docs should not imply unpublished PyPI package is live")
     require("Switchyard is packaged on PyPI" not in release_doc, "release docs should avoid live PyPI wording before publish")
     require("MCP resources expose project brief" in changelog, "CHANGELOG should mention MCP resources")
