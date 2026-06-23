@@ -26,3 +26,4 @@
 - Bundled Codex skill with `switchyard skill show/install`.
 - Hardened release readiness, benchmark, and PyPI publish harnesses.
 - Minimal sdist allowlist with package-content checks.
+- Pinned CI actions and multi-run benchmark release gate.

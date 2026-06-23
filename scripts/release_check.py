@@ -95,7 +95,12 @@ def check_public_docs() -> None:
     require((ROOT / "docs/MCP.md").exists(), "docs/MCP.md missing")
     require((ROOT / "docs/RELEASE.md").exists(), "docs/RELEASE.md missing")
     require((ROOT / "AGENTS.md").exists(), "AGENTS.md missing")
+    require((ROOT / ".github/workflows/ci.yml").exists(), "CI workflow missing")
     require((ROOT / ".github/workflows/release.yml").exists(), "release workflow missing")
+    ci_workflow = read(".github/workflows/ci.yml")
+    require("python-version: ${{ matrix.python-version }}" in ci_workflow, "CI workflow should test Python matrix")
+    require("python scripts/release_check.py --skip-package" in ci_workflow, "CI workflow should run release smoke gate")
+    require("permissions:\n  contents: read" in ci_workflow, "CI workflow should use read-only permissions")
     release_workflow = read(".github/workflows/release.yml")
     require("switchyard skill show" in release_workflow, "release workflow should smoke bundled skill from wheel")
     require("switchyard doctor --json" in release_workflow, "release workflow should smoke doctor JSON from wheel")
@@ -106,8 +111,9 @@ def check_public_docs() -> None:
         "python scripts/release_check.py --skip-package" not in release_workflow,
         "release workflow should run package checks",
     )
-    for floating_ref in ["@v4", "@v5", "@release/v1"]:
-        require(floating_ref not in release_workflow, f"release workflow should pin actions instead of {floating_ref}")
+    for workflow_name, workflow_text in [("CI", ci_workflow), ("release", release_workflow)]:
+        for floating_ref in ["@v4", "@v5", "@release/v1"]:
+            require(floating_ref not in workflow_text, f"{workflow_name} workflow should pin actions instead of {floating_ref}")
     require(not (ROOT / "docs/COMPETITIVE_RESEARCH.md").exists(), "internal competitive research should not be public")
     for path in ["README.md", "docs/MCP.md", "docs/AGENT_INTERFACE.md", "SECURITY.md"]:
         require("/path/to/project" not in read(path), f"{path} should use generated MCP setup, not path placeholders")
@@ -323,8 +329,9 @@ def check_cli_json_smoke() -> None:
 def check_benchmark() -> None:
     env = os.environ.copy()
     env["PYTHONPATH"] = str(ROOT / "src")
-    result = run([sys.executable, "scripts/benchmark.py", "--json"], env=env)
+    result = run([sys.executable, "scripts/benchmark.py", "--runs", "3", "--json"], env=env)
     data = json.loads(result.stdout)
+    require(data["runs"] == 3, "benchmark gate should use multiple runs")
     metrics = {item["name"]: item for item in data["metrics"]}
     require(metrics["mcp_initialize_and_doctor"]["median_ms"] < 2500, "MCP smoke benchmark is too slow")
     require(metrics["up_web"]["median_ms"] < 5000, "service startup benchmark is too slow")
