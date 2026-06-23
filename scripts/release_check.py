@@ -110,6 +110,7 @@ def check_public_docs() -> None:
     require((ROOT / "docs/RELEASE.md").exists(), "docs/RELEASE.md missing")
     require((ROOT / "AGENTS.md").exists(), "AGENTS.md missing")
     architecture = read("docs/ARCHITECTURE.md")
+    release_doc = read("docs/RELEASE.md")
     contributing = read("CONTRIBUTING.md")
     agents = read("AGENTS.md")
     require("MCP client compatibility fixtures" in contributing, "CONTRIBUTING should point MCP work at compatibility fixtures")
@@ -129,6 +130,11 @@ def check_public_docs() -> None:
     require("switchyard mcp install --dry-run" in release_workflow, "release workflow should smoke MCP install dry run")
     require('args = ["mcp", "--project", "switchyard"]' in release_workflow, "release workflow should smoke alias MCP config")
     require('cwd = "$smoke_project"' not in release_workflow, "release workflow should not expect Codex cwd MCP config")
+    require('export SWITCHYARD_HOME="$tmp/switchyard-home"' in release_doc, "release docs should isolate Switchyard state")
+    require('export CODEX_HOME="$tmp/codex-home"' in release_doc, "release docs should isolate Codex config")
+    require('args = ["mcp", "--project", "switchyard"]' in release_doc, "release docs should smoke alias MCP config")
+    require("switchyard mcp --project switchyard" in release_doc, "release docs should smoke alias MCP startup")
+    require("cwd =" in release_doc, "release docs should explicitly reject cwd MCP config")
     require("Validate release tag" in release_workflow, "release workflow should validate release tag")
     require("GITHUB_REF_TYPE" in release_workflow, "release workflow should require a tag ref")
     require("CHANGELOG.md must finalize" in release_workflow, "release workflow should require finalized changelog")
@@ -140,7 +146,7 @@ def check_public_docs() -> None:
         for floating_ref in ["@v4", "@v5", "@release/v1"]:
             require(floating_ref not in workflow_text, f"{workflow_name} workflow should pin actions instead of {floating_ref}")
     require(not (ROOT / "docs/COMPETITIVE_RESEARCH.md").exists(), "internal competitive research should not be public")
-    for path in ["README.md", "docs/MCP.md", "docs/AGENT_INTERFACE.md", "SECURITY.md"]:
+    for path in ["README.md", "docs/MCP.md", "docs/AGENT_INTERFACE.md", "docs/RELEASE.md", "SECURITY.md"]:
         require("/path/to/project" not in read(path), f"{path} should use generated MCP setup, not path placeholders")
     ok("public docs")
 
