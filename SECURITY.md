@@ -31,12 +31,13 @@ mutation.
 
 ## MCP
 
-Run the MCP server with an explicit project root:
+Generate MCP setup from inside the trusted project:
 
 ```sh
-switchyard mcp --cwd /path/to/project
+switchyard mcp config
 ```
 
-Tool calls can only address that root or subdirectories under it. Keep approval
-enabled for `switchyard_up` and `switchyard_down`, because those tools start and
-stop local processes.
+The generated config pins the server to the detected project root. Tool calls
+can only address that root or subdirectories under it. Keep approval enabled for
+`switchyard_up` and `switchyard_down`, because those tools start and stop local
+processes.

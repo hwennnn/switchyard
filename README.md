@@ -157,12 +157,10 @@ start or stop local processes, so MCP clients should keep user approval enabled.
 
 ## Agent Skill
 
-The repo includes a Codex skill at `skills/switchyard` for agents that prefer
-skill-guided workflows:
+Switchyard ships a Codex skill for agents that prefer skill-guided workflows:
 
 ```sh
-mkdir -p ~/.codex/skills
-cp -R skills/switchyard ~/.codex/skills/switchyard
+switchyard skill install
 ```
 
 Use it with prompts like:
@@ -265,6 +263,8 @@ switchyard where <service> [branch] [--json]
 switchyard brief [branch] [--json]
 switchyard mcp [--cwd path]
 switchyard mcp config [--cwd path] [--name name]
+switchyard skill show
+switchyard skill install [--target dir] [--force]
 switchyard proxy stop
 ```
 

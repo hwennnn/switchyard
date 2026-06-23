@@ -19,6 +19,15 @@ switchyard mcp config
 The helper prints a trusted config snippet and an equivalent `codex mcp add`
 command with the detected project root already filled in.
 
+## Codex Skill
+
+Install the bundled skill when an agent benefits from Switchyard-specific
+workflow guidance:
+
+```sh
+switchyard skill install
+```
+
 Available MCP tools:
 
 ```txt

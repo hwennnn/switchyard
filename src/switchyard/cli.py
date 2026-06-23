@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 import argparse
+import importlib.resources as resources
 import json
 import os
 import shlex
+import shutil
 import sys
+import tempfile
 import time
 import webbrowser
 from pathlib import Path
@@ -356,6 +359,57 @@ def cmd_mcp_config(args: argparse.Namespace) -> int:
     return 0
 
 
+def skill_resource_root():
+    return resources.files("switchyard").joinpath("assets", "skills", "switchyard")
+
+
+def skill_text() -> str:
+    return skill_resource_root().joinpath("SKILL.md").read_text(encoding="utf-8")
+
+
+def copy_resource_tree(source, target: Path) -> None:
+    target.mkdir(parents=True, exist_ok=True)
+    for child in source.iterdir():
+        destination = target / child.name
+        if child.is_dir():
+            copy_resource_tree(child, destination)
+        else:
+            destination.write_bytes(child.read_bytes())
+
+
+def cmd_skill_show(args: argparse.Namespace) -> int:
+    print(skill_text(), end="")
+    return 0
+
+
+def cmd_skill_install(args: argparse.Namespace) -> int:
+    target_root = Path(args.target).expanduser().resolve()
+    target = target_root / "switchyard"
+    target_exists = target.exists() or target.is_symlink()
+    if target_exists and not args.force:
+        return fail(f"{target} already exists; pass --force to replace it")
+    staging_root = None
+    backup = None
+    try:
+        target_root.mkdir(parents=True, exist_ok=True)
+        staging_root = Path(tempfile.mkdtemp(prefix=".switchyard-skill-", dir=target_root))
+        staged = staging_root / "switchyard"
+        copy_resource_tree(skill_resource_root(), staged)
+        if target_exists:
+            backup = staging_root / "previous-switchyard"
+            target.rename(backup)
+        staged.rename(target)
+    except Exception as exc:
+        if backup and backup.exists() and not target.exists():
+            backup.rename(target)
+        return fail(str(exc))
+    finally:
+        if staging_root and staging_root.exists():
+            shutil.rmtree(staging_root, ignore_errors=True)
+    print(f"installed Switchyard skill at {target}")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="switchyard", description="Local runtimes for parallel agent worktrees.")
     parser.add_argument("--version", action="version", version=f"switchyard {__version__}")
@@ -435,6 +489,15 @@ def build_parser() -> argparse.ArgumentParser:
     mcp_config.add_argument("--name", default="switchyard", help="MCP server name in Codex config")
     mcp.set_defaults(func=cmd_mcp)
     mcp_config.set_defaults(func=cmd_mcp_config)
+
+    skill = sub.add_parser("skill", help="Show or install the bundled Codex skill")
+    skill_sub = skill.add_subparsers(dest="skill_command", required=True)
+    skill_show = skill_sub.add_parser("show", help="Print the bundled Switchyard skill")
+    skill_show.set_defaults(func=cmd_skill_show)
+    skill_install = skill_sub.add_parser("install", help="Install the bundled Switchyard skill for Codex")
+    skill_install.add_argument("--target", default="~/.codex/skills", help="Directory that contains Codex skills")
+    skill_install.add_argument("--force", action="store_true", help="Replace an existing switchyard skill")
+    skill_install.set_defaults(func=cmd_skill_install)
 
     proxy = sub.add_parser("proxy", help="Manage the built-in reverse proxy")
     proxy_sub = proxy.add_subparsers(dest="proxy_command", required=True)

@@ -72,6 +72,7 @@ def check_public_docs() -> None:
     readme = read("README.md")
     require("switchyard mcp" in readme, "README should document MCP")
     require("switchyard mcp config" in readme, "README should document copy-paste MCP setup")
+    require("switchyard skill install" in readme, "README should document bundled skill install")
     require("switchyard-dev" in readme, "README should document publish package name")
     require("brief --json" in readme, "README should show agent-readable state")
     require("No public tunnels" in readme, "README should state local-first safety")
@@ -79,8 +80,10 @@ def check_public_docs() -> None:
     require((ROOT / "docs/RELEASE.md").exists(), "docs/RELEASE.md missing")
     require((ROOT / "AGENTS.md").exists(), "AGENTS.md missing")
     require((ROOT / ".github/workflows/release.yml").exists(), "release workflow missing")
+    release_workflow = read(".github/workflows/release.yml")
+    require("switchyard skill show" in release_workflow, "release workflow should smoke bundled skill from wheel")
     require(not (ROOT / "docs/COMPETITIVE_RESEARCH.md").exists(), "internal competitive research should not be public")
-    for path in ["README.md", "docs/MCP.md", "docs/AGENT_INTERFACE.md"]:
+    for path in ["README.md", "docs/MCP.md", "docs/AGENT_INTERFACE.md", "SECURITY.md"]:
         require("/path/to/project" not in read(path), f"{path} should use generated MCP setup, not path placeholders")
     ok("public docs")
 
@@ -89,14 +92,21 @@ def check_security_docs() -> None:
     security = read("SECURITY.md")
     for needle in ["127.0.0.1", "Does not expose services publicly", "Checks recorded service commands", "switchyard.toml"]:
         require(needle in security, f"SECURITY.md missing {needle!r}")
+    require("switchyard mcp config" in security, "SECURITY.md should document generated MCP setup")
     ok("security docs")
 
 
 def check_skill() -> None:
     skill = ROOT / "skills/switchyard/SKILL.md"
     agent = ROOT / "skills/switchyard/agents/openai.yaml"
+    packaged_skill = ROOT / "src/switchyard/assets/skills/switchyard/SKILL.md"
+    packaged_agent = ROOT / "src/switchyard/assets/skills/switchyard/agents/openai.yaml"
     require(skill.exists(), "Switchyard skill missing")
     require(agent.exists(), "Switchyard skill openai.yaml missing")
+    require(packaged_skill.exists(), "Packaged Switchyard skill missing")
+    require(packaged_agent.exists(), "Packaged Switchyard skill openai.yaml missing")
+    require(skill.read_text() == packaged_skill.read_text(), "Repo and packaged skill must match")
+    require(agent.read_text() == packaged_agent.read_text(), "Repo and packaged skill agent config must match")
     text = skill.read_text()
     require(text.startswith("---\n"), "skill frontmatter missing")
     require("name: switchyard" in text, "skill name missing")
@@ -198,6 +208,11 @@ def build_and_check_package() -> None:
         env["PYTHONPATH"] = str(install_dir)
         result = run([str(python), "-m", "switchyard", "--version"], cwd=root, env=env)
         require("switchyard 0.1.0" in result.stdout, "installed package version check failed")
+        result = run([str(python), "-m", "switchyard", "skill", "show"], cwd=root, env=env)
+        require("switchyard_brief" in result.stdout, "installed package missing bundled skill")
+        skill_target = root / "skills"
+        run([str(python), "-m", "switchyard", "skill", "install", "--target", str(skill_target)], cwd=root, env=env)
+        require((skill_target / "switchyard" / "SKILL.md").exists(), "installed package could not install skill")
     ok("package build, size, and install")
 
 
