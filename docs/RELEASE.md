@@ -43,18 +43,31 @@ Use PyPI Trusted Publishing through GitHub Actions. This avoids long-lived PyPI
 API tokens in repository secrets.
 
 1. Create or claim the `switchyard-dev` project on PyPI/TestPyPI.
-2. Configure a Trusted Publisher for `hwennnn/switchyard`.
+2. Configure Trusted Publishers for `hwennnn/switchyard`.
 3. Set the workflow name to `release.yml`.
-4. Finalize the changelog entry for the package version.
-5. Tag the release as `v<version>` from `src/switchyard/__init__.py`.
-6. Run the `Release` workflow manually from that tag with `publish_target` set
+4. Set the environment to `testpypi` for TestPyPI and `pypi` for PyPI.
+5. Finalize the changelog entry for the package version.
+6. Tag the release as `v<version>` from `src/switchyard/__init__.py`.
+7. Run the `Release` workflow manually from that tag with `publish_target` set
    to `testpypi`.
-7. Install from TestPyPI and smoke test the CLI.
-8. Run the same workflow from the tag with `publish_target` set to `pypi`
+8. Install from TestPyPI and smoke test the CLI.
+9. Run the same workflow from the tag with `publish_target` set to `pypi`
    and `testpypi_smoke_confirmed` checked.
 
 The workflow rejects branch runs, mismatched tags, and changelog entries that
 still say `Unreleased`.
+
+If TestPyPI fails with `invalid-publisher`, create or update the TestPyPI
+trusted publisher so it matches these claims:
+
+```txt
+repository: hwennnn/switchyard
+workflow: release.yml
+environment: testpypi
+ref: refs/tags/v0.1.0
+```
+
+For PyPI, use the same repository and workflow with environment `pypi`.
 
 After publishing to TestPyPI or PyPI, run a manual install smoke:
 
