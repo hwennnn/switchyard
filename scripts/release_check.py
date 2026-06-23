@@ -93,6 +93,7 @@ def check_public_docs() -> None:
         "Rejects proxy and service hosts outside loopback" in readme,
         "README should document loopback host enforcement",
     )
+    require("Scopes stop actions to the current registered worktree branch" in readme, "README should document scoped stop safety")
     require((ROOT / "docs/MCP.md").exists(), "docs/MCP.md missing")
     require((ROOT / "docs/RELEASE.md").exists(), "docs/RELEASE.md missing")
     require((ROOT / "AGENTS.md").exists(), "AGENTS.md missing")

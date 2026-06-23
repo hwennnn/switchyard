@@ -464,6 +464,42 @@ command = "other"
         )
         self.assertEqual(uncheckout.call_args.args[3], ["web"])
 
+    def test_stop_actions_use_registered_worktree_context(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp).resolve()
+            worktree = root / ".worktrees" / "feature-demo"
+            self.write_config(root)
+            worktree.mkdir(parents=True)
+            (worktree / "switchyard.toml").write_text((root / "switchyard.toml").read_text())
+
+            with patch.dict(os.environ, {"SWITCHYARD_HOME": str(root / "home")}):
+                config = load_config(root / "switchyard.toml")
+                registry = Registry()
+                registry.ensure_project(config)
+                registry.upsert_worktree(config, "feature/demo", worktree)
+                with chdir(worktree):
+                    with patch("switchyard.cli.stop_services", return_value=["stopped web"]) as stop:
+                        stdout = StringIO()
+                        with redirect_stdout(stdout), redirect_stderr(StringIO()):
+                            code_down = main(["down", "web", "--json"])
+                        down_data = json.loads(stdout.getvalue())
+                    with patch("switchyard.cli.stop_checkouts", return_value=["unchecked web"]) as uncheckout:
+                        stdout = StringIO()
+                        with redirect_stdout(stdout), redirect_stderr(StringIO()):
+                            code_uncheckout = main(["uncheckout", "web", "--json"])
+                        uncheckout_data = json.loads(stdout.getvalue())
+
+        self.assertEqual(code_down, 0)
+        self.assertEqual(down_data["branch"], "feature/demo")
+        self.assertEqual(down_data["scope"], "branch")
+        self.assertEqual(stop.call_args.args[2], "feature/demo")
+        self.assertEqual(stop.call_args.args[3], ["web"])
+        self.assertEqual(code_uncheckout, 0)
+        self.assertEqual(uncheckout_data["branch"], "feature/demo")
+        self.assertEqual(uncheckout_data["scope"], "branch")
+        self.assertEqual(uncheckout.call_args.args[2], "feature/demo")
+        self.assertEqual(uncheckout.call_args.args[3], ["web"])
+
     def test_action_json_failure_stays_machine_readable(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp).resolve()

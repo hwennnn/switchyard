@@ -132,6 +132,10 @@ switchyard down --branch feature/login web --json
 Action JSON returns `ok`, `action`, requested services, messages, and a JSON
 error envelope on failure.
 
+When `down` or `uncheckout` run inside a registered worktree without an
+explicit branch, Switchyard scopes the action to that worktree's branch. From
+the project root, omitting the branch still means all matching Switchyard state.
+
 MCP clients can also read tool annotations: discovery tools are read-only,
 `switchyard_up` is conservative because it runs configured project commands,
 and worktree/process/checkout tools are marked as mutations.

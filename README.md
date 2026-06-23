@@ -325,6 +325,7 @@ SWITCHYARD_HOME=/tmp/switchyard switchyard status
 - Binds to `127.0.0.1` by default.
 - Rejects proxy and service hosts outside loopback addresses.
 - Stops only recorded service PIDs whose command still matches the registry.
+- Scopes stop actions to the current registered worktree branch when run inside one.
 - Does not edit tracked `.env` files.
 - Rejects env paths outside the project/worktree.
 - Keeps generated state outside the repo by default.

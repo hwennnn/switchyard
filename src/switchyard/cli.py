@@ -213,6 +213,15 @@ def branch_scope(branch: str | None) -> str:
     return "branch" if branch else "all"
 
 
+def branch_for_action(config, registry: Registry, requested: str | None, cwd: Path) -> str | None:
+    if requested:
+        return requested
+    if cwd.resolve() == config.root.resolve():
+        return None
+    branch, _ = resolve_branch_and_worktree(config, registry, None, cwd)
+    return branch
+
+
 def cmd_create(args: argparse.Namespace) -> int:
     try:
         config, registry = load_project_config(Path.cwd())
@@ -272,13 +281,14 @@ def cmd_up(args: argparse.Namespace) -> int:
 def cmd_down(args: argparse.Namespace) -> int:
     try:
         config, registry = load_project_config(Path.cwd())
-        messages = stop_services(config, registry, args.branch, args.services)
+        branch = branch_for_action(config, registry, args.branch, Path.cwd())
+        messages = stop_services(config, registry, branch, args.services)
     except Exception as exc:
         return fail_output(args, str(exc))
     if args.json:
         print_action_json(
             "down",
-            {"branch": args.branch, "scope": branch_scope(args.branch), "services": args.services, "messages": messages},
+            {"branch": branch, "scope": branch_scope(branch), "services": args.services, "messages": messages},
         )
         return 0
     for message in messages:
@@ -306,13 +316,14 @@ def cmd_checkout(args: argparse.Namespace) -> int:
 def cmd_uncheckout(args: argparse.Namespace) -> int:
     try:
         config, registry = load_project_config(Path.cwd())
-        messages = stop_checkouts(config, registry, args.branch, args.services)
+        branch = branch_for_action(config, registry, args.branch, Path.cwd())
+        messages = stop_checkouts(config, registry, branch, args.services)
     except Exception as exc:
         return fail_output(args, str(exc))
     if args.json:
         print_action_json(
             "uncheckout",
-            {"branch": args.branch, "scope": branch_scope(args.branch), "services": args.services, "messages": messages},
+            {"branch": branch, "scope": branch_scope(branch), "services": args.services, "messages": messages},
         )
         return 0
     for message in messages:
