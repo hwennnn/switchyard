@@ -367,8 +367,8 @@ def cwd_from(arguments: dict[str, Any]) -> Path:
     root = SERVER_ROOT or Path.cwd().resolve()
     cwd = arguments.get("cwd")
     resolved = Path(str(cwd)).expanduser().resolve() if cwd else root
-    if resolved != root and not resolved.is_relative_to(root):
-        raise McpError(-32602, f"cwd must stay under MCP server root: {root}")
+    if resolved != root and not resolved.is_relative_to(root) and not registered_worktree_cwd(root, resolved):
+        raise McpError(-32602, f"cwd must stay under MCP server root or a registered worktree: {root}")
     return resolved
 
 
@@ -377,7 +377,30 @@ def set_server_root(root: Path | None) -> None:
     SERVER_ROOT = root.resolve() if root else None
 
 
+def registered_worktree_cwd(root: Path, cwd: Path) -> bool:
+    config_path = discover_config(root)
+    if not config_path:
+        return False
+    config = load_config(config_path)
+    registry = Registry(create=False)
+    for record in registry.list_worktrees(config.root):
+        worktree = Path(str(record["path"])).resolve()
+        if cwd == worktree or cwd.is_relative_to(worktree):
+            return True
+    return False
+
+
 def load_project(cwd: Path, ensure: bool = True):
+    root = SERVER_ROOT or Path.cwd().resolve()
+    if cwd != root and registered_worktree_cwd(root, cwd):
+        config_path = discover_config(root)
+        if not config_path:
+            raise McpError(-32004, f"could not find {CONFIG_NAME} from {root}")
+        config = load_config(config_path)
+        registry = Registry(create=ensure)
+        if ensure:
+            registry.ensure_project(config)
+        return config, registry
     config_path = discover_config(cwd)
     if not config_path:
         raise McpError(-32004, f"could not find {CONFIG_NAME} from {cwd}")
@@ -495,8 +518,11 @@ def tool_list(arguments: dict[str, Any]) -> dict[str, Any]:
 def tool_status(arguments: dict[str, Any]) -> dict[str, Any]:
     cwd = cwd_from(arguments)
     config, registry = load_project(cwd, ensure=False)
-    branch = arguments.get("branch")
-    data = hydrate_status(registry.services(config.root, str(branch) if branch else None))
+    branch_arg = str(arguments["branch"]) if arguments.get("branch") else None
+    branch_filter = branch_arg
+    if not branch_filter and cwd.resolve() != config.root.resolve():
+        branch_filter, _ = resolve_branch_and_worktree(config, registry, None, cwd)
+    data = hydrate_status(registry.services(config.root, branch_filter))
     return tool_result({"services": data})
 
 
@@ -506,7 +532,8 @@ def tool_brief(arguments: dict[str, Any]) -> dict[str, Any]:
     branch_arg = str(arguments["branch"]) if arguments.get("branch") else None
     branch, worktree = resolve_branch_and_worktree(config, registry, branch_arg, cwd)
     changed = status_short(worktree) if worktree.exists() else []
-    data = brief_for(config, registry, branch if branch_arg else None, changed)
+    branch_filter = branch if branch_arg or worktree.resolve() != config.root.resolve() else None
+    data = brief_for(config, registry, branch_filter, changed)
     return tool_result(data)
 
 

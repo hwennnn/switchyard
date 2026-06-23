@@ -60,6 +60,10 @@ switchyard down --branch feature/name web --json
 
 Action JSON returns an `ok` field and a JSON error envelope on failure.
 
+In `switchyard.toml`, service commands can reference their own `{port}` and
+peer placeholders such as `{api_url}`, `{api_port}`, or `{db_main_port}` for a
+hyphenated `db-main` service.
+
 ## MCP Setup
 
 For a trusted project, install the local stdio MCP server from inside the repo:
@@ -69,11 +73,11 @@ switchyard mcp install
 switchyard mcp config
 ```
 
-`switchyard mcp install` detects the project root and runs `codex mcp add`.
-`switchyard mcp config` prints the trusted config snippet with Codex's `cwd`
-field, keeping the server command itself as `switchyard mcp`. Keep approval
-enabled for tools that create worktrees, start port forwarders, or start/stop
-services.
+`switchyard mcp install` detects the project root and writes the full server
+block to `~/.codex/config.toml`. `switchyard mcp config` prints the trusted
+config snippet with Codex's `cwd` field, keeping the server command itself as
+`switchyard mcp`. Keep approval enabled for tools that create worktrees, start
+port forwarders, or start/stop services.
 
 ## Safety
 

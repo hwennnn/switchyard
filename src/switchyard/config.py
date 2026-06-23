@@ -9,6 +9,7 @@ from .utils import slugify
 
 
 CONFIG_NAME = "switchyard.toml"
+LOOPBACK_HOSTS = {"127.0.0.1", "localhost", "::1"}
 
 
 @dataclass(frozen=True)
@@ -86,6 +87,13 @@ def env_list(raw: object, key: str) -> list[str]:
     return [validate_env_path(item) for item in raw]
 
 
+def validate_loopback_host(value: object, key: str) -> str:
+    host = str(value).strip()
+    if host not in LOOPBACK_HOSTS:
+        raise ValueError(f"{key} must be a loopback host: 127.0.0.1, localhost, or ::1")
+    return host
+
+
 def load_config(path: Path) -> ProjectConfig:
     path = path.resolve()
     with path.open("rb") as handle:
@@ -124,7 +132,7 @@ def load_config(path: Path) -> ProjectConfig:
             name=service_name,
             command=str(command),
             port=int(service_raw["port"]) if "port" in service_raw else None,
-            host=str(service_raw.get("host", "127.0.0.1")),
+            host=validate_loopback_host(service_raw.get("host", "127.0.0.1"), f"[services.{name_key}].host"),
             health=str(service_raw["health"]) if "health" in service_raw else None,
             env={str(k): str(v) for k, v in env.items()},
         )
@@ -139,7 +147,7 @@ def load_config(path: Path) -> ProjectConfig:
             copy=env_list(env_raw.get("copy", []), "copy"),
         ),
         proxy=ProxyConfig(
-            host=str(proxy_raw.get("host", "127.0.0.1")),
+            host=validate_loopback_host(proxy_raw.get("host", "127.0.0.1"), "[proxy].host"),
             port=int(proxy_raw.get("port", 7331)),
             tld=str(proxy_raw.get("tld", "localhost")).strip("."),
         ),

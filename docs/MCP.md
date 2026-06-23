@@ -14,23 +14,22 @@ tools for runtime discovery, logs, and process control.
 
 ## Codex
 
-Codex reads MCP server configuration from `~/.codex/config.toml` or from a
-trusted project-scoped `.codex/config.toml`. From inside the Switchyard
-project, install the server directly:
+Codex reads MCP server configuration from `~/.codex/config.toml`. From inside
+the Switchyard project, install the server directly:
 
 ```sh
 switchyard mcp install
 ```
 
-This detects the project root and runs the matching `codex mcp add` command for
-you. To inspect the config first, generate ready-to-paste setup text:
+This detects the project root and writes the full MCP server block to your
+Codex config. To inspect the config first, generate ready-to-paste setup text:
 
 ```sh
 switchyard mcp config
 ```
 
-The helper prints TOML that uses Codex's native `cwd` field, plus the equivalent
-Codex CLI command. Use `--name` for multiple projects:
+The helper prints TOML that uses Codex's native `cwd` field. Use `--name` for
+multiple projects:
 
 ```sh
 switchyard mcp install --name switchyard-entropic

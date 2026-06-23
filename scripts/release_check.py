@@ -86,6 +86,10 @@ def check_public_docs() -> None:
     require("brief --json" in readme, "README should show agent-readable state")
     require('"checkouts"' in readme, "README should show checkout state in brief output")
     require("No public tunnels" in readme, "README should state local-first safety")
+    require(
+        "Rejects proxy and service hosts outside loopback" in readme,
+        "README should document loopback host enforcement",
+    )
     require((ROOT / "docs/MCP.md").exists(), "docs/MCP.md missing")
     require((ROOT / "docs/RELEASE.md").exists(), "docs/RELEASE.md missing")
     require((ROOT / "AGENTS.md").exists(), "AGENTS.md missing")
@@ -93,6 +97,15 @@ def check_public_docs() -> None:
     release_workflow = read(".github/workflows/release.yml")
     require("switchyard skill show" in release_workflow, "release workflow should smoke bundled skill from wheel")
     require("switchyard doctor --json" in release_workflow, "release workflow should smoke doctor JSON from wheel")
+    require("Validate release tag" in release_workflow, "release workflow should validate release tag")
+    require("GITHUB_REF_TYPE" in release_workflow, "release workflow should require a tag ref")
+    require("CHANGELOG.md must finalize" in release_workflow, "release workflow should require finalized changelog")
+    require(
+        "python scripts/release_check.py --skip-package" not in release_workflow,
+        "release workflow should run package checks",
+    )
+    for floating_ref in ["@v4", "@v5", "@release/v1"]:
+        require(floating_ref not in release_workflow, f"release workflow should pin actions instead of {floating_ref}")
     require(not (ROOT / "docs/COMPETITIVE_RESEARCH.md").exists(), "internal competitive research should not be public")
     for path in ["README.md", "docs/MCP.md", "docs/AGENT_INTERFACE.md", "SECURITY.md"]:
         require("/path/to/project" not in read(path), f"{path} should use generated MCP setup, not path placeholders")
@@ -101,7 +114,13 @@ def check_public_docs() -> None:
 
 def check_security_docs() -> None:
     security = read("SECURITY.md")
-    for needle in ["127.0.0.1", "Does not expose services publicly", "Checks recorded service commands", "switchyard.toml"]:
+    for needle in [
+        "127.0.0.1",
+        "Does not expose services publicly",
+        "Rejects proxy and service bind hosts",
+        "Checks recorded service commands",
+        "switchyard.toml",
+    ]:
         require(needle in security, f"SECURITY.md missing {needle!r}")
     require("switchyard mcp install" in security, "SECURITY.md should document one-command MCP setup")
     require("switchyard mcp config" in security, "SECURITY.md should document generated MCP setup")
@@ -282,13 +301,20 @@ def check_cli_json_smoke() -> None:
         data = json.loads(result.stdout)
         require(data == {"worktrees": []}, "list --json should report empty worktrees")
         result = run([sys.executable, "-m", "switchyard", "mcp", "install", "--dry-run"], cwd=root, env=env)
-        require("codex mcp add switchyard -- switchyard mcp --cwd" in result.stdout, "mcp install dry run should print codex command")
-        require(str(root.resolve()) in result.stdout, "mcp install dry run should include detected root")
+        require("# Would update:" in result.stdout, "mcp install dry run should print target config path")
+        require('args = ["mcp"]' in result.stdout, "mcp install dry run should keep server args pathless")
+        require(f'cwd = "{root.resolve()}"' in result.stdout, "mcp install dry run should use Codex cwd field")
         require("/path/to/project" not in result.stdout, "mcp install dry run should not use path placeholders")
         result = run([sys.executable, "-m", "switchyard", "mcp", "config"], cwd=root, env=env)
         require('args = ["mcp"]' in result.stdout, "mcp config should keep server args pathless")
         require(f'cwd = "{root.resolve()}"' in result.stdout, "mcp config should use Codex cwd field")
         require("/path/to/project" not in result.stdout, "mcp config should not use path placeholders")
+        env["CODEX_HOME"] = str(root / "codex-home")
+        run([sys.executable, "-m", "switchyard", "mcp", "install"], cwd=root, env=env)
+        config_text = (Path(env["CODEX_HOME"]) / "config.toml").read_text()
+        require('args = ["mcp"]' in config_text, "mcp install should write pathless server args")
+        require(f'cwd = "{root.resolve()}"' in config_text, "mcp install should write Codex cwd field")
+        require("--cwd" not in config_text, "mcp install should not write cwd into server args")
     ok("CLI JSON smoke")
 
 
@@ -302,6 +328,7 @@ def check_benchmark() -> None:
     require(metrics["up_web"]["median_ms"] < 5000, "service startup benchmark is too slow")
     require(metrics["brief_json"]["bytes"] < 12000, "brief output is too large for agent context")
     require(metrics["brief_json"]["has_checkouts"] is True, "brief output should include checkout state")
+    require(data["repo_bytes"] < 2_000_000, "repository payload is unexpectedly large")
     require(data["source_bytes"] < 250_000, "source tree is unexpectedly large")
     ok("benchmark thresholds")
 

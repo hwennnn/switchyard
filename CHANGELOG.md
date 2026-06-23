@@ -17,7 +17,11 @@
 - MCP output schemas for structured agent tool results.
 - One-command Codex MCP setup with `switchyard mcp install`.
 - Generated MCP config uses Codex `cwd` so server args stay pathless.
+- MCP install writes the full Codex config block directly instead of shelling out to `codex mcp add`.
 - MCP worktree create/list tools for agent-managed branch runtimes.
 - MCP checkout/uncheckout tools for canonical local port mappings.
+- MCP tool calls can target registered worktree paths for current-branch context.
+- Service commands can reference peer `{service_url}` and `{service_port}` placeholders.
+- Config validation rejects non-loopback proxy and service bind hosts.
 - Bundled Codex skill with `switchyard skill show/install`.
-- Release readiness and benchmark harnesses.
+- Hardened release readiness, benchmark, and PyPI publish harnesses.

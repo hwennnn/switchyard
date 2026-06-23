@@ -4,12 +4,12 @@ import argparse
 import importlib.resources as resources
 import json
 import os
-import shlex
+import re
 import shutil
-import subprocess
 import sys
 import tempfile
 import time
+import tomllib
 import webbrowser
 from pathlib import Path
 
@@ -500,11 +500,6 @@ def validate_mcp_name(name: str) -> None:
         raise ValueError("MCP server name must contain only letters, numbers, underscores, and dashes")
 
 
-def codex_mcp_add_args(name: str, root: Path) -> list[str]:
-    validate_mcp_name(name)
-    return ["codex", "mcp", "add", name, "--", "switchyard", "mcp", "--cwd", str(root)]
-
-
 def mcp_config_text(name: str, root: Path) -> str:
     validate_mcp_name(name)
     args = ["mcp"]
@@ -520,6 +515,46 @@ def mcp_config_text(name: str, root: Path) -> str:
     )
 
 
+def codex_config_path() -> Path:
+    home = Path(os.environ.get("CODEX_HOME", "~/.codex")).expanduser()
+    return home / "config.toml"
+
+
+def upsert_mcp_config_text(existing: str, name: str, root: Path) -> tuple[str, str]:
+    table = mcp_config_text(name, root).rstrip() + "\n"
+    header = f"[mcp_servers.{name}]"
+    server_prefix = re.escape(header[:-1])
+    next_other_table = rf"^\[(?!mcp_servers\.{re.escape(name)}(?:\.|\]))"
+    pattern = re.compile(rf"(?ms)^{server_prefix}(?:\.[^\]]+)?\]\n.*?(?={next_other_table}|\Z)")
+    if pattern.search(existing):
+        updated = pattern.sub(table, existing, count=1)
+        action = "updated"
+    elif existing.strip():
+        updated = existing.rstrip() + "\n\n" + table
+        action = "added"
+    else:
+        updated = table
+        action = "added"
+    if updated == existing:
+        action = "unchanged"
+    tomllib.loads(updated)
+    return updated, action
+
+
+def install_mcp_config(name: str, root: Path, path: Path | None = None) -> tuple[Path, str]:
+    config_path = path or codex_config_path()
+    existing = config_path.read_text() if config_path.exists() else ""
+    if existing.strip():
+        tomllib.loads(existing)
+    updated, action = upsert_mcp_config_text(existing, name, root)
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+    fd, temp_name = tempfile.mkstemp(prefix=f".{config_path.name}.", dir=config_path.parent)
+    with open(fd, "w") as handle:
+        handle.write(updated)
+    Path(temp_name).replace(config_path)
+    return config_path, action
+
+
 def cmd_mcp_config(args: argparse.Namespace) -> int:
     try:
         root, found_config = resolve_mcp_config_root(mcp_setup_cwd(args))
@@ -527,38 +562,33 @@ def cmd_mcp_config(args: argparse.Namespace) -> int:
     except Exception as exc:
         return fail(str(exc))
     print(f"# Generated for: {root}")
-    print("# Paste into a trusted Codex config, or run the matching CLI command below.")
+    print("# Paste into ~/.codex/config.toml, or run `switchyard mcp install`.")
     if not found_config:
         print(f"# Note: no {CONFIG_NAME} was found from that directory; run `switchyard init` there first.")
     print()
     print(text, end="")
-    print()
-    print(shlex.join(codex_mcp_add_args(args.name, root)))
     return 0
 
 
 def cmd_mcp_install(args: argparse.Namespace) -> int:
     try:
         root, found_config = resolve_mcp_config_root(mcp_setup_cwd(args))
-        command = codex_mcp_add_args(args.name, root)
+        text = mcp_config_text(args.name, root)
     except Exception as exc:
         return fail(str(exc))
     if not found_config:
         return fail(f"could not find {CONFIG_NAME} from {root}; run `switchyard init` there first")
     if args.dry_run:
-        print(shlex.join(command))
+        print(f"# Would update: {codex_config_path()}")
+        print()
+        print(text, end="")
         return 0
-    codex = shutil.which("codex")
-    if not codex:
-        return fail("codex CLI not found; run `switchyard mcp config` and paste the generated config instead")
-    command[0] = codex
-    result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-    if result.returncode != 0:
-        details = result.stderr.strip() or result.stdout.strip()
-        return fail(details or "codex mcp add failed")
-    if result.stdout.strip():
-        print(result.stdout.strip())
-    print(f"installed Codex MCP server {args.name!r} for {root}")
+    try:
+        config_path, action = install_mcp_config(args.name, root)
+    except Exception as exc:
+        return fail(str(exc))
+    print(f"{action} Codex MCP server {args.name!r} in {config_path}")
+    print(f"server cwd: {root}")
     return 0
 
 

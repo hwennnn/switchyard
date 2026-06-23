@@ -129,7 +129,7 @@ switchyard mcp
 ```
 
 For Codex, run the installer from inside the project. It detects the real
-project root and adds the MCP server without making you type a path:
+project root and writes the MCP server config without making you type a path:
 
 ```sh
 switchyard mcp install
@@ -226,7 +226,9 @@ SWITCHYARD_URL
 SWITCHYARD_BRANCH
 SWITCHYARD_SERVICE
 SWITCHYARD_WEB_URL
+SWITCHYARD_WEB_PORT
 SWITCHYARD_API_URL
+SWITCHYARD_API_PORT
 ```
 
 Commands may use tokens:
@@ -240,7 +242,15 @@ Commands may use tokens:
 {branch_slug}
 {project}
 {project_slug}
+{web_url}
+{web_port}
+{api_url}
+{api_port}
 ```
+
+Peer tokens are based on service names. Hyphens are available as underscores,
+so a `db-main` service can be referenced as `{db_main_port}` and
+`{db_main_url}`.
 
 ## When A Tool Requires localhost:3000
 
@@ -307,6 +317,7 @@ SWITCHYARD_HOME=/tmp/switchyard switchyard status
 ## Safety Defaults
 
 - Binds to `127.0.0.1` by default.
+- Rejects proxy and service hosts outside loopback addresses.
 - Stops only recorded service PIDs whose command still matches the registry.
 - Does not edit tracked `.env` files.
 - Rejects env paths outside the project/worktree.

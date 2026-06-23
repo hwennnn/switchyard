@@ -6,16 +6,20 @@ Switchyard runs local developer commands. Treat `switchyard.toml` as executable 
 
 - Binds to `127.0.0.1` by default.
 - Does not expose services publicly.
+- Rejects proxy and service bind hosts outside `127.0.0.1`, `localhost`, or `::1`.
 - Does not use ngrok, Tailscale, or LAN sharing in v0.
 - Does not read secrets except by linking/copying files you explicitly configure.
 - Rejects env file paths that escape the project/worktree.
 - Serializes runtime operations per project to reduce port/state races.
 - Checks recorded service commands before stopping running PIDs.
-- Pins MCP tool calls to the server startup directory.
+- Pins MCP tool calls to the server startup directory or registered worktrees.
 
 ## Reporting
 
-For a public repository, configure private vulnerability reporting on GitHub or publish a security contact here.
+Report vulnerabilities through GitHub private vulnerability reporting when it is
+enabled for the repository. If private reporting is unavailable, open a minimal
+public issue asking for a private security contact; do not include exploit
+details or local secrets in the issue.
 
 ## Local Secrets
 
@@ -40,10 +44,10 @@ switchyard mcp config
 
 The installed/generated config pins project lookup to the detected root. The
 generated TOML uses Codex's `cwd` field so the server can still run as
-`switchyard mcp`. Tool calls can only load that project or subdirectories under
-it. Managed worktrees may still be created in Switchyard's configured local
-worktree directory, such as `SWITCHYARD_HOME` or `[project].worktree_root`. Keep
-approval enabled for
+`switchyard mcp`. Tool calls can only load that project, subdirectories under
+it, or worktrees already registered for that project. Managed worktrees may
+still be created in Switchyard's configured local worktree directory, such as
+`SWITCHYARD_HOME` or `[project].worktree_root`. Keep approval enabled for
 `switchyard_create`, `switchyard_up`, `switchyard_checkout`,
 `switchyard_uncheckout`, and `switchyard_down`, because those tools create
 worktrees, start port forwarders, or start and stop local processes.

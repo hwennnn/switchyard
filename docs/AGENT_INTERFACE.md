@@ -17,9 +17,10 @@ switchyard mcp install
 switchyard mcp config
 ```
 
-`switchyard mcp install` detects the root and adds the server with `codex mcp
-add`. `switchyard mcp config` prints a trusted config snippet that uses Codex's
-`cwd` field, keeping the server command itself as `switchyard mcp`.
+`switchyard mcp install` detects the root and writes the full server block to
+`~/.codex/config.toml`. `switchyard mcp config` prints a trusted config snippet
+that uses Codex's `cwd` field, keeping the server command itself as
+`switchyard mcp`.
 
 ## Codex Skill
 
@@ -176,6 +177,10 @@ SWITCHYARD_WEB_PORT
 SWITCHYARD_API_URL
 SWITCHYARD_API_PORT
 ```
+
+Service commands can also use peer placeholders such as `{web_url}`,
+`{web_port}`, `{api_url}`, and `{api_port}`. For hyphenated service names, use
+underscores in placeholders, such as `{db_main_port}`.
 
 ## MCP Tool Order
 

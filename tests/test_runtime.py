@@ -4,6 +4,7 @@ import unittest
 import tempfile
 import subprocess
 import sys
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from switchyard.config import EnvConfig, PortsConfig, ProjectConfig, ProxyConfig, ServiceConfig
@@ -65,6 +66,49 @@ class RuntimeTests(unittest.TestCase):
                     start_services(config, registry, "feature/demo", root, ["typo"])
 
             ensure_proxy.assert_not_called()
+
+    def test_start_expands_peer_service_placeholders(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp) / "repo"
+            home = Path(temp) / "home"
+            root.mkdir()
+            config = ProjectConfig(
+                name="Demo",
+                root=root,
+                path=root / "switchyard.toml",
+                worktree_root=None,
+                env=EnvConfig(),
+                proxy=ProxyConfig(port=7331),
+                ports=PortsConfig(start=41000, end=41010),
+                services={
+                    "db-main": ServiceConfig(name="db-main", command="db --port {port}", port=5432),
+                    "api": ServiceConfig(
+                        name="api",
+                        command="api --port {port} --db {db_main_port} --db-url {db_main_url}",
+                        port=8000,
+                    ),
+                },
+            )
+            registry = Registry(home)
+
+            with patch("switchyard.runtime.ensure_proxy", return_value="proxy ok"):
+                with patch("switchyard.runtime.find_free_port", side_effect=[41000, 41001]):
+                    with patch("switchyard.runtime.subprocess.Popen") as popen:
+                        popen.side_effect = [SimpleNamespace(pid=1001), SimpleNamespace(pid=1002)]
+
+                        messages = start_services(config, registry, "feature/demo", root)
+
+            api_call = popen.call_args_list[1]
+            api_command = api_call.args[0]
+            api_env = api_call.kwargs["env"]
+            self.assertIn("--db 41000", api_command)
+            self.assertIn("--db-url http://db-main.feature-demo.demo.localhost:7331", api_command)
+            self.assertEqual(api_env["SWITCHYARD_DB_MAIN_PORT"], "41000")
+            self.assertEqual(
+                api_env["SWITCHYARD_DB_MAIN_URL"],
+                "http://db-main.feature-demo.demo.localhost:7331",
+            )
+            self.assertIn("started api on :41001 -> http://api.feature-demo.demo.localhost:7331", messages)
 
     def test_stop_removes_tampered_pid_record_without_killing_process(self) -> None:
         with tempfile.TemporaryDirectory() as temp:

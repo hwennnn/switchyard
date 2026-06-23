@@ -81,6 +81,50 @@ command = "two"
             with self.assertRaises(ValueError):
                 load_config(config_path)
 
+    def test_rejects_non_loopback_proxy_and_service_hosts(self) -> None:
+        cases = [
+            """
+[proxy]
+host = "0.0.0.0"
+
+[services.web]
+command = "python -m http.server {port}"
+""",
+            """
+[services.web]
+host = "192.168.1.5"
+command = "python -m http.server {port}"
+""",
+        ]
+        for text in cases:
+            with self.subTest(text=text), tempfile.TemporaryDirectory() as temp:
+                root = Path(temp)
+                config_path = root / "switchyard.toml"
+                config_path.write_text(text)
+
+                with self.assertRaisesRegex(ValueError, "loopback host"):
+                    load_config(config_path)
+
+    def test_allows_loopback_hosts(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            config_path = root / "switchyard.toml"
+            config_path.write_text(
+                """
+[proxy]
+host = "::1"
+
+[services.web]
+host = "localhost"
+command = "python -m http.server {port}"
+"""
+            )
+
+            config = load_config(config_path)
+
+        self.assertEqual(config.proxy.host, "::1")
+        self.assertEqual(config.services["web"].host, "localhost")
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -430,7 +430,57 @@ port = 8000
 
         result = response["result"]
         self.assertTrue(result["isError"])
-        self.assertIn("cwd must stay under MCP server root", result["content"][0]["text"])
+        self.assertIn("cwd must stay under MCP server root or a registered worktree", result["content"][0]["text"])
+
+    def test_tool_cwd_may_use_registered_worktree(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            workspace = Path(temp)
+            root = workspace / "project"
+            worktree = workspace / "feature-demo"
+            root.mkdir()
+            git(root, "init")
+            git(root, "config", "user.email", "test@example.com")
+            git(root, "config", "user.name", "Test User")
+            (root / "README.md").write_text("demo\n")
+            (root / "switchyard.toml").write_text(
+                """
+[project]
+name = "demo"
+
+[services.web]
+command = "python -m http.server {port}"
+port = 8000
+"""
+            )
+            git(root, "add", "README.md", "switchyard.toml")
+            git(root, "commit", "-m", "init")
+            git(root, "worktree", "add", "-b", "feature/demo", str(worktree))
+
+            with patch.dict(os.environ, {"SWITCHYARD_HOME": str(workspace / "home")}):
+                config = load_config(root / "switchyard.toml")
+                registry = Registry()
+                registry.ensure_project(config)
+                registry.upsert_worktree(config, "feature/demo", worktree)
+                set_server_root(root)
+                try:
+                    response = handle_request(
+                        {
+                            "jsonrpc": "2.0",
+                            "id": 12,
+                            "method": "tools/call",
+                            "params": {
+                                "name": "switchyard_brief",
+                                "arguments": {"cwd": str(worktree)},
+                            },
+                        }
+                    )
+                finally:
+                    set_server_root(None)
+
+        result = response["result"]
+        self.assertFalse(result["isError"])
+        self.assertEqual(result["structuredContent"]["branch"], "feature/demo")
+        self.assertEqual(Path(result["structuredContent"]["project_root"]).resolve(), root.resolve())
 
 
 if __name__ == "__main__":

@@ -321,6 +321,12 @@ def _start_services_locked(
             "project": config.name,
             "project_slug": config.slug,
         }
+        for other_name, other_url in urls.items():
+            placeholder_names = {other_name, other_name.replace("-", "_")}
+            for placeholder_name in placeholder_names:
+                values[f"{placeholder_name}_url"] = other_url
+                if other_name in peer_ports:
+                    values[f"{placeholder_name}_port"] = peer_ports[other_name]
         command = render_command(service.command, values)
         log_path = registry.log_path(config, branch, service_name)
         log = log_path.open("ab", buffering=0)
@@ -342,9 +348,10 @@ def _start_services_locked(
             }
         )
         for other_name, other_url in urls.items():
-            env[f"SWITCHYARD_{other_name.upper()}_URL"] = other_url
+            env_name = other_name.upper().replace("-", "_")
+            env[f"SWITCHYARD_{env_name}_URL"] = other_url
             if other_name in peer_ports:
-                env[f"SWITCHYARD_{other_name.upper()}_PORT"] = str(peer_ports[other_name])
+                env[f"SWITCHYARD_{env_name}_PORT"] = str(peer_ports[other_name])
 
         process = subprocess.Popen(
             command,

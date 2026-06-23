@@ -10,7 +10,7 @@ from io import StringIO
 from pathlib import Path
 from unittest.mock import patch
 
-from switchyard.cli import main, mcp_config_text, resolve_mcp_config_root, skill_text
+from switchyard.cli import install_mcp_config, main, mcp_config_text, resolve_mcp_config_root, skill_text
 from switchyard.config import load_config
 from switchyard.registry import Registry
 
@@ -206,7 +206,9 @@ port = 8000
                 code = main(["mcp", "install", "--dry-run", "--name", "switchyard-demo"])
 
         self.assertEqual(code, 0)
-        self.assertIn("codex mcp add switchyard-demo -- switchyard mcp --cwd", stdout.getvalue())
+        self.assertIn("# Would update:", stdout.getvalue())
+        self.assertIn('args = ["mcp"]', stdout.getvalue())
+        self.assertIn(f'cwd = "{root}"', stdout.getvalue())
         self.assertIn(str(root), stdout.getvalue())
         self.assertNotIn("/path/to/project", stdout.getvalue())
 
@@ -230,28 +232,60 @@ port = 8000
         self.assertEqual(install_code, 0)
         self.assertEqual(config_code, 0)
         self.assertIn(str(root), install_stdout.getvalue())
+        self.assertIn('args = ["mcp"]', install_stdout.getvalue())
         self.assertIn(f"# Generated for: {root}", config_stdout.getvalue())
         self.assertNotIn(str(other), install_stdout.getvalue())
         self.assertNotIn(str(other), config_stdout.getvalue())
 
-    def test_mcp_install_runs_codex_cli_with_detected_root(self) -> None:
+    def test_mcp_install_writes_codex_config_with_detected_root(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp).resolve()
+            codex_home = root / "codex-home"
             self.write_config(root)
-            completed = subprocess.CompletedProcess(args=[], returncode=0, stdout="added\n", stderr="")
 
             stdout = StringIO()
-            with chdir(root), redirect_stdout(stdout), redirect_stderr(StringIO()):
-                with patch("switchyard.cli.shutil.which", return_value="/usr/local/bin/codex"):
-                    with patch("switchyard.cli.subprocess.run", return_value=completed) as run_cmd:
-                        code = main(["mcp", "install", "--name", "switchyard-demo"])
-
-            command = run_cmd.call_args.args[0]
+            with patch.dict(os.environ, {"CODEX_HOME": str(codex_home)}):
+                with chdir(root), redirect_stdout(stdout), redirect_stderr(StringIO()):
+                    code = main(["mcp", "install", "--name", "switchyard-demo"])
+            config_text = (codex_home / "config.toml").read_text()
 
         self.assertEqual(code, 0)
-        self.assertEqual(command[0], "/usr/local/bin/codex")
-        self.assertEqual(command[1:], ["mcp", "add", "switchyard-demo", "--", "switchyard", "mcp", "--cwd", str(root)])
-        self.assertIn("installed Codex MCP server", stdout.getvalue())
+        self.assertIn("[mcp_servers.switchyard-demo]", config_text)
+        self.assertIn('args = ["mcp"]', config_text)
+        self.assertIn(f'cwd = "{root}"', config_text)
+        self.assertIn("Codex MCP server", stdout.getvalue())
+
+    def test_mcp_install_updates_existing_server_block(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp).resolve()
+            config_path = root / "config.toml"
+            config_path.write_text(
+                """
+model = "gpt-5.5"
+
+[mcp_servers.switchyard]
+command = "old"
+args = ["mcp", "--cwd", "/old"]
+
+[mcp_servers.switchyard.tools.switchyard_up]
+approval_mode = "approve"
+
+[mcp_servers.other]
+command = "other"
+"""
+            )
+
+            _, action = install_mcp_config("switchyard", root, config_path)
+            text = config_path.read_text()
+
+        self.assertEqual(action, "updated")
+        self.assertIn('model = "gpt-5.5"', text)
+        self.assertIn("[mcp_servers.other]", text)
+        self.assertIn('args = ["mcp"]', text)
+        self.assertIn(f'cwd = "{root}"', text)
+        self.assertNotIn("--cwd", text)
+        self.assertNotIn("[mcp_servers.switchyard.tools.switchyard_up]", text)
+        self.assertNotIn('approval_mode = "approve"', text)
 
     def test_list_json_returns_registered_worktrees(self) -> None:
         with tempfile.TemporaryDirectory() as temp:

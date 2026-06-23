@@ -45,9 +45,15 @@ API tokens in repository secrets.
 1. Create or claim the `switchyard-dev` project on PyPI/TestPyPI.
 2. Configure a Trusted Publisher for `hwennnn/switchyard`.
 3. Set the workflow name to `release.yml`.
-4. Run the `Release` workflow manually with `publish_target` set to `testpypi`.
-5. Install from TestPyPI and smoke test the CLI.
-6. Run the same workflow with `publish_target` set to `pypi`.
+4. Finalize the changelog entry for the package version.
+5. Tag the release as `v<version>` from `src/switchyard/__init__.py`.
+6. Run the `Release` workflow manually from that tag with `publish_target` set
+   to `testpypi`.
+7. Install from TestPyPI and smoke test the CLI.
+8. Run the same workflow from the tag with `publish_target` set to `pypi`.
+
+The workflow rejects branch runs, mismatched tags, and changelog entries that
+still say `Unreleased`.
 
 Manual install smoke:
 
