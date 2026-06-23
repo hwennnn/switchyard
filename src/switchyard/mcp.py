@@ -66,7 +66,10 @@ def string_array_schema() -> dict[str, Any]:
 COMMON_CWD = {
     "cwd": {
         "type": "string",
-        "description": f"Optional path under the MCP server startup directory. Defaults to the server cwd. Must contain {CONFIG_NAME}.",
+        "description": (
+            "Optional path under the MCP server project root, or a registered worktree path. "
+            f"Defaults to the detected server project root containing {CONFIG_NAME}."
+        ),
     }
 }
 
@@ -434,6 +437,15 @@ def resolve_branch_and_worktree(config, registry: Registry, branch: str | None, 
     return current, cwd.resolve()
 
 
+def branch_for_action(config, registry: Registry, requested: str | None, cwd: Path) -> str | None:
+    if requested:
+        return requested
+    if cwd.resolve() == config.root.resolve():
+        return None
+    branch, _ = resolve_branch_and_worktree(config, registry, None, cwd)
+    return branch
+
+
 def json_text(data: Any) -> str:
     return json.dumps(data, indent=2, sort_keys=True)
 
@@ -611,7 +623,7 @@ def tool_checkout(arguments: dict[str, Any]) -> dict[str, Any]:
 def tool_uncheckout(arguments: dict[str, Any]) -> dict[str, Any]:
     cwd = cwd_from(arguments)
     config, registry = load_project(cwd)
-    branch = string_argument(arguments, "branch")
+    branch = branch_for_action(config, registry, string_argument(arguments, "branch"), cwd)
     services = normalize_services(arguments.get("services"))
     messages = stop_checkouts(config, registry, branch, services)
     return tool_result({"branch": branch, "messages": messages})
@@ -620,7 +632,7 @@ def tool_uncheckout(arguments: dict[str, Any]) -> dict[str, Any]:
 def tool_down(arguments: dict[str, Any]) -> dict[str, Any]:
     cwd = cwd_from(arguments)
     config, registry = load_project(cwd)
-    branch = str(arguments["branch"]) if arguments.get("branch") else None
+    branch = branch_for_action(config, registry, string_argument(arguments, "branch"), cwd)
     services = normalize_services(arguments.get("services"))
     messages = stop_services(config, registry, branch, services)
     return tool_result({"branch": branch, "messages": messages})

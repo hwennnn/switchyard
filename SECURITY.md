@@ -44,10 +44,13 @@ switchyard mcp config
 
 The installed/generated config pins project lookup to the detected root. The
 generated TOML uses Codex's `cwd` field so the server can still run as
-`switchyard mcp`. Tool calls can only load that project, subdirectories under
-it, or worktrees already registered for that project. Managed worktrees may
-still be created in Switchyard's configured local worktree directory, such as
-`SWITCHYARD_HOME` or `[project].worktree_root`. Keep approval enabled for
+`switchyard mcp`. Direct `switchyard mcp` startup from a project or child
+directory auto-pins to the nearest `switchyard.toml`, so normal setup should
+not require hard-coded path arguments. Tool calls can only load that project,
+subdirectories under it, or worktrees already registered for that project.
+Managed worktrees may still be created in Switchyard's configured local
+worktree directory, such as `SWITCHYARD_HOME` or `[project].worktree_root`.
+Keep approval enabled for
 `switchyard_create`, `switchyard_up`, `switchyard_checkout`,
 `switchyard_uncheckout`, and `switchyard_down`, because those tools create
 worktrees, start port forwarders, or start and stop local processes.

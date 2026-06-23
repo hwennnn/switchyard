@@ -482,6 +482,67 @@ port = 8000
         self.assertEqual(result["structuredContent"]["branch"], "feature/demo")
         self.assertEqual(Path(result["structuredContent"]["project_root"]).resolve(), root.resolve())
 
+    def test_stop_tools_scope_to_registered_worktree_cwd(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            workspace = Path(temp)
+            root = workspace / "project"
+            worktree = workspace / "feature-demo"
+            root.mkdir()
+            worktree.mkdir()
+            (root / "switchyard.toml").write_text(
+                """
+[project]
+name = "demo"
+
+[services.web]
+command = "python -m http.server {port}"
+port = 8000
+"""
+            )
+
+            with patch.dict(os.environ, {"SWITCHYARD_HOME": str(workspace / "home")}):
+                config = load_config(root / "switchyard.toml")
+                registry = Registry()
+                registry.ensure_project(config)
+                registry.upsert_worktree(config, "feature/demo", worktree)
+                set_server_root(root)
+                try:
+                    with patch("switchyard.mcp.stop_checkouts", return_value=["unchecked web"]) as stop_checkouts:
+                        uncheckout_response = handle_request(
+                            {
+                                "jsonrpc": "2.0",
+                                "id": 13,
+                                "method": "tools/call",
+                                "params": {
+                                    "name": "switchyard_uncheckout",
+                                    "arguments": {"cwd": str(worktree), "services": ["web"]},
+                                },
+                            }
+                        )
+                    with patch("switchyard.mcp.stop_services", return_value=["stopped web"]) as stop_services:
+                        down_response = handle_request(
+                            {
+                                "jsonrpc": "2.0",
+                                "id": 14,
+                                "method": "tools/call",
+                                "params": {
+                                    "name": "switchyard_down",
+                                    "arguments": {"cwd": str(worktree), "services": ["web"]},
+                                },
+                            }
+                        )
+                finally:
+                    set_server_root(None)
+
+        uncheckout_result = uncheckout_response["result"]["structuredContent"]
+        down_result = down_response["result"]["structuredContent"]
+        self.assertEqual(uncheckout_result["branch"], "feature/demo")
+        self.assertEqual(uncheckout_result["messages"], ["unchecked web"])
+        self.assertEqual(down_result["branch"], "feature/demo")
+        self.assertEqual(down_result["messages"], ["stopped web"])
+        self.assertEqual(stop_checkouts.call_args.args[2:], ("feature/demo", ["web"]))
+        self.assertEqual(stop_services.call_args.args[2:], ("feature/demo", ["web"]))
+
 
 if __name__ == "__main__":
     unittest.main()

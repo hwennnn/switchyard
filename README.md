@@ -128,6 +128,10 @@ Switchyard ships a stdio MCP server for AI agents:
 switchyard mcp
 ```
 
+When launched from a project or any child directory, `switchyard mcp` pins
+itself to the nearest `switchyard.toml`. You should not need to hand-write a
+project path argument for normal setup.
+
 For Codex, run the installer from inside the project. It detects the real
 project root and writes the MCP server config without making you type a path:
 
@@ -296,9 +300,9 @@ switchyard logs [service] [--branch branch] [--json]
 switchyard open <service> [branch]
 switchyard where <service> [branch] [--json]
 switchyard brief [branch] [--json]
-switchyard mcp [--cwd path]
-switchyard mcp config [--cwd path] [--name name]
-switchyard mcp install [--cwd path] [--name name] [--dry-run]
+switchyard mcp
+switchyard mcp config [--name name] [--cwd other-checkout]
+switchyard mcp install [--name name] [--cwd other-checkout] [--dry-run]
 switchyard skill show
 switchyard skill install [--target dir] [--force]
 switchyard proxy stop

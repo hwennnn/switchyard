@@ -10,7 +10,14 @@ from io import StringIO
 from pathlib import Path
 from unittest.mock import patch
 
-from switchyard.cli import install_mcp_config, main, mcp_config_text, resolve_mcp_config_root, skill_text
+from switchyard.cli import (
+    install_mcp_config,
+    main,
+    mcp_config_text,
+    resolve_mcp_config_root,
+    resolve_mcp_server_root,
+    skill_text,
+)
 from switchyard.config import load_config
 from switchyard.registry import Registry
 
@@ -189,6 +196,31 @@ port = 8000
 
         self.assertTrue(found_config)
         self.assertEqual(resolved, root)
+
+    def test_mcp_server_root_discovers_project_from_subdir(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp).resolve()
+            subdir = root / "app" / "web"
+            subdir.mkdir(parents=True)
+            self.write_config(root)
+
+            with chdir(subdir):
+                resolved = resolve_mcp_server_root(None)
+
+        self.assertEqual(resolved, root)
+
+    def test_mcp_command_launches_from_detected_project_root(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp).resolve()
+            subdir = root / "app" / "web"
+            subdir.mkdir(parents=True)
+            self.write_config(root)
+
+            with chdir(subdir), patch("switchyard.cli.serve_mcp", return_value=0) as serve:
+                code = main(["mcp"])
+
+        self.assertEqual(code, 0)
+        self.assertEqual(serve.call_args.args[0], root)
 
     def test_mcp_config_name_must_be_toml_safe(self) -> None:
         with self.assertRaises(ValueError):

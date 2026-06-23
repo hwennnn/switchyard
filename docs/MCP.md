@@ -11,6 +11,9 @@ switchyard mcp
 
 The server speaks newline-delimited JSON-RPC over stdin/stdout and exposes
 tools for runtime discovery, logs, and process control.
+When launched from a project or any child directory, it automatically pins the
+server root to the nearest `switchyard.toml`; no absolute project path argument is
+needed in the normal path.
 
 ## Codex
 
@@ -90,6 +93,9 @@ so agents can read tool results without scraping text.
 - `switchyard_checkout` starts local canonical-port forwarders.
 - `switchyard_uncheckout` stops Switchyard-managed canonical-port forwarders.
 - `switchyard_down` stops Switchyard-managed PIDs.
+- When called from a registered worktree `cwd`, `switchyard_uncheckout` and
+  `switchyard_down` default to that worktree's branch. From the project root,
+  an omitted branch still means all matching Switchyard-managed runtime state.
 - Keep client approval enabled for write/action tools.
 - Use `--cwd` only when installing/generating config for a different checkout
-  or starting the server outside the project root.
+  or starting the server outside the project tree.

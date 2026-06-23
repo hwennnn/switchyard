@@ -10,6 +10,10 @@ Run Switchyard as a local stdio MCP server:
 switchyard mcp
 ```
 
+When launched from a project or any child directory, `switchyard mcp` resolves
+the nearest `switchyard.toml` automatically. Avoid hard-coded
+project path args in normal MCP setup.
+
 For Codex, generate project-specific setup text from inside the repository:
 
 ```sh
@@ -51,6 +55,10 @@ Use `switchyard_brief` before reading logs or guessing URLs. Treat
 `switchyard_create`, `switchyard_up`, `switchyard_checkout`,
 `switchyard_uncheckout`, and `switchyard_down` as visible local actions because
 they create worktrees, start services, or change port mappings.
+When MCP `switchyard_uncheckout` or `switchyard_down` runs with a registered
+worktree `cwd`, an omitted branch means that worktree's branch. From the project
+root, an omitted branch still means all matching Switchyard-managed runtime
+state.
 
 ## Best Commands For Agents
 

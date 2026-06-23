@@ -76,6 +76,7 @@ def check_public_docs() -> None:
     require("switchyard mcp install" in readme, "README should document one-command MCP setup")
     require("switchyard mcp config" in readme, "README should document copy-paste MCP setup")
     require("Codex's `cwd` field" in readme, "README should document pathless MCP config args")
+    require("nearest `switchyard.toml`" in readme, "README should document pathless MCP launch")
     require("switchyard_create" in readme and "switchyard_list" in readme, "README should document MCP worktree tools")
     require("switchyard_checkout" in readme and "switchyard_uncheckout" in readme, "README should document MCP checkout tools")
     require("switchyard skill install" in readme, "README should document bundled skill install")
@@ -135,6 +136,7 @@ def check_security_docs() -> None:
     require("switchyard mcp install" in security, "SECURITY.md should document one-command MCP setup")
     require("switchyard mcp config" in security, "SECURITY.md should document generated MCP setup")
     require("Codex's `cwd` field" in security, "SECURITY.md should document MCP cwd pinning")
+    require("nearest `switchyard.toml`" in security, "SECURITY.md should document pathless MCP launch")
     require("read-only/destructive/idempotent hints" in security, "SECURITY.md should document MCP safety hints")
     require("switchyard_create" in security, "SECURITY.md should mention MCP worktree creation")
     require("switchyard_checkout" in security, "SECURITY.md should mention MCP checkout forwarding")
@@ -165,6 +167,7 @@ def check_skill() -> None:
     require("switchyard mcp install" in text, "skill should teach one-command MCP setup")
     require("switchyard mcp config" in text, "skill should teach generated MCP setup")
     require("Codex's `cwd`" in text, "skill should teach pathless MCP config args")
+    require("nearest `switchyard.toml`" in text, "skill should teach pathless MCP launch")
     require("switchyard init --dry-run --json" in text, "skill should teach first-run setup preview")
     require("switchyard doctor --json" in text, "skill should teach machine-readable doctor")
     require("switchyard list --json" in text, "skill should teach machine-readable worktree list")
@@ -232,6 +235,8 @@ def check_mcp_smoke() -> None:
                 """
             )
         )
+        server_cwd = root / "apps" / "web"
+        server_cwd.mkdir(parents=True)
         env = os.environ.copy()
         env["PYTHONPATH"] = str(ROOT / "src")
         env["SWITCHYARD_HOME"] = str(root / "home")
@@ -244,7 +249,7 @@ def check_mcp_smoke() -> None:
                 "",
             ]
         )
-        result = run([sys.executable, "-m", "switchyard", "mcp", "--cwd", str(root)], env=env, input_text=readonly_payload)
+        result = run([sys.executable, "-m", "switchyard", "mcp"], cwd=server_cwd, env=env, input_text=readonly_payload)
         lines = [json.loads(line) for line in result.stdout.splitlines()]
         require(lines[0]["result"]["serverInfo"]["name"] == "switchyard", "MCP initialize failed")
         instructions = lines[0]["result"]["instructions"]
@@ -287,7 +292,7 @@ def check_mcp_smoke() -> None:
                 "",
             ]
         )
-        result = run([sys.executable, "-m", "switchyard", "mcp", "--cwd", str(root)], env=env, input_text=action_payload)
+        result = run([sys.executable, "-m", "switchyard", "mcp"], cwd=server_cwd, env=env, input_text=action_payload)
         action_lines = [json.loads(line) for line in result.stdout.splitlines()]
         require(action_lines[0]["result"]["structuredContent"]["created"] is True, "MCP create failed")
         require(action_lines[1]["result"]["structuredContent"]["worktrees"][0]["branch"] == "feature/mcp", "MCP list failed")

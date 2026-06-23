@@ -73,6 +73,10 @@ switchyard mcp install
 switchyard mcp config
 ```
 
+If the server is launched directly, run `switchyard mcp` from the project or any
+child directory; it resolves the nearest `switchyard.toml` automatically. Avoid
+hard-coded project path args in normal setup.
+
 `switchyard mcp install` detects the project root and writes the full server
 block to `~/.codex/config.toml`. `switchyard mcp config` prints the trusted
 config snippet with Codex's `cwd` field, keeping the server command itself as
@@ -88,4 +92,6 @@ port forwarders, or start/stop services.
 - Treat `switchyard_create` as a visible filesystem/git action.
 - Treat `switchyard_checkout` as a visible local port-forwarding action.
 - Treat `switchyard_uncheckout` as a visible local port-forwarding action.
+- When calling MCP stop tools from a registered worktree `cwd`, omit `branch`
+  only when you intend to target that worktree's branch.
 - Keep local scratch/research notes out of public commits.

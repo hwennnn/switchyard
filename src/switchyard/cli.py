@@ -503,15 +503,21 @@ def cmd_forward(args: argparse.Namespace) -> int:
 
 
 def cmd_mcp(args: argparse.Namespace) -> int:
-    cwd = getattr(args, "mcp_cwd", None)
-    root = Path(cwd).expanduser().resolve() if cwd else Path.cwd().resolve()
-    if cwd:
-        os.chdir(root)
+    root = resolve_mcp_server_root(getattr(args, "mcp_cwd", None))
+    os.chdir(root)
     return serve_mcp(root)
 
 
 def mcp_setup_cwd(args: argparse.Namespace) -> str | None:
     return getattr(args, "cwd", None) or getattr(args, "mcp_cwd", None)
+
+
+def resolve_mcp_server_root(cwd: str | None) -> Path:
+    root = Path(cwd).expanduser().resolve() if cwd else Path.cwd().resolve()
+    config_path = discover_config(root)
+    if config_path:
+        return config_path.parent.resolve()
+    return root
 
 
 def resolve_mcp_config_root(cwd: str | None) -> tuple[Path, bool]:
@@ -753,7 +759,11 @@ def build_parser() -> argparse.ArgumentParser:
     brief.set_defaults(func=cmd_brief)
 
     mcp = sub.add_parser("mcp", help="Run or configure a stdio MCP server for AI agents")
-    mcp.add_argument("--cwd", dest="mcp_cwd", help="Project directory to use as the MCP server working directory")
+    mcp.add_argument(
+        "--cwd",
+        dest="mcp_cwd",
+        help="Project directory to use when not launching from inside the project",
+    )
     mcp_sub = mcp.add_subparsers(dest="mcp_command")
     mcp_config = mcp_sub.add_parser("config", help="Print copy-paste Codex MCP config for this project")
     mcp_config.add_argument("--cwd", help="Project directory to generate config for")
