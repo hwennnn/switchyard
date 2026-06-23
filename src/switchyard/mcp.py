@@ -26,7 +26,9 @@ SUPPORTED_PROTOCOL_VERSIONS = {PROTOCOL_VERSION}
 SERVER_ROOT: Path | None = None
 INSTRUCTIONS = (
     "Switchyard exposes local runtime state for parallel agent worktrees. "
-    "Prefer switchyard_brief first, then switchyard_where or switchyard_logs for focused context. "
+    "Prefer the switchyard://project/brief resource first when available; otherwise call switchyard_brief. "
+    "Use switchyard_runtime_handoff for a read-only starter prompt. "
+    "Then use switchyard_where or switchyard_logs for focused context. "
     "Use switchyard_create when a requested branch runtime does not exist yet. "
     "switchyard_create, switchyard_up, switchyard_checkout, switchyard_uncheckout, and switchyard_down "
     "change local state and should be treated as user-visible actions."

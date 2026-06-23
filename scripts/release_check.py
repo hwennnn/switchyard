@@ -141,6 +141,8 @@ def check_public_docs() -> None:
     require("MCP clients that expose prompts" in readme, "README should document MCP prompts")
     require("switchyard_runtime_handoff" in readme, "README should document runtime handoff prompt")
     require("switchyard_branch_runtime" in readme, "README should document branch runtime prompt")
+    require("Agents should usually read `switchyard://project/brief` first" in readme, "README should teach resource-first MCP flow")
+    require("Agents should usually call `switchyard_brief` first" not in readme, "README should not teach tool-first MCP flow")
     require("## Status" in readme, "README should include current project status")
     require("MCP initialize + doctor" in readme, "README should document benchmark guardrails")
     require("python3 scripts/benchmark.py --runs 3" in readme, "README should document benchmark reproduction")
@@ -179,6 +181,9 @@ def check_public_docs() -> None:
         require("switchyard_runtime_handoff" in doc_text, f"{doc_name} should document MCP runtime handoff prompt")
         require("switchyard_branch_runtime" in doc_text, f"{doc_name} should document MCP branch runtime prompt")
         require("read-only templates" in doc_text, f"{doc_name} should document MCP prompts as read-only")
+        require("switchyard://project/brief" in doc_text.split("switchyard_where", 1)[0], f"{doc_name} should teach resource-first flow before service lookup")
+    require("Call `switchyard_brief` for compact state" not in mcp_doc, "docs/MCP.md should not teach tool-first flow")
+    require("Use `switchyard_brief` before reading logs" not in agent_interface, "docs/AGENT_INTERFACE.md should not teach tool-first flow")
     require((ROOT / "tests/fixtures/mcp_readonly_smoke.jsonl").exists(), "MCP read-only compatibility fixture missing")
     require((ROOT / "tests/fixtures/mcp_action_smoke.jsonl").exists(), "MCP action compatibility fixture missing")
     require("tests/fixtures/mcp_*.jsonl" in contributing, "CONTRIBUTING should point MCP work at compatibility fixtures")
@@ -368,6 +373,9 @@ def check_mcp_smoke() -> None:
         result = run([sys.executable, "-m", "switchyard", "mcp"], cwd=server_cwd, env=env, input_text=readonly_payload)
         lines = [json.loads(line) for line in result.stdout.splitlines()]
         require(lines[0]["result"]["serverInfo"]["name"] == "switchyard", "MCP initialize failed")
+        require("switchyard://project/brief" in lines[0]["result"]["instructions"], "MCP instructions should teach resource-first flow")
+        require("switchyard_runtime_handoff" in lines[0]["result"]["instructions"], "MCP instructions should mention handoff prompt")
+        require("Prefer switchyard_brief first" not in lines[0]["result"]["instructions"], "MCP instructions should not teach stale tool-first flow")
         require("resources" in lines[0]["result"]["capabilities"], "MCP initialize should advertise resources")
         require("prompts" in lines[0]["result"]["capabilities"], "MCP initialize should advertise prompts")
         instructions = lines[0]["result"]["instructions"]

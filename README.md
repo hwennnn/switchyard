@@ -222,10 +222,12 @@ switchyard_uncheckout
 switchyard_down
 ```
 
-Agents should usually call `switchyard_brief` first, then `switchyard_where` or
-`switchyard_logs` for focused follow-up. `switchyard_create`, `switchyard_up`,
-`switchyard_checkout`, `switchyard_uncheckout`, and `switchyard_down` change
-local state, so MCP clients should keep user approval enabled for them.
+Agents should usually read `switchyard://project/brief` first, or call
+`switchyard_brief` when resources are unavailable. Then use `switchyard_where`
+or `switchyard_logs` for focused follow-up. `switchyard_create`,
+`switchyard_up`, `switchyard_checkout`, `switchyard_uncheckout`, and
+`switchyard_down` change local state, so MCP clients should keep user approval
+enabled for them.
 Switchyard marks read-only discovery tools and local mutation tools with MCP
 tool annotations so clients can present safer approval UI.
 

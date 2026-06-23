@@ -78,10 +78,11 @@ switchyard_uncheckout
 switchyard_down
 ```
 
-Use `switchyard_brief` before reading logs or guessing URLs. Treat
-`switchyard_create`, `switchyard_up`, `switchyard_checkout`,
-`switchyard_uncheckout`, and `switchyard_down` as visible local actions because
-they create worktrees, start services, or change port mappings.
+Read `switchyard://project/brief` before reading logs or guessing URLs. If MCP
+resources are unavailable, call `switchyard_brief`. Treat `switchyard_create`,
+`switchyard_up`, `switchyard_checkout`, `switchyard_uncheckout`, and
+`switchyard_down` as visible local actions because they create worktrees, start
+services, or change port mappings.
 When MCP `switchyard_uncheckout` or `switchyard_down` runs with a registered
 worktree `cwd`, an omitted branch means that worktree's branch. From the project
 root, an omitted branch still means all matching Switchyard-managed runtime
@@ -225,8 +226,9 @@ underscores in placeholders, such as `{db_main_port}`.
 
 ## MCP Tool Order
 
-1. `switchyard_brief`
-2. `switchyard_where` for a specific service
-3. `switchyard_logs` only for the service that looks relevant
-4. `switchyard_create` when the user asked for a missing branch runtime
-5. `switchyard_up`, `switchyard_checkout`, `switchyard_uncheckout`, or `switchyard_down` only when the user asked for runtime changes
+1. Read `switchyard://project/brief`, or call `switchyard_brief` when resources are unavailable
+2. Use `switchyard_runtime_handoff` when prompts are available and a starter workflow helps
+3. `switchyard_where` for a specific service
+4. `switchyard_logs` only for the service that looks relevant
+5. `switchyard_create` when the user asked for a missing branch runtime
+6. `switchyard_up`, `switchyard_checkout`, `switchyard_uncheckout`, or `switchyard_down` only when the user asked for runtime changes

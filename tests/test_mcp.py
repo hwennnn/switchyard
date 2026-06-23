@@ -35,6 +35,9 @@ class McpTests(unittest.TestCase):
         self.assertIn("instructions", response["result"])
         self.assertIn("switchyard_checkout", response["result"]["instructions"])
         self.assertIn("switchyard_uncheckout", response["result"]["instructions"])
+        self.assertIn("switchyard://project/brief", response["result"]["instructions"])
+        self.assertIn("switchyard_runtime_handoff", response["result"]["instructions"])
+        self.assertNotIn("Prefer switchyard_brief first", response["result"]["instructions"])
 
     def test_initialize_falls_back_to_supported_protocol(self) -> None:
         response = handle_request(
