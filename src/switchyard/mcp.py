@@ -687,6 +687,14 @@ def optional_object(value: Any, label: str) -> dict[str, Any]:
     return value
 
 
+def optional_string(value: Any, label: str, default: str) -> str:
+    if value in (None, ""):
+        return default
+    if not isinstance(value, str):
+        raise McpError(-32602, f"{label} must be a string")
+    return value
+
+
 def handle_request(message: dict[str, Any]) -> dict[str, Any] | None:
     method = message.get("method")
     message_id = message.get("id")
@@ -697,7 +705,10 @@ def handle_request(message: dict[str, Any]) -> dict[str, Any] | None:
             params = optional_object(message.get("params"), "params")
         except McpError as exc:
             return error_response(message_id, exc.code, exc.message)
-        requested = str(params.get("protocolVersion") or PROTOCOL_VERSION)
+        try:
+            requested = optional_string(params.get("protocolVersion"), "protocolVersion", PROTOCOL_VERSION)
+        except McpError as exc:
+            return error_response(message_id, exc.code, exc.message)
         negotiated = requested if requested in SUPPORTED_PROTOCOL_VERSIONS else PROTOCOL_VERSION
         return response(
             message_id,

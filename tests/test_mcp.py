@@ -45,6 +45,19 @@ class McpTests(unittest.TestCase):
 
         self.assertEqual(response["result"]["protocolVersion"], "2025-06-18")
 
+    def test_initialize_rejects_non_string_protocol_version(self) -> None:
+        response = handle_request(
+            {
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "initialize",
+                "params": {"protocolVersion": 20250618},
+            }
+        )
+
+        self.assertEqual(response["error"]["code"], -32602)
+        self.assertIn("protocolVersion must be a string", response["error"]["message"])
+
     def test_initialize_rejects_non_object_params(self) -> None:
         response = handle_request({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": []})
 
