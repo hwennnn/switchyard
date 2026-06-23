@@ -61,6 +61,12 @@ python3 scripts/benchmark.py --runs 3
 python3 scripts/release_check.py
 ```
 
+Reference docs:
+
+- [API reference](https://github.com/hwennnn/switchyard/blob/main/docs/API.md)
+- [MCP guide](https://github.com/hwennnn/switchyard/blob/main/docs/MCP.md)
+- [Local publishing and CI/CD guide](https://github.com/hwennnn/switchyard/blob/main/docs/PUBLISHING_LOCAL.md)
+
 To smoke path-free MCP setup from a project that has `switchyard.toml`:
 
 ```sh

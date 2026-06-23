@@ -129,6 +129,14 @@ def check_public_docs() -> None:
         "[examples directory](https://github.com/hwennnn/switchyard/tree/main/examples)" in readme,
         "README examples link should use an absolute GitHub URL",
     )
+    require(
+        "[API reference](https://github.com/hwennnn/switchyard/blob/main/docs/API.md)" in readme,
+        "README should link the API reference",
+    )
+    require(
+        "[Local publishing and CI/CD guide](https://github.com/hwennnn/switchyard/blob/main/docs/PUBLISHING_LOCAL.md)" in readme,
+        "README should link the local publishing guide",
+    )
     require("](docs/MCP.md)" not in readme, "README should not use relative MCP badge links")
     require("](LICENSE)" not in readme, "README should not use relative license badge links")
     require("See `examples/`" not in readme, "README should not use a relative examples link in PyPI-facing copy")
@@ -215,12 +223,16 @@ def check_public_docs() -> None:
     )
     require("Scopes stop actions to the current registered worktree branch" in readme, "README should document scoped stop safety")
     require((ROOT / "docs/MCP.md").exists(), "docs/MCP.md missing")
+    require((ROOT / "docs/API.md").exists(), "docs/API.md missing")
+    require((ROOT / "docs/PUBLISHING_LOCAL.md").exists(), "docs/PUBLISHING_LOCAL.md missing")
     require((ROOT / "docs/RELEASE.md").exists(), "docs/RELEASE.md missing")
     require((ROOT / "AGENTS.md").exists(), "AGENTS.md missing")
     require((ROOT / "scripts/mcp_project_smoke.py").exists(), "MCP project smoke harness missing")
     architecture = read("docs/ARCHITECTURE.md")
+    api_doc = read("docs/API.md")
     mcp_doc = read("docs/MCP.md")
     agent_interface = read("docs/AGENT_INTERFACE.md")
+    publishing_doc = read("docs/PUBLISHING_LOCAL.md")
     release_doc = read("docs/RELEASE.md")
     changelog = read("CHANGELOG.md")
     contributing = read("CONTRIBUTING.md")
@@ -419,6 +431,37 @@ def check_public_docs() -> None:
     require("switchyard://project/brief" in release_doc, "release docs should smoke project brief resource")
     require("switchyard_branch_runtime" in release_doc, "release docs should smoke branch runtime prompt")
     require("testpypi_smoke_confirmed" in release_doc, "release docs should document PyPI promotion confirmation")
+    for needle in [
+        "CLI",
+        "JSON Outputs",
+        "MCP Resources",
+        "MCP Prompts",
+        "MCP Tools",
+        "`switchyard.toml`",
+        "Local State",
+        "switchyard://project/brief",
+        "switchyard_create",
+        "switchyard mcp install",
+        "args = [\"mcp\", \"--project\", \"name\"]",
+        "Generated config should not contain `cwd`, `--cwd`, or an absolute project\npath.",
+    ]:
+        require(needle in api_doc, f"docs/API.md missing {needle!r}")
+    for needle in [
+        "Local Publishing And CI/CD Guide",
+        "Python Packaging: Packaging Python Projects",
+        "PyPI: Publishing with a Trusted Publisher",
+        "Creating a project with a Trusted Publisher",
+        "Create pending publishers on both TestPyPI and PyPI",
+        "GitHub Environments",
+        "Release Workflow",
+        "Verify TestPyPI install before PyPI",
+        "PyPI install smoke",
+        "switchyard mcp smoke --json",
+        "Do not move a tag after publishing",
+    ]:
+        require(needle in publishing_doc, f"docs/PUBLISHING_LOCAL.md missing {needle!r}")
+    require("No PyPI token secrets are required." in publishing_doc, "publishing guide should document tokenless trusted publishing")
+    require("python3 scripts/release_check.py" in publishing_doc, "publishing guide should require the full release gate")
     require('version="$(python3 - <<' in release_doc, "release docs should derive release tag from package version")
     require('git tag -a "v$version" -m "Switchyard $version"' in release_doc, "release docs should create an annotated release tag")
     require('git push origin "v$version"' in release_doc, "release docs should push the derived release tag")
