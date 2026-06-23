@@ -157,6 +157,19 @@ def tail_lines(path: Path, limit: int = 80) -> list[str]:
     return lines[-limit:]
 
 
+def lines_since(path: Path, offset: int) -> tuple[int, list[str]]:
+    if not path.exists():
+        return 0, []
+    size = path.stat().st_size
+    if size < offset:
+        offset = 0
+    with path.open("rb") as handle:
+        handle.seek(offset)
+        data = handle.read()
+        next_offset = handle.tell()
+    return next_offset, data.decode(errors="replace").splitlines()
+
+
 def recent_error_lines(path: Path, limit: int = 8, scan_lines: int = 200) -> list[str]:
     needles = ("error", "exception", "failed", "traceback", "eaddrinuse", "panic")
     found = []

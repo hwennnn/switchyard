@@ -7,7 +7,9 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+from switchyard.config import load_config
 from switchyard.mcp import handle_request, set_server_root
+from switchyard.registry import Registry
 
 
 def git(repo: Path, *args: str) -> None:
@@ -259,6 +261,96 @@ port = 8000
         self.assertEqual(start.call_args.args[2:], ("feature/demo", ["web"]))
         self.assertEqual(uncheckout_response["result"]["structuredContent"]["messages"], ["unchecked web"])
         self.assertEqual(stop.call_args.args[2:], ("feature/demo", ["web"]))
+
+    def test_logs_tool_returns_line_arrays_and_text_tail(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            log_file = root / "web.log"
+            log_file.write_text("alpha\nbeta\ngamma\n")
+            (root / "switchyard.toml").write_text(
+                """
+[project]
+name = "demo"
+
+[services.web]
+command = "python -m http.server {port}"
+port = 8000
+"""
+            )
+
+            with patch.dict(os.environ, {"SWITCHYARD_HOME": str(root / ".switchyard-home")}):
+                config = load_config(root / "switchyard.toml")
+                registry = Registry()
+                registry.ensure_project(config)
+                registry.upsert_service(
+                    config,
+                    {
+                        "project": config.name,
+                        "branch": "feature/demo",
+                        "service": "web",
+                        "pid": 123,
+                        "command": "python -m http.server",
+                        "port": 41000,
+                        "url": "http://web.feature-demo.demo.localhost:7331",
+                        "log_file": str(log_file),
+                    },
+                )
+                set_server_root(root)
+                try:
+                    response = handle_request(
+                        {
+                            "jsonrpc": "2.0",
+                            "id": 10,
+                            "method": "tools/call",
+                            "params": {
+                                "name": "switchyard_logs",
+                                "arguments": {"branch": "feature/demo", "service": "web", "lines": 2},
+                            },
+                        }
+                    )
+                finally:
+                    set_server_root(None)
+
+        result = response["result"]
+        self.assertFalse(result["isError"])
+        self.assertEqual(result["structuredContent"]["logs"][0]["lines"], ["beta", "gamma"])
+        self.assertIn("beta\ngamma", result["content"][0]["text"])
+        self.assertNotIn("b\ne\nt\na", result["content"][0]["text"])
+
+    def test_logs_tool_rejects_non_integer_lines(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / "switchyard.toml").write_text(
+                """
+[project]
+name = "demo"
+
+[services.web]
+command = "python -m http.server {port}"
+port = 8000
+"""
+            )
+
+            with patch.dict(os.environ, {"SWITCHYARD_HOME": str(root / ".switchyard-home")}):
+                set_server_root(root)
+                try:
+                    response = handle_request(
+                        {
+                            "jsonrpc": "2.0",
+                            "id": 11,
+                            "method": "tools/call",
+                            "params": {
+                                "name": "switchyard_logs",
+                                "arguments": {"branch": "feature/demo", "service": "web", "lines": "2"},
+                            },
+                        }
+                    )
+                finally:
+                    set_server_root(None)
+
+        result = response["result"]
+        self.assertTrue(result["isError"])
+        self.assertIn("lines must be an integer", result["content"][0]["text"])
 
     def test_tool_cwd_must_stay_under_server_root(self) -> None:
         with tempfile.TemporaryDirectory() as allowed, tempfile.TemporaryDirectory() as other:

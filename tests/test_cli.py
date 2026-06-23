@@ -371,6 +371,58 @@ port = 8000
         self.assertEqual(code, 1)
         self.assertEqual(data, {"ok": False, "error": "boom"})
 
+    def test_logs_json_returns_structured_tail(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp).resolve()
+            self.write_config(root)
+            log_file = root / "web.log"
+            log_file.write_text("one\ntwo\nthree\n")
+
+            stdout = StringIO()
+            with patch.dict(os.environ, {"SWITCHYARD_HOME": str(root / "home")}), chdir(root):
+                config = load_config(root / "switchyard.toml")
+                registry = Registry()
+                registry.ensure_project(config)
+                registry.upsert_service(
+                    config,
+                    {
+                        "project": config.name,
+                        "branch": "feature/demo",
+                        "service": "web",
+                        "pid": 123,
+                        "command": "python -m http.server",
+                        "port": 41000,
+                        "url": "http://web.feature-demo.demo.localhost:7331",
+                        "log_file": str(log_file),
+                    },
+                )
+                with redirect_stdout(stdout), redirect_stderr(StringIO()):
+                    code = main(["logs", "web", "--branch", "feature/demo", "-n", "2", "--json"])
+
+            data = json.loads(stdout.getvalue())
+
+        self.assertEqual(code, 0)
+        self.assertEqual(data["lines"], 2)
+        self.assertEqual(data["logs"][0]["service"], "web")
+        self.assertEqual(data["logs"][0]["branch"], "feature/demo")
+        self.assertEqual(data["logs"][0]["lines"], ["two", "three"])
+
+    def test_logs_json_rejects_follow(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp).resolve()
+            self.write_config(root)
+
+            stdout = StringIO()
+            with patch.dict(os.environ, {"SWITCHYARD_HOME": str(root / "home")}), chdir(root):
+                with redirect_stdout(stdout), redirect_stderr(StringIO()):
+                    code = main(["logs", "--json", "--follow"])
+
+            data = json.loads(stdout.getvalue())
+
+        self.assertEqual(code, 1)
+        self.assertFalse(data["ok"])
+        self.assertIn("--follow", data["error"])
+
     def test_skill_text_is_bundled(self) -> None:
         text = skill_text()
 

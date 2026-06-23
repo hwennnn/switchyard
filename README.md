@@ -37,7 +37,7 @@ Agents can ask for the current state directly:
 ```sh
 switchyard brief --json
 switchyard where web feature/login --json
-switchyard logs web --branch feature/login
+switchyard logs web --branch feature/login --json
 switchyard mcp
 ```
 
@@ -110,7 +110,7 @@ View state:
 switchyard doctor --json
 switchyard status
 switchyard brief
-switchyard logs web --branch feature/login
+switchyard logs web --branch feature/login --json
 ```
 
 Stop it:
@@ -275,7 +275,7 @@ switchyard down [--branch branch] [services...] [--json]
 switchyard checkout <branch> [services...] [--json]
 switchyard uncheckout [--branch branch] [services...] [--json]
 switchyard status [--json]
-switchyard logs [service] [--branch branch]
+switchyard logs [service] [--branch branch] [--json]
 switchyard open <service> [branch]
 switchyard where <service> [branch] [--json]
 switchyard brief [branch] [--json]

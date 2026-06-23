@@ -47,7 +47,7 @@ Inspect state:
 switchyard list --json
 switchyard status --json
 switchyard where web feature/name --json
-switchyard logs web --branch feature/name -n 120
+switchyard logs web --branch feature/name -n 120 --json
 ```
 
 Start or stop services only when the user asked or verification requires it:

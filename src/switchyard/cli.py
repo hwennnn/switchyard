@@ -31,7 +31,7 @@ from .runtime import (
     stop_proxy,
     stop_services,
 )
-from .utils import fail, pid_running, print_table, slugify, switchyard_home
+from .utils import fail, lines_since, pid_running, print_table, slugify, switchyard_home, tail_lines
 
 
 def load_project_config(cwd: Path) -> tuple[object, Registry]:
@@ -328,6 +328,10 @@ def cmd_status(args: argparse.Namespace) -> int:
 
 
 def cmd_logs(args: argparse.Namespace) -> int:
+    if args.follow and args.json:
+        return fail_output(args, "--json cannot be used with --follow")
+    if args.lines < 1:
+        return fail_output(args, "--lines must be at least 1")
     try:
         config, registry = load_project_config(Path.cwd())
         branch, _ = resolve_branch_and_worktree(config, registry, args.branch, Path.cwd())
@@ -337,15 +341,36 @@ def cmd_logs(args: argparse.Namespace) -> int:
         else:
             records = registry.services(config.root, branch)
     except Exception as exc:
-        return fail(str(exc))
+        return fail_output(args, str(exc))
     if not records:
-        return fail("no matching logs")
+        return fail_output(args, "no matching logs")
+    if args.json:
+        logs = []
+        for record in records:
+            path = Path(str(record["log_file"]))
+            logs.append(
+                {
+                    "service": record.get("service"),
+                    "branch": record.get("branch"),
+                    "log_file": str(path),
+                    "lines": tail_lines(path, args.lines),
+                }
+            )
+        print(json.dumps({"logs": logs, "lines": args.lines}, indent=2, sort_keys=True))
+        return 0
+    offsets: dict[str, int] = {}
     while True:
         for record in records:
             path = Path(str(record["log_file"]))
-            if len(records) > 1:
+            path_key = str(path)
+            if args.follow and path_key in offsets:
+                offsets[path_key], new_lines = lines_since(path, offsets[path_key])
+                tail = "\n".join(new_lines)
+            else:
+                tail = format_log_tail(path, args.lines)
+                offsets[path_key] = path.stat().st_size if path.exists() else 0
+            if len(records) > 1 and tail:
                 print(f"==> {record['service']} ({record['branch']}) <==")
-            tail = format_log_tail(path, args.lines)
             if tail:
                 print(tail)
         if not args.follow:
@@ -648,6 +673,7 @@ def build_parser() -> argparse.ArgumentParser:
     logs.add_argument("--branch")
     logs.add_argument("-n", "--lines", type=int, default=80)
     logs.add_argument("-f", "--follow", action="store_true")
+    logs.add_argument("--json", action="store_true")
     logs.set_defaults(func=cmd_logs)
 
     open_cmd = sub.add_parser("open", help="Open a service URL")

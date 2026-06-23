@@ -10,6 +10,7 @@
 - Machine-readable `init --dry-run --json` for first-run setup previews.
 - Machine-readable `doctor --json` for setup and release harnesses.
 - Machine-readable action output and error envelopes for `create`, `list`, `up`, `down`, `checkout`, and `uncheckout`.
+- Machine-readable `logs --json` with structured log tail lines.
 - Built-in local HTTP reverse proxy and canonical checkout forwarder.
 - Stdio MCP server for agent-readable runtime state.
 - MCP tool annotations for read-only discovery and local mutation safety hints.

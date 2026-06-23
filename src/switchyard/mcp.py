@@ -12,14 +12,13 @@ from .gittools import GitError, create_worktree, current_branch, status_short
 from .registry import Registry
 from .runtime import (
     brief_for,
-    format_log_tail,
     hydrate_status,
     start_checkouts,
     start_services,
     stop_checkouts,
     stop_services,
 )
-from .utils import slugify
+from .utils import slugify, tail_lines
 
 
 PROTOCOL_VERSION = "2025-06-18"
@@ -393,7 +392,10 @@ def tool_logs(arguments: dict[str, Any]) -> dict[str, Any]:
     config, registry = load_project(cwd, ensure=False)
     branch_arg = str(arguments["branch"]) if arguments.get("branch") else None
     branch, _ = resolve_branch_and_worktree(config, registry, branch_arg, cwd)
-    lines = int(arguments.get("lines", 80))
+    lines_value = arguments.get("lines", 80)
+    if type(lines_value) is not int:
+        raise McpError(-32602, "lines must be an integer")
+    lines = lines_value
     if lines < 1 or lines > 300:
         raise McpError(-32602, "lines must be between 1 and 300")
     service = arguments.get("service")
@@ -408,7 +410,7 @@ def tool_logs(arguments: dict[str, Any]) -> dict[str, Any]:
     text_blocks = []
     for record in records:
         path = Path(str(record["log_file"]))
-        tail = format_log_tail(path, lines)
+        tail = tail_lines(path, lines)
         item = {"service": record["service"], "branch": record["branch"], "log_file": str(path), "lines": tail}
         logs.append(item)
         text_blocks.append(f"==> {record['service']} ({record['branch']}) <==\n" + "\n".join(tail))

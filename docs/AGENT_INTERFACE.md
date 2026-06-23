@@ -111,10 +111,13 @@ When you need one service.
 Use:
 
 ```sh
-switchyard logs web --branch feature/login -n 120
+switchyard logs web --branch feature/login -n 120 --json
 ```
 
 When debugging.
+
+Log JSON returns each selected service with `service`, `branch`, `log_file`, and
+an array of tail `lines`.
 
 Use action JSON when a shell-only agent needs to report what it changed:
 
