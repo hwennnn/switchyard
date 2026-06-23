@@ -143,6 +143,51 @@ It runs on pushes and pull requests to `main` and:
 
 CI uses read-only repository permissions.
 
+## Docs Publishing
+
+Docs CD lives at `.github/workflows/docs.yml`.
+
+One-time GitHub setup:
+
+1. Open the repository on GitHub.
+2. Go to `Settings` -> `Pages`.
+3. Under `Build and deployment`, set `Source` to `GitHub Actions`.
+4. Save the setting.
+
+The workflow:
+
+- Runs on pushes to `main` that change `docs/**`, `mkdocs.yml`, or the docs
+  workflow.
+- Can also be run manually with `workflow_dispatch`.
+- Installs `mkdocs==1.6.1`.
+- Runs `mkdocs build --strict`.
+- Uploads the generated `site/` directory as a GitHub Pages artifact.
+- Deploys with the official GitHub Pages deployment action.
+
+The workflow needs:
+
+```yaml
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+```
+
+It deploys to the `github-pages` environment and should publish to:
+
+```txt
+https://hwennnn.github.io/switchyard/
+```
+
+Local docs smoke:
+
+```sh
+python3 -m venv /tmp/switchyard-docs
+. /tmp/switchyard-docs/bin/activate
+python -m pip install mkdocs==1.6.1
+mkdocs build --strict
+```
+
 ## Release Workflow
 
 Release CD lives at `.github/workflows/release.yml` and is manual

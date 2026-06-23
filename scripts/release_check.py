@@ -225,6 +225,8 @@ def check_public_docs() -> None:
     require((ROOT / "docs/MCP.md").exists(), "docs/MCP.md missing")
     require((ROOT / "docs/API.md").exists(), "docs/API.md missing")
     require((ROOT / "docs/PUBLISHING_LOCAL.md").exists(), "docs/PUBLISHING_LOCAL.md missing")
+    require((ROOT / "docs/index.md").exists(), "docs index missing")
+    require((ROOT / "mkdocs.yml").exists(), "mkdocs config missing")
     require((ROOT / "docs/RELEASE.md").exists(), "docs/RELEASE.md missing")
     require((ROOT / "AGENTS.md").exists(), "AGENTS.md missing")
     require((ROOT / "scripts/mcp_project_smoke.py").exists(), "MCP project smoke harness missing")
@@ -331,11 +333,28 @@ def check_public_docs() -> None:
     require("MCP server wrapper" not in architecture + contributing, "public roadmap should not imply MCP server is missing")
     require("python3 scripts/release_check.py --skip-package" in agents, "AGENTS.md should point agents at release smoke gate")
     require((ROOT / ".github/workflows/ci.yml").exists(), "CI workflow missing")
+    require((ROOT / ".github/workflows/docs.yml").exists(), "docs workflow missing")
     require((ROOT / ".github/workflows/release.yml").exists(), "release workflow missing")
     ci_workflow = read(".github/workflows/ci.yml")
     require("python-version: ${{ matrix.python-version }}" in ci_workflow, "CI workflow should test Python matrix")
     require("python scripts/release_check.py --skip-package" in ci_workflow, "CI workflow should run release smoke gate")
     require("permissions:\n  contents: read" in ci_workflow, "CI workflow should use read-only permissions")
+    docs_workflow = read(".github/workflows/docs.yml")
+    mkdocs_config = read("mkdocs.yml")
+    docs_index = read("docs/index.md")
+    require("site_url: https://hwennnn.github.io/switchyard/" in mkdocs_config, "mkdocs should set the GitHub Pages URL")
+    require("strict: true" in mkdocs_config, "mkdocs should build in strict mode")
+    for page in ["API.md", "MCP.md", "AGENT_INTERFACE.md", "PUBLISHING_LOCAL.md", "RELEASE.md"]:
+        require(page in mkdocs_config, f"mkdocs nav missing {page}")
+    require("API Reference" in docs_index and "Publishing And CI/CD" in docs_index, "docs index should link core docs")
+    require("name: Docs" in docs_workflow, "docs workflow should be named Docs")
+    require("pages: write" in docs_workflow and "id-token: write" in docs_workflow, "docs workflow should have Pages permissions")
+    require("environment:\n      name: github-pages" in docs_workflow, "docs workflow should deploy to github-pages environment")
+    require("python -m pip install mkdocs==1.6.1" in docs_workflow, "docs workflow should pin mkdocs")
+    require("mkdocs build --strict" in docs_workflow, "docs workflow should build strictly")
+    require("actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b" in docs_workflow, "docs workflow should pin configure-pages")
+    require("actions/upload-pages-artifact@7b1f4a764d45c48632c6b24a0339c27f5614fb0b" in docs_workflow, "docs workflow should pin upload-pages-artifact")
+    require("actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e" in docs_workflow, "docs workflow should pin deploy-pages")
     release_workflow = read(".github/workflows/release.yml")
     require("switchyard skill show" in release_workflow, "release workflow should smoke bundled skill from wheel")
     require(release_workflow.count("sy --version") >= 4, "release workflow should smoke sy console script in wheel/TestPyPI/PyPI paths")
@@ -453,6 +472,10 @@ def check_public_docs() -> None:
         "Creating a project with a Trusted Publisher",
         "Create pending publishers on both TestPyPI and PyPI",
         "GitHub Environments",
+        "Docs Publishing",
+        "Settings` -> `Pages`",
+        "Source` to `GitHub Actions`",
+        "mkdocs build --strict",
         "Release Workflow",
         "Verify TestPyPI install before PyPI",
         "PyPI install smoke",
@@ -477,7 +500,7 @@ def check_public_docs() -> None:
         "python scripts/release_check.py --skip-package" not in release_workflow,
         "release workflow should run package checks",
     )
-    for workflow_name, workflow_text in [("CI", ci_workflow), ("release", release_workflow)]:
+    for workflow_name, workflow_text in [("CI", ci_workflow), ("docs", docs_workflow), ("release", release_workflow)]:
         for floating_ref in ["@v4", "@v5", "@release/v1"]:
             require(floating_ref not in workflow_text, f"{workflow_name} workflow should pin actions instead of {floating_ref}")
     require(not (ROOT / "docs/COMPETITIVE_RESEARCH.md").exists(), "internal competitive research should not be public")

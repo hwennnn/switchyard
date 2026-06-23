@@ -1,0 +1,17 @@
+site_name: Switchyard
+site_description: Local HTTP runtimes for parallel AI agent worktrees.
+site_url: https://hwennnn.github.io/switchyard/
+repo_url: https://github.com/hwennnn/switchyard
+repo_name: hwennnn/switchyard
+strict: true
+theme:
+  name: mkdocs
+  navigation_depth: 3
+nav:
+  - Home: index.md
+  - API Reference: API.md
+  - MCP Guide: MCP.md
+  - Agent Interface: AGENT_INTERFACE.md
+  - Architecture: ARCHITECTURE.md
+  - Publishing And CI/CD: PUBLISHING_LOCAL.md
+  - Release: RELEASE.md
