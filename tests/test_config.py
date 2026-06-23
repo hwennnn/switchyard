@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from switchyard.config import load_config
+from switchyard.config import default_config_text, detect_default_service, load_config
 
 
 class ConfigTests(unittest.TestCase):
@@ -29,6 +29,34 @@ port = 3000
             self.assertEqual(config.slug, "entropic-clock")
             self.assertEqual(config.proxy.port, 7331)
             self.assertEqual(config.services["web"].port, 3000)
+
+    def test_detects_package_json_dev_command_with_dynamic_port(self) -> None:
+        cases = [
+            (None, "npm run dev -- --port {port}"),
+            ("pnpm-lock.yaml", "pnpm run dev -- --port {port}"),
+            ("yarn.lock", "yarn run dev --port {port}"),
+        ]
+        for lockfile, expected in cases:
+            with self.subTest(lockfile=lockfile), tempfile.TemporaryDirectory() as temp:
+                root = Path(temp)
+                (root / "package.json").write_text('{"scripts":{"dev":"vite"}}')
+                if lockfile:
+                    (root / lockfile).write_text("")
+
+                command, port = detect_default_service(root)
+
+            self.assertEqual(command, expected)
+            self.assertEqual(port, 3000)
+
+    def test_default_config_text_explains_dynamic_port_contract(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / "package.json").write_text('{"scripts":{"dev":"vite"}}')
+
+            text = default_config_text(root)
+
+        self.assertIn("Commands should honor PORT/HOST", text)
+        self.assertIn('command = "npm run dev -- --port {port}"', text)
 
     def test_loads_project_worktree_root(self) -> None:
         with tempfile.TemporaryDirectory() as temp:

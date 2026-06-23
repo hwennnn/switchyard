@@ -179,7 +179,9 @@ def detect_default_service(root: Path) -> tuple[str, int]:
                     manager = "pnpm"
                 elif (root / "yarn.lock").exists():
                     manager = "yarn"
-                return f"{manager} run dev", 3000
+                if manager == "yarn":
+                    return "yarn run dev --port {port}", 3000
+                return f"{manager} run dev -- --port {{port}}", 3000
         except Exception:
             pass
     if (root / "manage.py").exists():

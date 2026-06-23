@@ -236,6 +236,7 @@ def check_public_docs() -> None:
     require("MCP tool calls stay pinned to the server project" in changelog, "CHANGELOG should mention nested MCP config boundary")
     require("MCP setup preserves explicit `SWITCHYARD_HOME`" in changelog, "CHANGELOG should mention MCP env preservation")
     require("Internal proxy/forward serve commands reject non-loopback hosts" in changelog, "CHANGELOG should mention internal serve host validation")
+    require("Generated JS first-run configs pass `{port}`" in changelog, "CHANGELOG should mention port-aware JS init defaults")
     require(
         "MCP startup from registered worktrees now uses the parent project" in changelog,
         "CHANGELOG should mention MCP registered-worktree startup",
@@ -673,7 +674,15 @@ def check_cli_json_smoke() -> None:
         require(init_data["would_fail"] is False, "fresh init dry run should not report a blocker")
         require(init_data["created_config"] is False, "init dry run should not report created config")
         require("[services.web]" in init_data["config_text"], "init dry run should include generated config")
+        require("Commands should honor PORT/HOST" in init_data["config_text"], "init dry run should explain dynamic port contract")
         require(not (root / "switchyard.toml").exists(), "init dry run should not write switchyard.toml")
+        (root / "package.json").write_text('{"scripts":{"dev":"vite"}}')
+        result = run([sys.executable, "-m", "switchyard", "init", "--dry-run", "--json"], cwd=root, env=env)
+        package_init_data = json.loads(result.stdout)
+        require(
+            'command = "npm run dev -- --port {port}"' in package_init_data["config_text"],
+            "init dry run should generate port-aware npm dev command",
+        )
         require(not (root / ".switchyard").exists(), "init dry run should not create local state")
         (root / "switchyard.toml").write_text(
             textwrap.dedent(

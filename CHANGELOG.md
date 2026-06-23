@@ -49,6 +49,7 @@
 - CLI state commands resolve registered worktree parent project and branch context.
 - CLI stop actions default to the registered worktree branch when run inside one.
 - Service commands can reference peer `{service_url}` and `{service_port}` placeholders.
+- Generated JS first-run configs pass `{port}` to dev scripts instead of assuming a default port.
 - Config validation rejects non-string or empty `[project].worktree_root` values.
 - Config validation rejects non-loopback proxy and service bind hosts.
 - Internal proxy/forward serve commands reject non-loopback hosts.
