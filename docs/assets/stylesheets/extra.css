@@ -12,10 +12,16 @@
 
 .md-typeset h1 {
   color: var(--switchyard-ink);
+  margin-bottom: 0.8rem;
+  font-size: 1.75rem;
+  line-height: 1.16;
   font-weight: 750;
 }
 
 .md-typeset h2 {
+  margin: 1.45rem 0 0.55rem;
+  font-size: 1.24rem;
+  line-height: 1.22;
   font-weight: 700;
 }
 
@@ -115,8 +121,20 @@
 }
 
 @media screen and (max-width: 44.9375em) {
+  .md-content__inner {
+    padding-top: 0.25rem;
+  }
+
   .md-typeset .hero {
     padding: 1rem;
+  }
+
+  .md-typeset h1 {
+    font-size: 1.48rem;
+  }
+
+  .md-typeset h2 {
+    font-size: 1.12rem;
   }
 
   .md-typeset .hero h1 {
