@@ -16,6 +16,8 @@
 - Stdio MCP server for agent-readable runtime state.
 - MCP tool annotations for read-only discovery and local mutation safety hints.
 - MCP output schemas for structured agent tool results.
+- MCP resources expose project brief, doctor, and agent guide context without initializing state.
+- MCP prompts expose read-only runtime handoff and branch runtime workflows.
 - MCP input schemas describe registered-worktree branch defaults for safer agent calls.
 - MCP tools reject non-string cwd, branch, and service arguments instead of coercing them.
 - MCP tools reject unknown arguments so typos cannot silently broaden actions.

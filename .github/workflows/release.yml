@@ -76,6 +76,12 @@ jobs:
           (cd "$smoke_project" && switchyard mcp projects --json | grep '"status": "ok"')
           ! (cd "$smoke_project" && switchyard mcp config | grep -F "cwd =")
           (cd "$smoke_project" && switchyard mcp install --dry-run | grep -F "# Would update:")
+          printf '%s\n' \
+            '{"jsonrpc":"2.0","id":1,"method":"resources/read","params":{"uri":"switchyard://project/brief"}}' \
+            '{"jsonrpc":"2.0","id":2,"method":"prompts/get","params":{"name":"switchyard_branch_runtime","arguments":{"branch":"feature/release","services":"web"}}}' \
+            | (cd "$smoke_project" && switchyard mcp --project switchyard) > "$smoke_project/mcp-smoke.jsonl"
+          grep -F 'switchyard://project/brief' "$smoke_project/mcp-smoke.jsonl"
+          grep -F 'feature/release' "$smoke_project/mcp-smoke.jsonl"
           switchyard skill show | grep switchyard_brief
           skill_target="$(mktemp -d)"
           switchyard skill install --target "$skill_target"

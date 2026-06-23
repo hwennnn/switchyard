@@ -84,6 +84,12 @@ EOF
 printf '%s\n\n' '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"switchyard_doctor","arguments":{}}}' \
   | switchyard mcp --project switchyard \
   | grep release-smoke
+printf '%s\n' \
+  '{"jsonrpc":"2.0","id":1,"method":"resources/read","params":{"uri":"switchyard://project/brief"}}' \
+  '{"jsonrpc":"2.0","id":2,"method":"prompts/get","params":{"name":"switchyard_branch_runtime","arguments":{"branch":"feature/release","services":"web"}}}' \
+  | switchyard mcp --project switchyard > "$tmp/mcp-smoke.jsonl"
+grep -F 'switchyard://project/brief' "$tmp/mcp-smoke.jsonl"
+grep -F 'feature/release' "$tmp/mcp-smoke.jsonl"
 ```
 
 ## Versioning
