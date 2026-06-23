@@ -1,5 +1,12 @@
 # Switchyard
 
+[![CI](https://github.com/hwennnn/switchyard/actions/workflows/ci.yml/badge.svg)](https://github.com/hwennnn/switchyard/actions/workflows/ci.yml)
+[![Python](https://img.shields.io/badge/python-3.11%2B-blue)](https://www.python.org/)
+[![MCP](https://img.shields.io/badge/MCP-stdio-5f43e9)](docs/MCP.md)
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+![Local First](https://img.shields.io/badge/local--first-no%20cloud-0f766e)
+![Agent Native](https://img.shields.io/badge/agent--native-brief%20%2B%20MCP-111827)
+
 Local runtimes for parallel agent worktrees.
 
 Switchyard is a lightweight local control plane for developers running multiple AI coding agents against the same repository. Each task gets an isolated git worktree, its own service processes, dynamic ports, stable local URLs, logs, status, and an agent-readable summary.
