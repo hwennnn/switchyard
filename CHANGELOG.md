@@ -8,8 +8,10 @@
 - Service registry, logs, status, `where`, and compact `brief` output.
 - Checkout mappings in compact `brief` output.
 - Machine-readable `doctor --json` for setup and release harnesses.
+- Machine-readable action output and error envelopes for `create`, `list`, `up`, `down`, `checkout`, and `uncheckout`.
 - Built-in local HTTP reverse proxy and canonical checkout forwarder.
 - Stdio MCP server for agent-readable runtime state.
+- One-command Codex MCP setup with `switchyard mcp install`.
 - MCP worktree create/list tools for agent-managed branch runtimes.
 - MCP checkout/uncheckout tools for canonical local port mappings.
 - Bundled Codex skill with `switchyard skill show/install`.

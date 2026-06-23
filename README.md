@@ -127,17 +127,25 @@ Switchyard ships a stdio MCP server for AI agents:
 switchyard mcp
 ```
 
-For Codex, run the setup helper from the project. It prints TOML and the
+For Codex, run the installer from inside the project. It detects the real
+project root and adds the MCP server without making you type a path:
+
+```sh
+switchyard mcp install
+```
+
+To inspect the config first, use the setup helper. It prints TOML and the
 matching `codex mcp add` command with the real project root already filled in:
 
 ```sh
 switchyard mcp config
 ```
 
-Use `--name` if you want a different MCP server name, or `--cwd` when generating
-config for another checkout:
+Use `--name` if you want a different MCP server name. Use `--cwd` only when
+generating or installing config for another checkout:
 
 ```sh
+switchyard mcp install --name switchyard-entropic
 switchyard mcp config --name switchyard-entropic
 ```
 
@@ -257,12 +265,12 @@ Today, checkout is HTTP-focused. Raw TCP services such as Postgres and Redis are
 ```txt
 switchyard init
 switchyard doctor [--json]
-switchyard create <branch>
-switchyard list
-switchyard up [branch] [services...]
-switchyard down [--branch branch] [services...]
-switchyard checkout <branch> [services...]
-switchyard uncheckout [--branch branch] [services...]
+switchyard create <branch> [--json]
+switchyard list [--json]
+switchyard up [branch] [services...] [--json]
+switchyard down [--branch branch] [services...] [--json]
+switchyard checkout <branch> [services...] [--json]
+switchyard uncheckout [--branch branch] [services...] [--json]
 switchyard status [--json]
 switchyard logs [service] [--branch branch]
 switchyard open <service> [branch]
@@ -270,6 +278,7 @@ switchyard where <service> [branch] [--json]
 switchyard brief [branch] [--json]
 switchyard mcp [--cwd path]
 switchyard mcp config [--cwd path] [--name name]
+switchyard mcp install [--cwd path] [--name name] [--dry-run]
 switchyard skill show
 switchyard skill install [--target dir] [--force]
 switchyard proxy stop

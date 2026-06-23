@@ -55,6 +55,7 @@ Manual install smoke:
 pipx install switchyard-dev
 switchyard --version
 switchyard mcp --help
+switchyard mcp install --dry-run
 switchyard mcp config
 switchyard skill show
 

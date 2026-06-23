@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import subprocess
 import tempfile
 import unittest
 from contextlib import contextmanager, redirect_stderr, redirect_stdout
@@ -10,6 +11,8 @@ from pathlib import Path
 from unittest.mock import patch
 
 from switchyard.cli import main, mcp_config_text, resolve_mcp_config_root, skill_text
+from switchyard.config import load_config
+from switchyard.registry import Registry
 
 
 @contextmanager
@@ -23,11 +26,9 @@ def chdir(path: Path):
 
 
 class CliTests(unittest.TestCase):
-    def test_doctor_json_success(self) -> None:
-        with tempfile.TemporaryDirectory() as temp:
-            root = Path(temp)
-            (root / "switchyard.toml").write_text(
-                """
+    def write_config(self, root: Path) -> None:
+        (root / "switchyard.toml").write_text(
+            """
 [project]
 name = "demo"
 
@@ -35,7 +36,12 @@ name = "demo"
 command = "python -m http.server {port}"
 port = 8000
 """
-            )
+        )
+
+    def test_doctor_json_success(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            self.write_config(root)
 
             stdout = StringIO()
             with patch.dict(os.environ, {"SWITCHYARD_HOME": str(root / "home")}), chdir(root):
@@ -80,15 +86,7 @@ port = 8000
             root = Path(temp).resolve()
             subdir = root / "app" / "web"
             subdir.mkdir(parents=True)
-            (root / "switchyard.toml").write_text(
-                """
-[project]
-name = "demo"
-
-[services.web]
-command = "python -m http.server {port}"
-"""
-            )
+            self.write_config(root)
 
             resolved, found_config = resolve_mcp_config_root(str(subdir))
 
@@ -98,6 +96,184 @@ command = "python -m http.server {port}"
     def test_mcp_config_name_must_be_toml_safe(self) -> None:
         with self.assertRaises(ValueError):
             mcp_config_text("bad name", Path.cwd())
+
+    def test_mcp_install_dry_run_detects_project_root(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp).resolve()
+            subdir = root / "app"
+            subdir.mkdir()
+            self.write_config(root)
+
+            stdout = StringIO()
+            with chdir(subdir), redirect_stdout(stdout), redirect_stderr(StringIO()):
+                code = main(["mcp", "install", "--dry-run", "--name", "switchyard-demo"])
+
+        self.assertEqual(code, 0)
+        self.assertIn("codex mcp add switchyard-demo -- switchyard mcp --cwd", stdout.getvalue())
+        self.assertIn(str(root), stdout.getvalue())
+        self.assertNotIn("/path/to/project", stdout.getvalue())
+
+    def test_mcp_parent_cwd_applies_to_setup_subcommands(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            workspace = Path(temp).resolve()
+            root = workspace / "project"
+            other = workspace / "other"
+            root.mkdir()
+            other.mkdir()
+            self.write_config(root)
+
+            install_stdout = StringIO()
+            config_stdout = StringIO()
+            with chdir(other), redirect_stderr(StringIO()):
+                with redirect_stdout(install_stdout):
+                    install_code = main(["mcp", "--cwd", str(root), "install", "--dry-run"])
+                with redirect_stdout(config_stdout):
+                    config_code = main(["mcp", "--cwd", str(root), "config"])
+
+        self.assertEqual(install_code, 0)
+        self.assertEqual(config_code, 0)
+        self.assertIn(str(root), install_stdout.getvalue())
+        self.assertIn(f"# Generated for: {root}", config_stdout.getvalue())
+        self.assertNotIn(str(other), install_stdout.getvalue())
+        self.assertNotIn(str(other), config_stdout.getvalue())
+
+    def test_mcp_install_runs_codex_cli_with_detected_root(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp).resolve()
+            self.write_config(root)
+            completed = subprocess.CompletedProcess(args=[], returncode=0, stdout="added\n", stderr="")
+
+            stdout = StringIO()
+            with chdir(root), redirect_stdout(stdout), redirect_stderr(StringIO()):
+                with patch("switchyard.cli.shutil.which", return_value="/usr/local/bin/codex"):
+                    with patch("switchyard.cli.subprocess.run", return_value=completed) as run_cmd:
+                        code = main(["mcp", "install", "--name", "switchyard-demo"])
+
+            command = run_cmd.call_args.args[0]
+
+        self.assertEqual(code, 0)
+        self.assertEqual(command[0], "/usr/local/bin/codex")
+        self.assertEqual(command[1:], ["mcp", "add", "switchyard-demo", "--", "switchyard", "mcp", "--cwd", str(root)])
+        self.assertIn("installed Codex MCP server", stdout.getvalue())
+
+    def test_list_json_returns_registered_worktrees(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp).resolve()
+            self.write_config(root)
+            worktree = root / "worktrees" / "feature-demo"
+            worktree.mkdir(parents=True)
+
+            stdout = StringIO()
+            with patch.dict(os.environ, {"SWITCHYARD_HOME": str(root / "home")}), chdir(root):
+                config = load_config(root / "switchyard.toml")
+                registry = Registry()
+                registry.ensure_project(config)
+                registry.upsert_worktree(config, "feature/demo", worktree)
+                with redirect_stdout(stdout), redirect_stderr(StringIO()):
+                    code = main(["list", "--json"])
+
+            data = json.loads(stdout.getvalue())
+
+        self.assertEqual(code, 0)
+        self.assertEqual(data["worktrees"][0]["branch"], "feature/demo")
+        self.assertEqual(data["worktrees"][0]["path"], str(worktree))
+
+    def test_runtime_action_commands_can_return_json(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp).resolve()
+            self.write_config(root)
+
+            with patch.dict(os.environ, {"SWITCHYARD_HOME": str(root / "home")}), chdir(root):
+                with patch("switchyard.cli.start_services", return_value=["started web"]) as start:
+                    stdout = StringIO()
+                    with redirect_stdout(stdout), redirect_stderr(StringIO()):
+                        code = main(["up", "--json"])
+                    up_data = json.loads(stdout.getvalue())
+
+                with patch("switchyard.cli.stop_services", return_value=["stopped web"]) as stop:
+                    stdout = StringIO()
+                    with redirect_stdout(stdout), redirect_stderr(StringIO()):
+                        code_down = main(["down", "--branch", "feature/demo", "web", "--json"])
+                    down_data = json.loads(stdout.getvalue())
+
+                with patch("switchyard.cli.start_checkouts", return_value=["checked out web"]) as checkout:
+                    stdout = StringIO()
+                    with redirect_stdout(stdout), redirect_stderr(StringIO()):
+                        code_checkout = main(["checkout", "feature/demo", "web", "--json"])
+                    checkout_data = json.loads(stdout.getvalue())
+
+                with patch("switchyard.cli.stop_checkouts", return_value=["unchecked web"]) as uncheckout:
+                    stdout = StringIO()
+                    with redirect_stdout(stdout), redirect_stderr(StringIO()):
+                        code_uncheckout = main(["uncheckout", "--branch", "feature/demo", "web", "--json"])
+                    uncheckout_data = json.loads(stdout.getvalue())
+
+        self.assertEqual(code, 0)
+        self.assertTrue(up_data["ok"])
+        self.assertEqual(up_data["action"], "up")
+        self.assertEqual(up_data["branch"], "current")
+        self.assertEqual(up_data["worktree"], str(root))
+        self.assertEqual(up_data["services"], [])
+        self.assertEqual(up_data["messages"], ["started web"])
+        start.assert_called_once()
+
+        self.assertEqual(code_down, 0)
+        self.assertEqual(
+            down_data,
+            {
+                "ok": True,
+                "action": "down",
+                "branch": "feature/demo",
+                "scope": "branch",
+                "services": ["web"],
+                "messages": ["stopped web"],
+            },
+        )
+        self.assertEqual(stop.call_args.args[3], ["web"])
+
+        self.assertEqual(code_checkout, 0)
+        self.assertEqual(
+            checkout_data,
+            {
+                "ok": True,
+                "action": "checkout",
+                "branch": "feature/demo",
+                "scope": "branch",
+                "services": ["web"],
+                "messages": ["checked out web"],
+            },
+        )
+        self.assertEqual(checkout.call_args.args[3], ["web"])
+
+        self.assertEqual(code_uncheckout, 0)
+        self.assertEqual(
+            uncheckout_data,
+            {
+                "ok": True,
+                "action": "uncheckout",
+                "branch": "feature/demo",
+                "scope": "branch",
+                "services": ["web"],
+                "messages": ["unchecked web"],
+            },
+        )
+        self.assertEqual(uncheckout.call_args.args[3], ["web"])
+
+    def test_action_json_failure_stays_machine_readable(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp).resolve()
+            self.write_config(root)
+
+            stdout = StringIO()
+            with patch.dict(os.environ, {"SWITCHYARD_HOME": str(root / "home")}), chdir(root):
+                with patch("switchyard.cli.stop_services", side_effect=RuntimeError("boom")):
+                    with redirect_stdout(stdout), redirect_stderr(StringIO()):
+                        code = main(["down", "--json"])
+
+            data = json.loads(stdout.getvalue())
+
+        self.assertEqual(code, 1)
+        self.assertEqual(data, {"ok": False, "error": "boom"})
 
     def test_skill_text_is_bundled(self) -> None:
         text = skill_text()

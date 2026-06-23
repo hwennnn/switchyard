@@ -24,10 +24,14 @@ def repo_root(cwd: Path) -> Path:
 
 def current_branch(cwd: Path) -> str:
     result = run(["git", "branch", "--show-current"], cwd=cwd, check=False)
+    if result.returncode != 0:
+        raise GitError(result.stderr.strip() or "could not read current branch")
     branch = result.stdout.strip()
     if branch:
         return branch
     result = run(["git", "rev-parse", "--short", "HEAD"], cwd=cwd, check=False)
+    if result.returncode != 0:
+        raise GitError(result.stderr.strip() or "could not read current commit")
     return result.stdout.strip() or "detached"
 
 
@@ -73,4 +77,3 @@ def append_info_exclude(repo: Path, pattern: str) -> None:
             if existing and not existing.endswith("\n"):
                 handle.write("\n")
             handle.write(f"{pattern}\n")
-

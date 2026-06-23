@@ -13,10 +13,12 @@ switchyard mcp
 For Codex, generate project-specific setup text from inside the repository:
 
 ```sh
+switchyard mcp install
 switchyard mcp config
 ```
 
-The helper prints a trusted config snippet and an equivalent `codex mcp add`
+`switchyard mcp install` detects the root and adds the server with `codex mcp
+add`. `switchyard mcp config` prints a trusted config snippet and equivalent
 command with the detected project root already filled in.
 
 ## Codex Skill
@@ -55,6 +57,7 @@ Use:
 
 ```sh
 switchyard doctor --json
+switchyard list --json
 ```
 
 When checking setup or reporting why a project is not initialized.
@@ -110,6 +113,17 @@ switchyard logs web --branch feature/login -n 120
 ```
 
 When debugging.
+
+Use action JSON when a shell-only agent needs to report what it changed:
+
+```sh
+switchyard up feature/login web --json
+switchyard checkout feature/login web --json
+switchyard down --branch feature/login web --json
+```
+
+Action JSON returns `ok`, `action`, requested services, messages, and a JSON
+error envelope on failure.
 
 ## Token-Saving Workflow
 

@@ -33,6 +33,7 @@ If MCP tools are available, use this order:
 Inspect state:
 
 ```sh
+switchyard list --json
 switchyard status --json
 switchyard where web feature/name --json
 switchyard logs web --branch feature/name -n 120
@@ -41,21 +42,26 @@ switchyard logs web --branch feature/name -n 120
 Start or stop services only when the user asked or verification requires it:
 
 ```sh
-switchyard up feature/name web api
-switchyard down --branch feature/name web
+switchyard up feature/name web api --json
+switchyard checkout feature/name web --json
+switchyard down --branch feature/name web --json
 ```
+
+Action JSON returns an `ok` field and a JSON error envelope on failure.
 
 ## MCP Setup
 
-For a trusted project, generate a local stdio MCP config from inside the repo:
+For a trusted project, install the local stdio MCP server from inside the repo:
 
 ```sh
+switchyard mcp install
 switchyard mcp config
 ```
 
-The command prints the trusted config snippet and `codex mcp add` command with
-the detected project root already filled in. Keep approval enabled for tools
-that create worktrees, start port forwarders, or start/stop services.
+`switchyard mcp install` detects the project root and runs `codex mcp add`.
+`switchyard mcp config` prints the trusted config snippet and equivalent command
+with the detected project root already filled in. Keep approval enabled for
+tools that create worktrees, start port forwarders, or start/stop services.
 
 ## Safety
 

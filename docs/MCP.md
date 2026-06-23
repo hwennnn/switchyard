@@ -15,8 +15,15 @@ tools for runtime discovery, logs, and process control.
 ## Codex
 
 Codex reads MCP server configuration from `~/.codex/config.toml` or from a
-trusted project-scoped `.codex/config.toml`. Generate a ready-to-paste config
-from inside the Switchyard project:
+trusted project-scoped `.codex/config.toml`. From inside the Switchyard
+project, install the server directly:
+
+```sh
+switchyard mcp install
+```
+
+This detects the project root and runs the matching `codex mcp add` command for
+you. To inspect the config first, generate ready-to-paste setup text:
 
 ```sh
 switchyard mcp config
@@ -26,6 +33,7 @@ The helper prints both TOML and the equivalent Codex CLI command with the
 detected project root filled in. Use `--name` for multiple projects:
 
 ```sh
+switchyard mcp install --name switchyard-entropic
 switchyard mcp config --name switchyard-entropic
 ```
 
@@ -55,7 +63,7 @@ Recommended agent flow:
 ## Safety
 
 - The MCP server is local stdio, not a network listener.
-- `switchyard mcp config` pins the generated server command to one detected
+- `switchyard mcp install` and `switchyard mcp config` pin the server command to one detected
   project root; tool calls cannot jump to a different local repository.
 - `switchyard_create` creates a local git worktree and syncs configured env files.
 - `switchyard_up` starts local processes from `switchyard.toml`.
@@ -63,5 +71,5 @@ Recommended agent flow:
 - `switchyard_uncheckout` stops Switchyard-managed canonical-port forwarders.
 - `switchyard_down` stops Switchyard-managed PIDs.
 - Keep client approval enabled for write/action tools.
-- Use `--cwd` only when generating config for a different checkout or starting
-  the server outside the project root.
+- Use `--cwd` only when installing/generating config for a different checkout
+  or starting the server outside the project root.

@@ -6,6 +6,7 @@ import json
 import os
 import shlex
 import shutil
+import subprocess
 import sys
 import tempfile
 import time
@@ -137,6 +138,27 @@ def cmd_doctor(args: argparse.Namespace) -> int:
     return 0
 
 
+def fail_json(message: str, code: int = 1) -> int:
+    print(json.dumps({"ok": False, "error": message}, indent=2, sort_keys=True))
+    return code
+
+
+def fail_output(args: argparse.Namespace, message: str, code: int = 1) -> int:
+    if getattr(args, "json", False):
+        return fail_json(message, code)
+    return fail(message, code)
+
+
+def print_action_json(action: str, payload: dict[str, object]) -> None:
+    data = {"ok": True, "action": action}
+    data.update(payload)
+    print(json.dumps(data, indent=2, sort_keys=True))
+
+
+def branch_scope(branch: str | None) -> str:
+    return "branch" if branch else "all"
+
+
 def cmd_create(args: argparse.Namespace) -> int:
     try:
         config, registry = load_project_config(Path.cwd())
@@ -146,7 +168,10 @@ def cmd_create(args: argparse.Namespace) -> int:
         actions = sync_env_files(config.root, path, config.env, force=args.force_env)
         registry.upsert_worktree(config, branch, path)
     except Exception as exc:
-        return fail(str(exc))
+        return fail_output(args, str(exc))
+    if args.json:
+        print_action_json("create", {"branch": branch, "worktree": str(path), "env": actions})
+        return 0
     print(f"created worktree {branch} at {path}")
     for action in actions:
         print(f"env: {action}")
@@ -157,8 +182,11 @@ def cmd_list(args: argparse.Namespace) -> int:
     try:
         config, registry = load_project_config(Path.cwd())
     except Exception as exc:
-        return fail(str(exc))
+        return fail_output(args, str(exc))
     worktrees = registry.list_worktrees(config.root)
+    if args.json:
+        print(json.dumps({"worktrees": worktrees}, indent=2, sort_keys=True))
+        return 0
     rows = [[item["branch"], item["path"]] for item in worktrees]
     if rows:
         print_table(["branch", "path"], rows)
@@ -172,10 +200,16 @@ def cmd_up(args: argparse.Namespace) -> int:
         config, registry = load_project_config(Path.cwd())
         branch, worktree = resolve_branch_and_worktree(config, registry, args.branch, Path.cwd())
         if not worktree.exists():
-            return fail(f"worktree does not exist: {worktree}; run `switchyard create {branch}` first")
+            return fail_output(args, f"worktree does not exist: {worktree}; run `switchyard create {branch}` first")
         messages = start_services(config, registry, branch, worktree, args.services)
     except Exception as exc:
-        return fail(str(exc))
+        return fail_output(args, str(exc))
+    if args.json:
+        print_action_json(
+            "up",
+            {"branch": branch, "worktree": str(worktree), "services": args.services, "messages": messages},
+        )
+        return 0
     for message in messages:
         print(message)
     return 0
@@ -186,7 +220,13 @@ def cmd_down(args: argparse.Namespace) -> int:
         config, registry = load_project_config(Path.cwd())
         messages = stop_services(config, registry, args.branch, args.services)
     except Exception as exc:
-        return fail(str(exc))
+        return fail_output(args, str(exc))
+    if args.json:
+        print_action_json(
+            "down",
+            {"branch": args.branch, "scope": branch_scope(args.branch), "services": args.services, "messages": messages},
+        )
+        return 0
     for message in messages:
         print(message)
     return 0
@@ -197,7 +237,13 @@ def cmd_checkout(args: argparse.Namespace) -> int:
         config, registry = load_project_config(Path.cwd())
         messages = start_checkouts(config, registry, args.branch, args.services)
     except Exception as exc:
-        return fail(str(exc))
+        return fail_output(args, str(exc))
+    if args.json:
+        print_action_json(
+            "checkout",
+            {"branch": args.branch, "scope": "branch", "services": args.services, "messages": messages},
+        )
+        return 0
     for message in messages:
         print(message)
     return 0
@@ -208,7 +254,13 @@ def cmd_uncheckout(args: argparse.Namespace) -> int:
         config, registry = load_project_config(Path.cwd())
         messages = stop_checkouts(config, registry, args.branch, args.services)
     except Exception as exc:
-        return fail(str(exc))
+        return fail_output(args, str(exc))
+    if args.json:
+        print_action_json(
+            "uncheckout",
+            {"branch": args.branch, "scope": branch_scope(args.branch), "services": args.services, "messages": messages},
+        )
+        return 0
     for message in messages:
         print(message)
     return 0
@@ -219,7 +271,7 @@ def cmd_status(args: argparse.Namespace) -> int:
         config, registry = load_project_config(Path.cwd())
         records = hydrate_status(registry.services(config.root, args.branch))
     except Exception as exc:
-        return fail(str(exc))
+        return fail_output(args, str(exc))
     if args.json:
         print(json.dumps(records, indent=2, sort_keys=True))
         return 0
@@ -280,9 +332,9 @@ def cmd_where(args: argparse.Namespace) -> int:
         branch, _ = resolve_branch_and_worktree(config, registry, args.branch, Path.cwd())
         record = registry.find_service(config.root, args.service, branch)
         if not record:
-            return fail(f"{args.service} is not running for {branch}")
+            return fail_output(args, f"{args.service} is not running for {branch}")
     except Exception as exc:
-        return fail(str(exc))
+        return fail_output(args, str(exc))
     if args.json:
         print(json.dumps(record, indent=2, sort_keys=True))
     else:
@@ -299,7 +351,7 @@ def cmd_brief(args: argparse.Namespace) -> int:
         changed = status_short(worktree) if worktree.exists() else []
         brief = brief_for(config, registry, branch if args.branch else None, changed)
     except Exception as exc:
-        return fail(str(exc))
+        return fail_output(args, str(exc))
     if args.json:
         print(json.dumps(brief, indent=2, sort_keys=True))
         return 0
@@ -357,10 +409,15 @@ def cmd_forward(args: argparse.Namespace) -> int:
 
 
 def cmd_mcp(args: argparse.Namespace) -> int:
-    root = Path(args.cwd).expanduser().resolve() if args.cwd else Path.cwd().resolve()
-    if args.cwd:
+    cwd = getattr(args, "mcp_cwd", None)
+    root = Path(cwd).expanduser().resolve() if cwd else Path.cwd().resolve()
+    if cwd:
         os.chdir(root)
     return serve_mcp(root)
+
+
+def mcp_setup_cwd(args: argparse.Namespace) -> str | None:
+    return getattr(args, "cwd", None) or getattr(args, "mcp_cwd", None)
 
 
 def resolve_mcp_config_root(cwd: str | None) -> tuple[Path, bool]:
@@ -371,10 +428,19 @@ def resolve_mcp_config_root(cwd: str | None) -> tuple[Path, bool]:
     return root, False
 
 
-def mcp_config_text(name: str, root: Path) -> str:
+def validate_mcp_name(name: str) -> None:
     allowed = set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-")
     if not name or any(char not in allowed for char in name):
         raise ValueError("MCP server name must contain only letters, numbers, underscores, and dashes")
+
+
+def codex_mcp_add_args(name: str, root: Path) -> list[str]:
+    validate_mcp_name(name)
+    return ["codex", "mcp", "add", name, "--", "switchyard", "mcp", "--cwd", str(root)]
+
+
+def mcp_config_text(name: str, root: Path) -> str:
+    validate_mcp_name(name)
     args = ["mcp", "--cwd", str(root)]
     args_text = ", ".join(json.dumps(item) for item in args)
     return (
@@ -389,7 +455,7 @@ def mcp_config_text(name: str, root: Path) -> str:
 
 def cmd_mcp_config(args: argparse.Namespace) -> int:
     try:
-        root, found_config = resolve_mcp_config_root(args.cwd)
+        root, found_config = resolve_mcp_config_root(mcp_setup_cwd(args))
         text = mcp_config_text(args.name, root)
     except Exception as exc:
         return fail(str(exc))
@@ -400,7 +466,32 @@ def cmd_mcp_config(args: argparse.Namespace) -> int:
     print()
     print(text, end="")
     print()
-    print(f"codex mcp add {args.name} -- switchyard mcp --cwd {shlex.quote(str(root))}")
+    print(shlex.join(codex_mcp_add_args(args.name, root)))
+    return 0
+
+
+def cmd_mcp_install(args: argparse.Namespace) -> int:
+    try:
+        root, found_config = resolve_mcp_config_root(mcp_setup_cwd(args))
+        command = codex_mcp_add_args(args.name, root)
+    except Exception as exc:
+        return fail(str(exc))
+    if not found_config:
+        return fail(f"could not find {CONFIG_NAME} from {root}; run `switchyard init` there first")
+    if args.dry_run:
+        print(shlex.join(command))
+        return 0
+    codex = shutil.which("codex")
+    if not codex:
+        return fail("codex CLI not found; run `switchyard mcp config` and paste the generated config instead")
+    command[0] = codex
+    result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    if result.returncode != 0:
+        details = result.stderr.strip() or result.stdout.strip()
+        return fail(details or "codex mcp add failed")
+    if result.stdout.strip():
+        print(result.stdout.strip())
+    print(f"installed Codex MCP server {args.name!r} for {root}")
     return 0
 
 
@@ -473,29 +564,35 @@ def build_parser() -> argparse.ArgumentParser:
     create.add_argument("--base")
     create.add_argument("--path")
     create.add_argument("--force-env", action="store_true")
+    create.add_argument("--json", action="store_true")
     create.set_defaults(func=cmd_create)
 
     list_cmd = sub.add_parser("list", help="List Switchyard worktrees")
+    list_cmd.add_argument("--json", action="store_true")
     list_cmd.set_defaults(func=cmd_list)
 
     up = sub.add_parser("up", help="Start services for a branch/worktree")
     up.add_argument("branch", nargs="?")
     up.add_argument("services", nargs="*")
+    up.add_argument("--json", action="store_true")
     up.set_defaults(func=cmd_up)
 
     down = sub.add_parser("down", help="Stop services")
     down.add_argument("--branch")
     down.add_argument("services", nargs="*")
+    down.add_argument("--json", action="store_true")
     down.set_defaults(func=cmd_down)
 
     checkout = sub.add_parser("checkout", help="Map a running branch runtime to canonical configured ports")
     checkout.add_argument("branch")
     checkout.add_argument("services", nargs="*")
+    checkout.add_argument("--json", action="store_true")
     checkout.set_defaults(func=cmd_checkout)
 
     uncheckout = sub.add_parser("uncheckout", help="Stop canonical port mappings")
     uncheckout.add_argument("--branch")
     uncheckout.add_argument("services", nargs="*")
+    uncheckout.add_argument("--json", action="store_true")
     uncheckout.set_defaults(func=cmd_uncheckout)
 
     status = sub.add_parser("status", help="Show services")
@@ -528,13 +625,18 @@ def build_parser() -> argparse.ArgumentParser:
     brief.set_defaults(func=cmd_brief)
 
     mcp = sub.add_parser("mcp", help="Run or configure a stdio MCP server for AI agents")
-    mcp.add_argument("--cwd", help="Project directory to use as the MCP server working directory")
+    mcp.add_argument("--cwd", dest="mcp_cwd", help="Project directory to use as the MCP server working directory")
     mcp_sub = mcp.add_subparsers(dest="mcp_command")
     mcp_config = mcp_sub.add_parser("config", help="Print copy-paste Codex MCP config for this project")
     mcp_config.add_argument("--cwd", help="Project directory to generate config for")
     mcp_config.add_argument("--name", default="switchyard", help="MCP server name in Codex config")
+    mcp_install = mcp_sub.add_parser("install", help="Add this project to Codex MCP config")
+    mcp_install.add_argument("--cwd", help="Project directory to install config for")
+    mcp_install.add_argument("--name", default="switchyard", help="MCP server name in Codex config")
+    mcp_install.add_argument("--dry-run", action="store_true", help="Print the codex mcp add command without running it")
     mcp.set_defaults(func=cmd_mcp)
     mcp_config.set_defaults(func=cmd_mcp_config)
+    mcp_install.set_defaults(func=cmd_mcp_install)
 
     skill = sub.add_parser("skill", help="Show or install the bundled Codex skill")
     skill_sub = skill.add_subparsers(dest="skill_command", required=True)

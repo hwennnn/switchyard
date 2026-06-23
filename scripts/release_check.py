@@ -71,11 +71,13 @@ def check_metadata() -> None:
 def check_public_docs() -> None:
     readme = read("README.md")
     require("switchyard mcp" in readme, "README should document MCP")
+    require("switchyard mcp install" in readme, "README should document one-command MCP setup")
     require("switchyard mcp config" in readme, "README should document copy-paste MCP setup")
     require("switchyard_create" in readme and "switchyard_list" in readme, "README should document MCP worktree tools")
     require("switchyard_checkout" in readme and "switchyard_uncheckout" in readme, "README should document MCP checkout tools")
     require("switchyard skill install" in readme, "README should document bundled skill install")
     require("switchyard doctor --json" in readme, "README should document machine-readable doctor")
+    require("switchyard list [--json]" in readme, "README should document machine-readable worktree list")
     require("switchyard-dev" in readme, "README should document publish package name")
     require("brief --json" in readme, "README should show agent-readable state")
     require('"checkouts"' in readme, "README should show checkout state in brief output")
@@ -97,6 +99,7 @@ def check_security_docs() -> None:
     security = read("SECURITY.md")
     for needle in ["127.0.0.1", "Does not expose services publicly", "Checks recorded service commands", "switchyard.toml"]:
         require(needle in security, f"SECURITY.md missing {needle!r}")
+    require("switchyard mcp install" in security, "SECURITY.md should document one-command MCP setup")
     require("switchyard mcp config" in security, "SECURITY.md should document generated MCP setup")
     require("switchyard_create" in security, "SECURITY.md should mention MCP worktree creation")
     require("switchyard_checkout" in security, "SECURITY.md should mention MCP checkout forwarding")
@@ -124,8 +127,10 @@ def check_skill() -> None:
         "switchyard_checkout" in text and "switchyard_uncheckout" in text,
         "skill should teach MCP checkout forwarding",
     )
+    require("switchyard mcp install" in text, "skill should teach one-command MCP setup")
     require("switchyard mcp config" in text, "skill should teach generated MCP setup")
     require("switchyard doctor --json" in text, "skill should teach machine-readable doctor")
+    require("switchyard list --json" in text, "skill should teach machine-readable worktree list")
     require("/path/to/project" not in text, "skill should not ship path placeholders")
     agent_text = agent.read_text()
     require("default_prompt: \"Use $switchyard" in agent_text, "skill default prompt should mention $switchyard")
@@ -228,6 +233,13 @@ def check_cli_json_smoke() -> None:
         require(data["ok"] is True, "doctor --json should report ok")
         require(data["project"]["name"] == "demo", "doctor --json project name mismatch")
         require(data["services"] == ["web"], "doctor --json service list mismatch")
+        result = run([sys.executable, "-m", "switchyard", "list", "--json"], cwd=root, env=env)
+        data = json.loads(result.stdout)
+        require(data == {"worktrees": []}, "list --json should report empty worktrees")
+        result = run([sys.executable, "-m", "switchyard", "mcp", "install", "--dry-run"], cwd=root, env=env)
+        require("codex mcp add switchyard -- switchyard mcp --cwd" in result.stdout, "mcp install dry run should print codex command")
+        require(str(root.resolve()) in result.stdout, "mcp install dry run should include detected root")
+        require("/path/to/project" not in result.stdout, "mcp install dry run should not use path placeholders")
     ok("CLI JSON smoke")
 
 
