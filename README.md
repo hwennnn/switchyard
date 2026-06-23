@@ -19,6 +19,37 @@ It is intentionally local-first:
 - No public tunnels by default.
 - One small `switchyard.toml`.
 
+## Status
+
+Alpha, but usable for local agent runtime coordination.
+
+What works today:
+
+- Git worktree creation with env link/copy preflight.
+- Dynamic loopback ports and branch-scoped `.localhost` URLs.
+- Agent-readable JSON for setup, logs, runtime state, and checkout mappings.
+- Stdio MCP tools with schemas, annotations, and local mutation boundaries.
+- One-command Codex MCP setup using local project aliases, not path args.
+- Bundled Codex skill for agent workflow guidance.
+
+Release readiness is enforced with unit, e2e, concurrency, MCP, package, and
+benchmark gates. Current benchmark guardrails include:
+
+| Check | Gate |
+| --- | --- |
+| MCP initialize + doctor | median under 2500 ms |
+| service startup smoke | median under 5000 ms |
+| `brief --json` payload | under 12000 bytes |
+| source tree | under 250 KB |
+| wheel artifact | under 350 KB |
+
+Reproduce locally:
+
+```sh
+python3 scripts/benchmark.py --runs 3
+python3 scripts/release_check.py
+```
+
 ## Why
 
 Git worktrees isolate code, but they do not isolate your local runtime. If two worktrees both want `localhost:3000`, `localhost:8080`, `.env.local`, and the same terminal scrollback, you are back to manual bookkeeping.
