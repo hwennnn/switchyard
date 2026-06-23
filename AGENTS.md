@@ -65,4 +65,5 @@ Before committing Switchyard changes:
 python3 -m compileall src
 PYTHONPATH=src python3 -m unittest discover -s tests
 python3 scripts/e2e_smoke.py
+python3 scripts/release_check.py --skip-package
 ```

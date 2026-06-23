@@ -33,6 +33,5 @@ Good first areas:
 - Portless backend adapter.
 - Worktrunk worktree adapter.
 - Docker Compose adapter.
-- MCP server wrapper.
+- MCP client compatibility fixtures.
 - Better health checks.
-

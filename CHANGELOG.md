@@ -36,6 +36,7 @@
 - Hardened release readiness, benchmark, and PyPI publish harnesses.
 - PyPI metadata advertises the tested Python versions and source/documentation links.
 - Release gates smoke installed-wheel MCP setup and stdio server behavior.
+- Agent and contributor docs align with the shipped MCP server and release smoke gate.
 - Minimal sdist allowlist with package-content checks.
 - Pinned CI actions and multi-run benchmark release gate.
 - Validated example configs, including a full-stack peer-placeholder example.

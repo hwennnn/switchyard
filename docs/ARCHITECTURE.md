@@ -96,10 +96,9 @@ This is useful for tools that hard-code `localhost:3000`.
 
 Switchyard should integrate instead of replacing good tools:
 
+- MCP client compatibility fixtures and agent workflow helpers.
 - Worktrunk adapter for worktree creation.
 - Portless or Caddy adapter for production-grade local URL/TLS/WebSocket routing.
 - Docker Compose adapter for container stacks.
 - process-compose or Overmind adapter for advanced process supervision.
-- MCP server so agents can call Switchyard without shell parsing.
 - `socat` adapter for raw TCP canonical port checkout.
-
