@@ -472,6 +472,56 @@ port = 8000
         self.assertTrue(result["isError"])
         self.assertIn("lines must be an integer", result["content"][0]["text"])
 
+    def test_tools_reject_non_string_branch_and_service_arguments(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / "switchyard.toml").write_text(
+                """
+[project]
+name = "demo"
+
+[services.web]
+command = "python -m http.server {port}"
+port = 8000
+"""
+            )
+            cases = [
+                ("switchyard_status", {"branch": 123}, "branch must be a string"),
+                ("switchyard_brief", {"branch": 123}, "branch must be a string"),
+                ("switchyard_where", {"service": 123}, "service must be a string"),
+                ("switchyard_where", {"service": "web", "branch": 123}, "branch must be a string"),
+                ("switchyard_logs", {"service": 123}, "service must be a string"),
+                ("switchyard_logs", {"branch": 123}, "branch must be a string"),
+                ("switchyard_up", {"branch": 123}, "branch must be a string"),
+            ]
+
+            with patch.dict(os.environ, {"SWITCHYARD_HOME": str(root / ".switchyard-home")}):
+                set_server_root(root)
+                try:
+                    responses = [
+                        (
+                            name,
+                            expected,
+                            handle_request(
+                                {
+                                    "jsonrpc": "2.0",
+                                    "id": index,
+                                    "method": "tools/call",
+                                    "params": {"name": name, "arguments": arguments},
+                                }
+                            ),
+                        )
+                        for index, (name, arguments, expected) in enumerate(cases, start=20)
+                    ]
+                finally:
+                    set_server_root(None)
+
+        for name, expected, response in responses:
+            with self.subTest(name=name, expected=expected):
+                result = response["result"]
+                self.assertTrue(result["isError"])
+                self.assertIn(expected, result["content"][0]["text"])
+
     def test_tool_cwd_must_stay_under_server_root(self) -> None:
         with tempfile.TemporaryDirectory() as allowed, tempfile.TemporaryDirectory() as other:
             allowed_root = Path(allowed)

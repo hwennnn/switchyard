@@ -543,7 +543,7 @@ def tool_list(arguments: dict[str, Any]) -> dict[str, Any]:
 def tool_status(arguments: dict[str, Any]) -> dict[str, Any]:
     cwd = cwd_from(arguments)
     config, registry = load_project(cwd, ensure=False)
-    branch_arg = str(arguments["branch"]) if arguments.get("branch") else None
+    branch_arg = string_argument(arguments, "branch")
     branch_filter = branch_arg
     if not branch_filter and cwd.resolve() != config.root.resolve():
         branch_filter, _ = resolve_branch_and_worktree(config, registry, None, cwd)
@@ -554,7 +554,7 @@ def tool_status(arguments: dict[str, Any]) -> dict[str, Any]:
 def tool_brief(arguments: dict[str, Any]) -> dict[str, Any]:
     cwd = cwd_from(arguments)
     config, registry = load_project(cwd, ensure=False)
-    branch_arg = str(arguments["branch"]) if arguments.get("branch") else None
+    branch_arg = string_argument(arguments, "branch")
     branch, worktree = resolve_branch_and_worktree(config, registry, branch_arg, cwd)
     changed = status_short(worktree) if worktree.exists() else []
     branch_filter = branch if branch_arg or worktree.resolve() != config.root.resolve() else None
@@ -563,12 +563,11 @@ def tool_brief(arguments: dict[str, Any]) -> dict[str, Any]:
 
 
 def tool_where(arguments: dict[str, Any]) -> dict[str, Any]:
-    service = arguments.get("service")
-    if not isinstance(service, str) or not service:
-        raise McpError(-32602, "service is required")
+    service = string_argument(arguments, "service", required=True)
+    assert service is not None
     cwd = cwd_from(arguments)
     config, registry = load_project(cwd, ensure=False)
-    branch_arg = str(arguments["branch"]) if arguments.get("branch") else None
+    branch_arg = string_argument(arguments, "branch")
     branch, _ = resolve_branch_and_worktree(config, registry, branch_arg, cwd)
     record = registry.find_service(config.root, slugify(service), branch)
     if not record:
@@ -579,7 +578,7 @@ def tool_where(arguments: dict[str, Any]) -> dict[str, Any]:
 def tool_logs(arguments: dict[str, Any]) -> dict[str, Any]:
     cwd = cwd_from(arguments)
     config, registry = load_project(cwd, ensure=False)
-    branch_arg = str(arguments["branch"]) if arguments.get("branch") else None
+    branch_arg = string_argument(arguments, "branch")
     branch, _ = resolve_branch_and_worktree(config, registry, branch_arg, cwd)
     lines_value = arguments.get("lines", 80)
     if type(lines_value) is not int:
@@ -587,9 +586,9 @@ def tool_logs(arguments: dict[str, Any]) -> dict[str, Any]:
     lines = lines_value
     if lines < 1 or lines > 300:
         raise McpError(-32602, "lines must be between 1 and 300")
-    service = arguments.get("service")
+    service = string_argument(arguments, "service")
     if service:
-        record = registry.find_service(config.root, slugify(str(service)), branch)
+        record = registry.find_service(config.root, slugify(service), branch)
         records = [record] if record else []
     else:
         records = registry.services(config.root, branch)
@@ -609,7 +608,7 @@ def tool_logs(arguments: dict[str, Any]) -> dict[str, Any]:
 def tool_up(arguments: dict[str, Any]) -> dict[str, Any]:
     cwd = cwd_from(arguments)
     config, registry = load_project(cwd)
-    branch_arg = str(arguments["branch"]) if arguments.get("branch") else None
+    branch_arg = string_argument(arguments, "branch")
     branch, worktree = resolve_branch_and_worktree(config, registry, branch_arg, cwd)
     if not worktree.exists():
         raise McpError(-32004, f"worktree does not exist: {worktree}")
