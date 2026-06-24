@@ -117,13 +117,54 @@ Example output:
 
 ## Install
 
-Install the CLI from PyPI:
+Recommended for CLI use: install with `pipx`. It gives Switchyard its own
+small environment and puts the `switchyard` command on your shell path.
+
+On macOS with Homebrew:
+
+```sh
+brew install pipx
+pipx ensurepath
+```
+
+Restart your terminal, or reload your shell:
+
+```sh
+source ~/.zshrc
+```
+
+Then install Switchyard from PyPI:
 
 ```sh
 pipx install switchyard-dev
+switchyard --version
 ```
 
-Or with pip:
+If you do not use Homebrew:
+
+```sh
+python3 -m pip install --user pipx
+python3 -m pipx ensurepath
+```
+
+Then restart your terminal and run:
+
+```sh
+pipx --version
+pipx install switchyard-dev
+switchyard --version
+```
+
+If `switchyard` says `command not found`, your shell probably has not loaded
+pipx's bin directory yet. Run `pipx ensurepath`, restart the terminal, and
+check that `~/.local/bin` is on `PATH`:
+
+```sh
+echo "$PATH"
+pipx list
+```
+
+You can also install with pip inside an active virtualenv:
 
 ```sh
 python3 -m pip install switchyard-dev

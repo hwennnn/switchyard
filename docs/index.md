@@ -43,12 +43,18 @@ server with `switchyard mcp install` for agent-native workflows.
 ## Fast Start
 
 ```sh
+brew install pipx
+pipx ensurepath
 pipx install switchyard-dev
 cd your-project
 switchyard init --dry-run
 switchyard init
 switchyard mcp install
 ```
+
+Restart your terminal after `pipx ensurepath` if `switchyard` is not found.
+Without Homebrew, install pipx with `python3 -m pip install --user pipx`, then
+run `python3 -m pipx ensurepath`.
 
 <ul class="quick-path" markdown>
 <li><strong>1.</strong> Create `switchyard.toml` with `switchyard init`.</li>

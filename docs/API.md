@@ -51,7 +51,7 @@ human text.
 ```json
 {
   "ok": true,
-  "switchyard": "0.1.0",
+  "switchyard": "0.1.1",
   "home": "/Users/me/.switchyard",
   "project": {
     "name": "demo",
