@@ -322,5 +322,5 @@ during setup.
 
 MCP compatibility requests live in `tests/fixtures/mcp_*.jsonl`.
 `scripts/release_check.py` replays those fixtures and validates CLI JSON,
-MCP resources, MCP prompts, package build/install, benchmarks, and publish
+MCP resources, MCP prompts, package build/install, benchmarks, and release
 workflow guardrails.

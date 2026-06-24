@@ -40,5 +40,3 @@ nav:
   - MCP Guide: MCP.md
   - Agent Interface: AGENT_INTERFACE.md
   - Architecture: ARCHITECTURE.md
-  - Publishing And CI/CD: PUBLISHING_LOCAL.md
-  - Release: RELEASE.md

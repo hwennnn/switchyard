@@ -140,10 +140,6 @@ def check_public_docs() -> None:
         "[API reference](https://github.com/hwennnn/switchyard/blob/main/docs/API.md)" in readme,
         "README should link the API reference",
     )
-    require(
-        "[Local publishing and CI/CD guide](https://github.com/hwennnn/switchyard/blob/main/docs/PUBLISHING_LOCAL.md)" in readme,
-        "README should link the local publishing guide",
-    )
     require("](docs/MCP.md)" not in readme, "README should not use relative MCP badge links")
     require("](LICENSE)" not in readme, "README should not use relative license badge links")
     require("See `examples/`" not in readme, "README should not use a relative examples link in PyPI-facing copy")
@@ -231,45 +227,21 @@ def check_public_docs() -> None:
     require("Scopes stop actions to the current registered worktree branch" in readme, "README should document scoped stop safety")
     require((ROOT / "docs/MCP.md").exists(), "docs/MCP.md missing")
     require((ROOT / "docs/API.md").exists(), "docs/API.md missing")
-    require((ROOT / "docs/PUBLISHING_LOCAL.md").exists(), "docs/PUBLISHING_LOCAL.md missing")
     require((ROOT / "docs/index.md").exists(), "docs index missing")
     require((ROOT / "docs/assets/logo.svg").exists(), "docs logo missing")
     require((ROOT / "docs/assets/stylesheets/extra.css").exists(), "docs stylesheet missing")
     require((ROOT / "mkdocs.yml").exists(), "mkdocs config missing")
-    require((ROOT / "docs/RELEASE.md").exists(), "docs/RELEASE.md missing")
     require((ROOT / "AGENTS.md").exists(), "AGENTS.md missing")
     require((ROOT / "scripts/mcp_project_smoke.py").exists(), "MCP project smoke harness missing")
     architecture = read("docs/ARCHITECTURE.md")
     api_doc = read("docs/API.md")
     mcp_doc = read("docs/MCP.md")
     agent_interface = read("docs/AGENT_INTERFACE.md")
-    publishing_doc = read("docs/PUBLISHING_LOCAL.md")
-    release_doc = read("docs/RELEASE.md")
     changelog = read("CHANGELOG.md")
     contributing = read("CONTRIBUTING.md")
     agents = read("AGENTS.md")
     require(f"## {project_version()} - Unreleased" not in changelog, "CHANGELOG should be finalized before release")
     require(f"## {project_version()} - " in changelog, "CHANGELOG should include the current package version")
-    require("is published on PyPI as `switchyard-dev`" in release_doc, "release docs should use publish-ready package wording")
-    require("will be published on PyPI as" not in release_doc, "release docs should not use stale pre-publish wording")
-    require("Configure a pending publisher for `switchyard-dev`" in release_doc, "release docs should document pending publisher setup")
-    require("verify the" in release_doc and "TestPyPI project page exists" in release_doc, "release docs should tell maintainers to verify first upload")
-    require("PyPI job verifies TestPyPI" in release_doc and "before promotion" in release_doc, "release docs should document pre-PyPI TestPyPI verification")
-    require("public-index install smoke after publishing" in release_doc, "release docs should document post-PyPI install smoke")
-    require("environment to `testpypi`" in release_doc and "environment `pypi`" in release_doc, "release docs should document trusted publisher environments")
-    require("invalid-publisher" in release_doc, "release docs should document Trusted Publisher failure mode")
-    require("repository: hwennnn/switchyard" in release_doc, "release docs should document trusted publisher repository claim")
-    require("workflow: release.yml" in release_doc, "release docs should document trusted publisher workflow claim")
-    require("environment: testpypi" in release_doc, "release docs should document TestPyPI trusted publisher environment claim")
-    require("After publishing to TestPyPI" in release_doc, "release docs should separate TestPyPI install smoke")
-    require("--index-url https://test.pypi.org/simple/" in release_doc, "release docs should install TestPyPI smoke from TestPyPI")
-    require("--extra-index-url https://pypi.org/simple/" in release_doc, "release docs should include PyPI dependency fallback for TestPyPI smoke")
-    require(f"version={project_version()}" in release_doc, "release docs should set the TestPyPI smoke version")
-    require('"switchyard-dev==$version"' in release_doc, "release docs should pin TestPyPI smoke to the release version")
-    require("After publishing to PyPI" in release_doc, "release docs should separate PyPI install smoke")
-    require("pipx install switchyard-dev" in release_doc, "release docs should include PyPI pipx install smoke")
-    require("must infer the project from the current checkout" in release_doc, "release docs should keep MCP setup path-free")
-    require("absolute project path" in release_doc, "release docs should reject absolute project path MCP setup")
     require("MCP resources expose project brief" in changelog, "CHANGELOG should mention MCP resources")
     require("MCP prompts expose read-only" in changelog, "CHANGELOG should mention MCP prompts")
     require("`status --json` returns a `services` object envelope" in changelog, "CHANGELOG should mention status JSON envelope")
@@ -356,10 +328,11 @@ def check_public_docs() -> None:
     require("name: material" in mkdocs_config, "mkdocs should use the Material theme")
     require("assets/stylesheets/extra.css" in mkdocs_config, "mkdocs should load the Switchyard stylesheet")
     require("assets/logo.svg" in mkdocs_config, "mkdocs should use the Switchyard logo")
-    for page in ["API.md", "MCP.md", "AGENT_INTERFACE.md", "PUBLISHING_LOCAL.md", "RELEASE.md"]:
+    for page in ["API.md", "MCP.md", "AGENT_INTERFACE.md", "ARCHITECTURE.md"]:
         require(page in mkdocs_config, f"mkdocs nav missing {page}")
     require("doc-grid" in docs_index and "doc-card" in docs_index, "docs index should use card navigation")
-    require("API Reference" in docs_index and "Publishing And CI/CD" in docs_index, "docs index should link core docs")
+    require("API Reference" in docs_index and "MCP Guide" in docs_index, "docs index should link core docs")
+    require("Publishing And CI/CD" not in docs_index and "Release checklist" not in docs_index, "docs index should not expose maintainer release docs")
     require("name: Docs" in docs_workflow, "docs workflow should be named Docs")
     require("pages: write" in docs_workflow and "id-token: write" in docs_workflow, "docs workflow should have Pages permissions")
     require("environment:\n      name: github-pages" in docs_workflow, "docs workflow should deploy to github-pages environment")
@@ -444,25 +417,6 @@ def check_public_docs() -> None:
     require('data["env"]["SWITCHYARD_HOME"]' in release_workflow, "release workflow should verify generated MCP SWITCHYARD_HOME env")
     require("[mcp_servers.switchyard.env]" in release_workflow, "release workflow should verify generated MCP env table")
     require('cwd = "$smoke_project"' not in release_workflow, "release workflow should not expect Codex cwd MCP config")
-    require('export SWITCHYARD_HOME="$tmp/switchyard-home"' in release_doc, "release docs should isolate Switchyard state")
-    require('export CODEX_HOME="$tmp/codex-home"' in release_doc, "release docs should isolate Codex config")
-    require('args = ["mcp", "--project", "switchyard"]' in release_doc, "release docs should smoke alias MCP config")
-    require("switchyard mcp config --json" in release_doc, "release docs should smoke MCP config JSON")
-    require("switchyard mcp install --dry-run --json" in release_doc, "release docs should smoke MCP install dry-run JSON")
-    require("switchyard mcp install --json >" in release_doc, "release docs should smoke real MCP install JSON")
-    require("mcp-install.json" in release_doc, "release docs should validate real MCP install JSON output")
-    require('data["env"]["SWITCHYARD_HOME"]' in release_doc, "release docs should validate generated MCP SWITCHYARD_HOME env")
-    require("[mcp_servers.switchyard.env]" in release_doc, "release docs should validate generated MCP env table")
-    require('PROJECT="$project" TMP="$tmp" python3' in release_doc, "release docs should pass temp paths to JSON validators")
-    require("switchyard mcp projects --json" in release_doc, "release docs should smoke MCP project aliases")
-    require("switchyard mcp smoke --json" in release_doc, "release docs should smoke MCP setup")
-    require('"status": "ok"' in release_doc, "release docs should require healthy MCP alias status")
-    require("switchyard mcp --project switchyard" in release_doc, "release docs should smoke alias MCP startup")
-    require("resources/read" in release_doc, "release docs should smoke MCP resources")
-    require("prompts/get" in release_doc, "release docs should smoke MCP prompts")
-    require("switchyard://project/brief" in release_doc, "release docs should smoke project brief resource")
-    require("switchyard_branch_runtime" in release_doc, "release docs should smoke branch runtime prompt")
-    require("testpypi_smoke_confirmed" in release_doc, "release docs should document PyPI promotion confirmation")
     for needle in [
         "CLI",
         "JSON Outputs",
@@ -478,35 +432,6 @@ def check_public_docs() -> None:
         "Generated config should not contain `cwd`, `--cwd`, or an absolute project\npath.",
     ]:
         require(needle in api_doc, f"docs/API.md missing {needle!r}")
-    for needle in [
-        "Local Publishing And CI/CD Guide",
-        "Python Packaging: Packaging Python Projects",
-        "PyPI: Publishing with a Trusted Publisher",
-        "Creating a project with a Trusted Publisher",
-        "Create pending publishers on both TestPyPI and PyPI",
-        "GitHub Environments",
-        "Docs Publishing",
-        "Settings` -> `Pages`",
-        "Source` to `GitHub Actions`",
-        "mkdocs-material==9.7.6",
-        "mkdocs build --strict",
-        "Release Workflow",
-        "Verify TestPyPI install before PyPI",
-        "PyPI install smoke",
-        "switchyard mcp smoke --json",
-        "Do not move a tag after publishing",
-    ]:
-        require(needle in publishing_doc, f"docs/PUBLISHING_LOCAL.md missing {needle!r}")
-    require("No PyPI token secrets are required." in publishing_doc, "publishing guide should document tokenless trusted publishing")
-    require("python3 scripts/release_check.py" in publishing_doc, "publishing guide should require the full release gate")
-    require('version="$(python3 - <<' in release_doc, "release docs should derive release tag from package version")
-    require('git tag -a "v$version" -m "Switchyard $version"' in release_doc, "release docs should create an annotated release tag")
-    require('git push origin "v$version"' in release_doc, "release docs should push the derived release tag")
-    require("Do not move a release tag after publishing" in release_doc, "release docs should warn against moving published tags")
-    require('git tag -f -a "v$version" -m "Switchyard $version"' in release_doc, "release docs should document pre-publish annotated retagging")
-    require('git push --force origin "v$version"' in release_doc, "release docs should document pre-publish force-push retagging")
-    require("git tag v0.1.0" not in release_doc, "release docs should not use a hard-coded lightweight tag")
-    require("cwd =" in release_doc, "release docs should explicitly reject cwd MCP config")
     require("Validate release tag" in release_workflow, "release workflow should validate release tag")
     require("GITHUB_REF_TYPE" in release_workflow, "release workflow should require a tag ref")
     require("CHANGELOG.md must finalize" in release_workflow, "release workflow should require finalized changelog")
@@ -518,7 +443,7 @@ def check_public_docs() -> None:
         for floating_ref in ["@v4", "@v5", "@release/v1"]:
             require(floating_ref not in workflow_text, f"{workflow_name} workflow should pin actions instead of {floating_ref}")
     require(not (ROOT / "docs/COMPETITIVE_RESEARCH.md").exists(), "internal competitive research should not be public")
-    for path in ["README.md", "docs/MCP.md", "docs/AGENT_INTERFACE.md", "docs/RELEASE.md", "SECURITY.md"]:
+    for path in ["README.md", "docs/MCP.md", "docs/AGENT_INTERFACE.md", "SECURITY.md"]:
         require("/path/to/project" not in read(path), f"{path} should use generated MCP setup, not path placeholders")
     ok("public docs")
 

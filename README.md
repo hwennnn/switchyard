@@ -11,76 +11,22 @@ Give each AI agent worktree its own local HTTP runtime: ports, URLs, logs, and a
 
 Switchyard lets you run multiple AI coding agents against one repo without port fights, mystery processes, or lost terminal state. Each task gets an isolated git worktree plus its own services, branch-scoped URLs, logs, and runtime summary.
 
-It is intentionally local-first:
-
-- No cloud account.
-- No Docker required for the default path.
-- No UI lock-in.
-- No public tunnels by default.
-- One small `switchyard.toml`.
-
-## Local Trust Model
-
-- No telemetry.
-- No cloud account or hosted control plane.
-- Binds to loopback by default and rejects non-loopback service/proxy hosts.
-- Does not expose public tunnels, LAN sharing, ngrok, or Tailscale endpoints.
-- Treats `switchyard.toml` service commands as executable local project code.
-- Executes service commands without a shell; put pipes, redirects, or `&&` in a script.
-- Links or copies only configured env paths, and rejects env paths outside the project/worktree.
-
-## Status
-
-Alpha, but usable for local agent runtime coordination.
-
-What works today:
-
-- Git worktree creation with env link/copy preflight.
-- Dynamic loopback ports and branch-scoped `.localhost` URLs.
-- Agent-readable JSON for setup, logs, runtime state, and checkout mappings.
-- Stdio MCP tools, resources, and prompts with schemas, annotations, and local mutation boundaries.
-- One-command Codex MCP setup using local project aliases, not path args.
-- Bundled Codex skill for agent workflow guidance.
-
-Release readiness is enforced with unit, e2e, concurrency, MCP, benchmark, and
-package gates. Current benchmark guardrails include:
-
-| Check | Gate |
-| --- | --- |
-| MCP initialize + doctor | median under 2500 ms |
-| service startup smoke | median under 5000 ms |
-| `brief --json` payload | under 12000 bytes / 3000 estimated tokens |
-| source tree | under 250 KB |
-
-The full release gate also builds and install-smokes the wheel, and keeps the
-wheel artifact under 350 KB.
-
-From a repository checkout:
-
-```sh
-python3 scripts/benchmark.py --runs 3
-python3 scripts/release_check.py
-```
-
-Reference docs:
-
-- [API reference](https://github.com/hwennnn/switchyard/blob/main/docs/API.md)
-- [MCP guide](https://github.com/hwennnn/switchyard/blob/main/docs/MCP.md)
-- [Local publishing and CI/CD guide](https://github.com/hwennnn/switchyard/blob/main/docs/PUBLISHING_LOCAL.md)
-
-To smoke path-free MCP setup from a project that has `switchyard.toml`:
-
-```sh
-switchyard mcp smoke --json
-```
-
 ## Why
 
-Git worktrees isolate code, but they do not isolate your local runtime. If two worktrees both want `localhost:3000`, `localhost:8080`, `.env.local`, and the same terminal scrollback, you are back to manual bookkeeping.
+Git worktrees isolate code, but they do not isolate your local runtime. If two
+worktrees both want `localhost:3000`, `localhost:8080`, `.env.local`, and the
+same terminal scrollback, you are back to manual bookkeeping.
 
-Without Switchyard, parallel agent work means babysitting ports, terminals, env files, and logs. With Switchyard, agents can ask the runtime where everything is.
+Switchyard is useful when you want to:
 
-Switchyard gives each branch a named runtime:
+- Let several agents work on branches at the same time without port clashes.
+- Give each branch stable local URLs that humans and agents can both open.
+- Keep logs discoverable after the terminal that started a service is gone.
+- Let an agent ask for runtime state through CLI JSON or MCP instead of guessing.
+- Use shared local infra for one branch and isolated services for another.
+- Stay local-first, with no cloud control plane or public tunnel.
+
+Example branch runtime:
 
 ```txt
 web.feature-login.entropic.localhost:7331 -> 127.0.0.1:41000
@@ -113,6 +59,33 @@ Example output:
   "env_warnings": [],
   "recent_errors": []
 }
+```
+
+## Local Trust Model
+
+Switchyard is intentionally local-first:
+
+- No cloud account or hosted control plane.
+- No Docker required for the default path.
+- No UI lock-in.
+- No public tunnels by default.
+- One small `switchyard.toml`.
+- No telemetry.
+- Binds to loopback by default and rejects non-loopback service/proxy hosts.
+- Does not expose public tunnels, LAN sharing, ngrok, or Tailscale endpoints.
+- Treats `switchyard.toml` service commands as executable local project code.
+- Executes service commands without a shell; put pipes, redirects, or `&&` in a script.
+- Links or copies only configured env paths, and rejects env paths outside the project/worktree.
+
+Reference docs:
+
+- [API reference](https://github.com/hwennnn/switchyard/blob/main/docs/API.md)
+- [MCP guide](https://github.com/hwennnn/switchyard/blob/main/docs/MCP.md)
+
+To smoke path-free MCP setup from a project that has `switchyard.toml`:
+
+```sh
+switchyard mcp smoke --json
 ```
 
 ## Install
@@ -512,6 +485,38 @@ Override with:
 
 ```sh
 SWITCHYARD_HOME=/tmp/switchyard switchyard status
+```
+
+## Status And Benchmarks
+
+Switchyard is alpha, but usable for local agent runtime coordination.
+
+What works today:
+
+- Git worktree creation with env link/copy preflight.
+- Dynamic loopback ports and branch-scoped `.localhost` URLs.
+- Agent-readable JSON for setup, logs, runtime state, and checkout mappings.
+- Stdio MCP tools, resources, and prompts with schemas, annotations, and local mutation boundaries.
+- One-command Codex MCP setup using local project aliases, not path args.
+- Bundled Codex skill for agent workflow guidance.
+
+Current benchmark guardrails:
+
+| Check | Gate |
+| --- | --- |
+| MCP initialize + doctor | median under 2500 ms |
+| service startup smoke | median under 5000 ms |
+| `brief --json` payload | under 12000 bytes / 3000 estimated tokens |
+| source tree | under 250 KB |
+
+The full release gate also builds and install-smokes the wheel, and keeps the
+wheel artifact under 350 KB.
+
+From a repository checkout:
+
+```sh
+python3 scripts/benchmark.py --runs 3
+python3 scripts/release_check.py
 ```
 
 ## Safety Defaults

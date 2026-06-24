@@ -24,21 +24,18 @@ server with `switchyard mcp install` for agent-native workflows.
 <span>The expected agent workflow: brief first, focused logs, explicit local mutations.</span>
 </a>
 
-<a class="doc-card" href="PUBLISHING_LOCAL/" markdown>
-**Publishing And CI/CD**
-<span>GitHub Actions, Pages docs deploys, TestPyPI/PyPI releases, and local smoke commands.</span>
-</a>
-
-<a class="doc-card" href="RELEASE/" markdown>
-**Release**
-<span>Release checklist, Trusted Publisher claims, install smokes, and tag discipline.</span>
-</a>
-
 <a class="doc-card" href="ARCHITECTURE/" markdown>
 **Architecture**
 <span>The small pieces: CLI, config, registry, process runner, proxy, and adapter boundaries.</span>
 </a>
 </div>
+
+## Why It Helps
+
+Switchyard is for the awkward middle layer between git worktrees and local
+servers. It gives each branch a discoverable runtime: stable local URLs,
+allocated ports, logs, JSON state, and MCP resources that agents can inspect
+without guessing which terminal started what.
 
 ## Fast Start
 
